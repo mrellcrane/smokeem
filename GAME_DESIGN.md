@@ -45,8 +45,10 @@ procedurally in code (canvas) or come from CC0 sources. No external art pipeline
 
 - 1 to 4 local players in one tab, rendered with renderer viewports and scissor.
 - Layouts: 1 player full screen, 2 players stacked top and bottom, 4 players in quadrants.
-- 3 players: **open question**, see below. The code currently uses one wide view on top and
-  two below as a placeholder.
+- 3 players: three equal quadrants (players 1 and 2 on top, player 3 bottom left). The 4th
+  quadrant is a match info panel: clock, live scoreboard, kill feed and an arena map that
+  shows only the local players. Equal views are fair, and this renders 25% fewer pixels than
+  a wide view on top, which matters on Xbox.
 - Each controller joins from the main menu by pressing A. Player 1 can use keyboard and mouse.
 
 ## Movement
@@ -81,9 +83,10 @@ Fast, floaty, generous. Current tuning lives in `src/config.js`.
 ## Health
 
 - Regenerating shields over health.
-- v1 values (proposal): 100 shield + 100 health. Shields start recharging 4 s after the last
-  hit and refill in about 2 s. Health regenerates slowly only once shields are full.
-  **Needs sign-off** (see open questions).
+- 100 shield + 100 health. Shields start recharging 4 s after the last hit and refill in
+  about 2 s. Health regenerates too, but only once shields are full, refilling in about 4 s.
+  No health pickups: on a small, fast map full regen keeps fights flowing.
+- Starting values; tune in playtests.
 - Environmental damage: fire jump burns, falling out of the map kills.
 
 ## Weapons
@@ -141,7 +144,17 @@ End-of-match rank based on performance, all smoked meats, worst to best:
 5. Brisket
 6. Wagyu Burnt Ends
 
-How "performance" is scored is an **open question**.
+Rank comes from a performance score between 0 and 1 that blends finishing place and K/D, so
+a last-place player with a good K/D isn't automatically a Hot Dog:
+
+- `place = (N - p) / (N - 1)` where `p` is finishing place (1 = winner) among all `N`
+  participants, bots included. 1 for the winner, 0 for last. A solo match counts as 1.
+- `kd = min(1, (kills / max(1, deaths)) / 2)`, so a K/D of 2 or better maxes out.
+- `score = 0.6 * place + 0.4 * kd`
+- The score splits into six equal bands: below 1/6 is Hot Dog, 5/6 and up is Wagyu Burnt Ends.
+
+Examples: winner with K/D 2+ gets Wagyu Burnt Ends; winner with K/D 1 gets Brisket; last place
+with K/D 1.5 gets Smoked Chicken.
 
 ## Maps
 
@@ -251,13 +264,11 @@ Placeholder sound effects are fine for v1 (generated with WebAudio).
 
 Need answers before the step that uses them gets built.
 
-1. **3-player split-screen layout.** Options: one wide view on top with two below (the classic
-   look, but the top player gets a wider field of view), or three equal quadrants with the 4th
-   used for a map or scoreboard (fair, but smaller views). Needed for step 6.
-2. **Health regen.** Should health regenerate too (proposal above), or only shields, with health
-   pickups on the map? Needed for step 2.
-3. **Rank scoring.** Proposal: rank comes from a performance score that blends finishing place
-   with kill/death ratio, so a last-place player with a good K/D isn't automatically a Hot Dog.
-   Alternative: rank is purely finishing place. Needed for step 5.
-4. **How abilities are earned.** Needed for phase 2.
-5. **Names.** Weapon, map and vehicle names above are proposals.
+1. **How abilities are earned.** Needed for phase 2.
+2. **Names.** Weapon, map and vehicle names above are proposals.
+
+## Decision log
+
+- 2026-10-28: 3-player split-screen uses equal quadrants with a match info panel in the 4th.
+- 2026-10-28: Health regenerates after shields are full; no health pickups.
+- 2026-10-28: Ranks come from a 60/40 blend of finishing place and K/D.
