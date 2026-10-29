@@ -28,9 +28,11 @@ function resolve(mat) {
   return mat?.tintOf ? [mat.tintOf, mat.tint] : [mat, null];
 }
 
-// A box like BoxGeometry (same face order, vertex layout, normals and 0 to 1 UVs per face),
-// but only the side faces are split: ws and ds columns along x and z, hs rows up. The top and
-// bottom stay one quad each.
+// A box like BoxGeometry (same face order, normals and 0 to 1 UVs per face), but only the side
+// faces are split: ws and ds columns along x and z, hs rows up. The top and bottom only get the
+// vertices their edges share with the sides (a strip when one side is 1 column, else a fan from
+// the middle), so the box stays watertight: a vertex in the middle of another face's edge
+// (a T-junction) can crack open into single-pixel holes.
 function sideBox(w, h, d, ws, hs, ds) {
   const pos = [];
   const nor = [];
@@ -66,8 +68,28 @@ function sideBox(w, h, d, ws, hs, ds) {
   };
   plane('z', 'y', 'x', -1, -1, d, h, w, ds, hs);
   plane('z', 'y', 'x', 1, -1, d, h, -w, ds, hs);
-  plane('x', 'z', 'y', 1, 1, w, d, h, 1, 1);
-  plane('x', 'z', 'y', 1, -1, w, d, -h, 1, 1);
+  const cap = (vdir, height) => {
+    if (ws === 1 || ds === 1) {
+      plane('x', 'z', 'y', 1, vdir, w, d, height, ws, ds);
+      return;
+    }
+    const start = pos.length / 3;
+    // The middle, then the edge vertices in order around the face.
+    const ring = [[ws / 2, ds / 2]];
+    for (let ix = 0; ix < ws; ix++) ring.push([ix, 0]);
+    for (let iy = 0; iy < ds; iy++) ring.push([ws, iy]);
+    for (let ix = ws; ix > 0; ix--) ring.push([ix, ds]);
+    for (let iy = ds; iy > 0; iy--) ring.push([0, iy]);
+    for (const [ix, iy] of ring) {
+      pos.push((ix * w) / ws - w / 2, height / 2, ((iy * d) / ds - d / 2) * vdir);
+      nor.push(0, height > 0 ? 1 : -1, 0);
+      uvs.push(ix / ws, 1 - iy / ds);
+    }
+    const n = ring.length - 1;
+    for (let k = 0; k < n; k++) idx.push(start, start + 1 + ((k + 1) % n), start + 1 + k);
+  };
+  cap(1, h);
+  cap(-1, -h);
   plane('x', 'y', 'z', 1, -1, w, h, d, ws, hs);
   plane('x', 'y', 'z', -1, -1, w, h, -d, ws, hs);
   const geom = new THREE.BufferGeometry();
@@ -82,7 +104,7 @@ function sideBox(w, h, d, ws, hs, ds) {
 function worldUvBox(geom, w, h, d, tile, ws, hs, ds) {
   const uv = geom.attributes.uv;
   const x = (ds + 1) * (hs + 1);
-  const y = 4;
+  const y = ws === 1 || ds === 1 ? (ws + 1) * (ds + 1) : 2 * (ws + ds) + 1;
   const z = (ws + 1) * (hs + 1);
   const faces = [
     [d, h, x], [d, h, x],
@@ -244,11 +266,15 @@ export class StaticBuilder {
   // Cylinder between two arbitrary points (rails, rungs, braces). Visual only by default.
   rod(mat, a, b, radius, opts = {}) {
     const { segments = 8, castShadow = true } = opts;
+    // Steep rods (ropes) get side rows from their low end, like cylinders.
+    if (a[1] > b[1]) [a, b] = [b, a];
     const pa = new THREE.Vector3(...a);
     const pb = new THREE.Vector3(...b);
     const dir = pb.clone().sub(pa);
     const len = dir.length();
-    const geom = new THREE.CylinderGeometry(radius, radius, len, segments, 1, true);
+    const rows = dir.y / len > 0.3 ? sideRows(len) : [0, len];
+    const geom = new THREE.CylinderGeometry(radius, radius, len, segments, rows.length - 1, true);
+    placeRows(geom, len, rows);
     const tile = mat.userData.tile;
     if (tile > 0) {
       const uv = geom.attributes.uv;

@@ -301,8 +301,9 @@ function netBlock(B, M, zones) {
   B.boxMinMax(M.metalDark, [16, top, -26.5], [16.3, top + 0.8, -22]);
   B.boxMinMax(M.metalDark, [25.7, top, -26.5], [26, top + 0.8, -22]);
   B.boxMinMax(M.hazard, [15.98, top - 0.3, -22.02], [26.02, top, -21.98], { collide: false });
-  B.boxMinMax(M.glowCyan, [17, 1.5, -22.03], [17.3, 4.2, -22], { collide: false, castShadow: false });
-  B.boxMinMax(M.glowCyan, [24.7, 1.5, -22.03], [25, 4.2, -22], { collide: false, castShadow: false });
+  // (Just proud of the block's face: flush with it they'd flicker through.)
+  B.boxMinMax(M.glowCyan, [17, 1.5, -22], [17.3, 4.2, -21.97], { collide: false, castShadow: false });
+  B.boxMinMax(M.glowCyan, [24.7, 1.5, -22], [25, 4.2, -21.97], { collide: false, castShadow: false });
   cargoNet(B, M, zones, [21, 0, -21.85], [21, top, -21.85], 5, [0, 0, 1]);
 }
 
