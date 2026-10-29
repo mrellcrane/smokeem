@@ -50,12 +50,49 @@ export const MOVE = {
   airMantleMinRise: 0.3,
   airMantleMaxRise: 2.1,
   mantleExitSpeed: 4.0,
+
+  // Sprint-slide: crouch while sprinting on the ground. Starts at least this much over sprint
+  // speed (no boost in mud), and friction brings it down to crouch speed: about 0.9 s on flat
+  // ground. Speeds and friction scale with the Movement speed setting, so the time doesn't.
+  slideBoost: 0.15,
+  slideFriction: 9.5,
+  slideMudFriction: 30,
+  // How hard slopes pull a slide along (1 = gravity's own pull along the slope).
+  slideSlope: 1.5,
+  // Downhill slides never go faster than this times sprint speed.
+  slideMaxSpeed: 1.6,
+  // How fast the stick can turn a slide (radians per second at full tilt sideways).
+  slideSteer: 0.9,
+  // After a slide ends, how long until the next one can start (no endless slide hops).
+  slideCooldown: 1.0,
+
+  // Wall kick: jump in the air next to a steep wall (within wallKickReach of the body, its
+  // normal within 30 degrees of horizontal) to push off it. Pushing into the wall with the
+  // double jump left uses the double jump instead, so walls can still be climbed and mantled.
+  wallKickReach: 0.4,
+  wallKickMaxNormalY: 0.5,
+  wallKickUp: 7.2,
+  wallKickPush: 6.0,
+  // Fraction of the speed along the wall that's kept.
+  wallKickKeep: 0.85,
+  // Moving away from the wall faster than this (m/s) is too late to kick off it.
+  wallKickAwayMax: 1.0,
+  // The stick counts as pushing into the wall within about 60 degrees of straight at it.
+  wallKickInto: 0.5,
+  // Between any two kicks.
+  wallKickCooldown: 0.25,
+  // Air steering is weaker for a moment after a kick, so the push carries you off the wall.
+  wallKickSteerTime: 0.2,
+  wallKickSteer: 0.25,
 };
 
 export const CAMERA = {
   near: 0.05,
   far: 700,
   sprintFovBoost: 8,
+  // While sliding: a slightly wider view than sprinting and a small roll (radians).
+  slideFovBoost: 11,
+  slideRoll: 0.035,
   minVerticalFov: 40,
   maxVerticalFov: 80,
   maxPitch: 89 * (Math.PI / 180),
