@@ -74,6 +74,11 @@ reads as a colored person even in shade. Each local player has a color: blue, re
 gold. Bodies are procedural boxes on a small skeleton (one draw call each), so they can run,
 crouch, jump and climb without imported assets.
 
+Body language says what someone is doing: feet plant, legs run toward where the body is going
+while the torso and gun stay on the aim (strafing and backpedaling show), the gun rides at the
+hip, comes up to the shoulder when firing or zoomed and crosses the chest when sprinting, jumps
+tuck, the double jump kicks a knee up, and hard landings squash.
+
 Palette rule: the arena owns orange, hazard yellow, cyan, brown and grey, and the local
 players own blue, red, green and gold, so bots wear violets, pinks, lime and white (armor
 plus a contrasting trim). The undersuit is mid charcoal so armor color and shape read.
@@ -463,7 +468,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   and glow pools, contact shading on walls and props, a light grade per map (done); (4) shots you
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
-  separate from legs, jumps and landings; (8) pickup beacons; (9) explosions, impacts and
+  separate from legs, jumps and landings (done); (8) pickup beacons; (9) explosions, impacts and
   decals; (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
   high only; (15) a shadowless low tier only if the Xbox bench needs it.

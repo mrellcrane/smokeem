@@ -27,6 +27,9 @@ export class Dummy {
     this.name = def.name;
     this.post = new THREE.Vector3(...def.post);
     this.patrol = def.patrol ? new THREE.Vector2(...def.patrol) : null;
+    this.moveDir = 1;
+    // The body's state (CharacterModel.update), reused every frame.
+    this.pose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 0, fwd: 0, side: 0, grounded: true, crouched: false, climbing: false };
     this.speed = def.speed ?? 0;
     this.yaw = def.yaw ?? 0;
     this.vitals = new Vitals();
@@ -103,6 +106,8 @@ export class Dummy {
       const s = u * 2 - 1;
       this.feet.set(this.post.x + this.patrol.x * s, this.post.y, this.post.z + this.patrol.y * s);
       this.moveSpeed = ph < travel || (ph > travel + 0.6 && ph < travel * 2 + 0.6) ? this.speed : 0;
+      // Which way along the rail (for the body's strafe).
+      this.moveDir = ph < travel ? 1 : -1;
       this.placeBody(false);
     }
   }
@@ -123,8 +128,10 @@ export class Dummy {
     this.feet.copy(this.post);
     this.prevFeet.copy(this.post);
     this.t = 0;
+    this.moveSpeed = 0;
     this.placeBody(true);
     this.collider.setEnabled(true);
+    this.model.reset();
     this.model.group.visible = true;
   }
 
@@ -134,17 +141,27 @@ export class Dummy {
     const x = this.prevFeet.x + (this.feet.x - this.prevFeet.x) * alpha;
     const y = this.prevFeet.y + (this.feet.y - this.prevFeet.y) * alpha;
     const z = this.prevFeet.z + (this.feet.z - this.prevFeet.z) * alpha;
-    this.model.update(dt, {
-      x,
-      y,
-      z,
-      yaw: this.yaw,
-      pitch: -0.25 * this.flinch,
-      speed: this.moveSpeed,
-      grounded: true,
-      crouched: false,
-      climbing: false,
-    });
+    // Rail velocity in the body's own frame (along its facing, and to its right), so the legs
+    // run the way it slides.
+    const s = this.pose;
+    s.x = x;
+    s.y = y;
+    s.z = z;
+    s.yaw = this.yaw;
+    s.pitch = -0.25 * this.flinch;
+    s.speed = this.moveSpeed;
+    s.fwd = 0;
+    s.side = 0;
+    if (this.patrol && this.moveSpeed > 0) {
+      const len = this.patrol.length();
+      const vx = (this.patrol.x / len) * this.moveSpeed * this.moveDir;
+      const vz = (this.patrol.y / len) * this.moveSpeed * this.moveDir;
+      const sy = Math.sin(this.yaw);
+      const cy = Math.cos(this.yaw);
+      s.fwd = -vx * sy - vz * cy;
+      s.side = vx * cy - vz * sy;
+    }
+    this.model.update(dt, s);
   }
 
   dispose() {
