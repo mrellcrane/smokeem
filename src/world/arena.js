@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { StaticBuilder } from './staticBuilder.js';
 import { Zones } from './zones.js';
 import { createFire } from './fire.js';
+import { bakeArena } from './bake.js';
 import { PICKUP_SPOTS } from '../combat/pickups.js';
+import { gfx } from '../render/gfx.js';
 
 // Map 1: Mudlark Gauntlet. A small obstacle-race arena inside tall metal walls.
 // Coordinates: x east, z south, y up. The playable floor is x, z in [-30, 30].
@@ -13,13 +15,13 @@ const WALL_H = 7;
 
 const PIT = { x0: 10, x1: 22, z0: -6, z1: 6, floor: -0.8, mudY: -0.25 };
 
-export function buildArena({ scene, RAPIER, world, materials: M, textures }) {
+export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeSize = 512 }) {
   const B = new StaticBuilder(RAPIER, world);
   const zones = new Zones();
   const H = ARENA_HALF;
 
   // Ground, with a hole for the mud pit.
-  const g = { castShadow: false };
+  const g = { castShadow: false, floor: true };
   B.boxMinMax(M.ground, [-H - 1, -1, -H - 1], [PIT.x0, 0, H + 1], g);
   B.boxMinMax(M.ground, [PIT.x1, -1, -H - 1], [H + 1, 0, H + 1], g);
   B.boxMinMax(M.ground, [PIT.x0, -1, -H - 1], [PIT.x1, 0, PIT.z0], g);
@@ -40,7 +42,15 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures }) {
   lightPylons(B, M, H);
   pickupPads(B, M);
 
-  const meshes = B.build(scene);
+  // Damp ground around the mud pit.
+  B.stain([PIT.x0, PIT.z0], [PIT.x1, PIT.z1], 1.5, 0.12);
+
+  const bake = bakeArena(B, { id: 'mudlark', half: H + 2, size: bakeSize, seed: 11 });
+  const meshes = B.build(scene, gfx.vertexLight ? bake : null);
+  if (gfx.bake) {
+    bake.apply(M.ground);
+    bake.apply(M.mud);
+  }
 
   const fire = createFire(textures, fireTroughs);
   scene.add(fire.mesh);
@@ -58,6 +68,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures }) {
 
   return {
     meshes,
+    bake,
     zones,
     spawnPoints,
     update(dt, time) {
@@ -240,6 +251,9 @@ function fireJump(B, M, zones) {
     B.boxMinMax(M.hazard, [x - 0.62, 0.0, z0 - 0.02], [x + 0.62, 0.3, z0], { collide: false });
     B.boxMinMax(M.hazard, [x - 0.62, 0.0, z1], [x + 0.62, 0.3, z1 + 0.02], { collide: false });
     zones.addFire([x - 0.6, 0, z0], [x + 0.6, 1.8, z1]);
+    // Firelight on the ground around the trough, and soot.
+    B.light([x - 0.4, 0.4, z0 + 0.2], [x + 0.4, 1.2, z1 - 0.2], 0xff6a20, 2.5, 0.5);
+    B.stain([x - 0.6, z0], [x + 0.6, z1], 1.2, 0.15);
     troughs.push({ x, z0: z0 + 0.3, z1: z1 - 0.3, y: 0.3, height: 1.5 });
   }
   return troughs;

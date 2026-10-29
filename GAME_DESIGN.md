@@ -34,6 +34,12 @@ Roughly early-2000s console shooter era: real-time lighting and shadows, simple 
 low-to-mid poly geometry, saturated colors, big readable shapes. All textures are generated
 procedurally in code (canvas) or come from CC0 sources. No external art pipeline for v1.
 
+Light: warm sun, cool sky fill, so the lit and shaded sides of every box separate. The floor is
+"lightmapped" at load like a level of that era: soft contact shadows around everything standing
+on it, darker under decks, damp ground around the mud and soot by the fires, and pools of
+colored light under glowing strips and fires. Walls and props darken toward the floor and into
+corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/world/looks.js`.
+
 ## Modes
 
 - **Free-for-all** (v1). Timed matches, 5 minutes by default (3, 5, 10 or no limit on the
@@ -454,7 +460,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   PRs, biggest visible win per frame cost first: (1) groundwork: `?bench`, draw-call savings,
   sharper shadows (done); (2) readable contestants: team-color rim light, glowing visors, a
   bot palette that avoids arena colors, chunkier armor (done); (3) world light: baked ground shading
-  and glow pools, contact shading on walls and props, a light grade per map; (4) shots you
+  and glow pools, contact shading on walls and props, a light grade per map (done); (4) shots you
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues;
   (5) painted sky and skyline; (6) textures 2.0; (7) body language: real locomotion, aiming
   separate from legs, jumps and landings; (8) pickup beacons; (9) explosions, impacts and
@@ -544,3 +550,8 @@ Need answers before the step that uses them gets built.
   material, the shadow map is fitted 1.7x tighter (sharper shadows everywhere). Solo views
   went from 50 to about 38 draw calls. Waiting on the owner: the bot color palette, a warmer
   light grade and a facility skyline beyond the walls.
+- 2026-10-29: World light (graphics PR 3). The light grade went in with the shade side kept
+  as bright as before (bluer sky fill at higher intensity, warmer sun at the same brightness);
+  it's one block in `looks.js` if the owner wants it changed. The floor bake costs no draw calls
+  and two shader programs; it runs once per map and quality (about 90 ms headless, cached for
+  rematches).

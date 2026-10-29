@@ -4,4 +4,8 @@
 export const gfx = {
   // Draw the sky dome after the arena, so the arena's depth hides most of its pixels.
   skyLast: true,
+  // Baked floor light: contact shadows, tone variation and glow pools (world/bake.js).
+  bake: true,
+  // Per-vertex light on static geometry: darker toward the floor and into corners.
+  vertexLight: true,
 };

@@ -7,6 +7,8 @@ export const QUALITY_PRESETS = {
     antialias: false,
     shadowMapSize: 512,
     anisotropy: 1,
+    // Texels per side of the baked arena light (bake.js).
+    bakeSize: 256,
   },
   medium: {
     label: 'Medium',
@@ -14,6 +16,7 @@ export const QUALITY_PRESETS = {
     antialias: true,
     shadowMapSize: 1024,
     anisotropy: 4,
+    bakeSize: 512,
   },
   high: {
     label: 'High',
@@ -21,6 +24,7 @@ export const QUALITY_PRESETS = {
     antialias: true,
     shadowMapSize: 2048,
     anisotropy: 8,
+    bakeSize: 512,
   },
 };
 

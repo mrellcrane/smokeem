@@ -98,7 +98,7 @@ Live build: https://mrellcrane.github.io/smokeem/
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
   played for local players (`!player.isBot`).
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
-  training dummies.
+  training dummies, per-map looks (`looks.js`) and the baked arena light (`bake.js`).
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
   (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
@@ -159,6 +159,17 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Quality presets (low / medium / high) live in `src/settings.js`: pixel ratio cap, shadow map size, anti-aliasing, anisotropy.
 - The shadow map is rendered once per frame, not once per viewport (`shadowMap.autoUpdate = false`, set `needsUpdate` before the first view). The sun's shadow camera is fitted at load (`fitShadowCamera` in `game.js`: the smallest square around the arena over every roll about the sun's axis) so one map serves every view at the best texel density.
 - Static arena geometry is merged into one mesh per material to keep draw calls low. Add new static props through `StaticBuilder` so they get merged too. Glowing strips share one vertex-colored material: pass the `materials.glowCyan` / `glowOrange` / `ember` tints to `StaticBuilder` like materials.
+- Baked arena light (`src/world/bake.js`): `StaticBuilder` records every visible solid and
+  glow source; before `build()` the arena bakes floor contact shadows, tone variation, stains
+  (`B.stain`) and glow pools (`B.light`, glow strips add themselves) into one RGBA texture the
+  ground and mud materials read (`bake.apply(material)`, cache key `arenaBake`). Mark a map's
+  walkable ground boxes `floor: true`. The bake is cached per map and `bakeSize` (quality
+  preset), so rematches skip it; `game.bake` keeps the arrays (`lightAt`, `floorBelow`).
+- Static materials use `vertexColors`: `StaticBuilder.build()` writes each vertex's light
+  (darker toward what it stands on, into corners, grime on metal and concrete, undersides).
+  Upright boxes and cylinders get extra side rows for it. Any static geometry needs a `color`
+  attribute, so add it through `StaticBuilder`, not as a separate mesh with these materials.
+- Lights, fog and sky colors come from the map's look (`src/world/looks.js`).
 - Pooled systems hide themselves while empty (particles, tracers, beams, grenades, bolts, swarms, pickups): three still issues a draw for a zero-count instanced mesh. Pickups are one instanced mesh per gun type plus one for grenade pairs.
 - The sky dome draws last (`renderOrder` 1, depth test on, no depth write), so the arena's depth hides most of its pixels.
 - Textures are painted once per page load; later matches reuse the canvases.

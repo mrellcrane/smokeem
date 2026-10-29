@@ -3,19 +3,18 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../util/rng.js';
 import { gfx } from '../render/gfx.js';
 
-export const FOG_COLOR = 0xcad7d9;
-
 // Gradient sky dome, a ringed gas giant and two rings of distant mesas. All cheap, unlit.
-export function createSky(textures, materials) {
+// Colors come from the map's look (looks.js).
+export function createSky(textures, materials, look) {
   const group = new THREE.Group();
   group.name = 'sky';
 
   const R = 520;
   const domeGeom = new THREE.SphereGeometry(R, 32, 16);
-  const top = new THREE.Color(0x2b5c9b);
-  const mid = new THREE.Color(0x8fb9d6);
-  const horizon = new THREE.Color(FOG_COLOR);
-  const below = new THREE.Color(0xa58d78);
+  const top = new THREE.Color(look.sky.zenith);
+  const mid = new THREE.Color(look.sky.mid);
+  const horizon = new THREE.Color(look.sky.horizon);
+  const below = new THREE.Color(look.sky.below);
   const colors = [];
   const pos = domeGeom.attributes.position;
   const c = new THREE.Color();

@@ -9,7 +9,8 @@ import { warmUp } from './render/warmup.js';
 import { createTextures, applyAnisotropy } from './world/textures.js';
 import { createMaterials } from './world/materials.js';
 import { buildArena, ARENA_HALF } from './world/arena.js';
-import { createSky, FOG_COLOR } from './world/sky.js';
+import { createSky } from './world/sky.js';
+import { MUDLARK_LOOK } from './world/looks.js';
 import { Dummy, DUMMY_POSTS } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
 import { dealDamage } from './combat/damage.js';
@@ -137,16 +138,19 @@ export class Game {
     onProgress('Building the course', 0.4);
     await nextFrame();
     const scene = (this.scene = new THREE.Scene());
-    scene.fog = new THREE.Fog(FOG_COLOR, 90, 420);
+    const look = (this.look = MUDLARK_LOOK);
+    scene.fog = new THREE.Fog(look.sky.horizon, look.fog.near, look.fog.far);
     this.setupLights(preset);
-    scene.add(createSky(this.textures, this.materials));
+    scene.add(createSky(this.textures, this.materials, look));
     this.arena = buildArena({
       scene,
       RAPIER,
       world: this.physics.world,
       materials: this.materials,
       textures: this.textures,
+      bakeSize: preset.bakeSize,
     });
+    this.bake = this.arena.bake;
     this.zones = this.arena.zones;
     this.fx = new Effects(scene, this.textures);
     this.missiles = new Missiles(this, this.materials.props, this.textures);
@@ -217,10 +221,10 @@ export class Game {
   }
 
   setupLights(preset) {
-    const scene = this.scene;
-    scene.add(new THREE.HemisphereLight(0xd2e4ff, 0x7a5a44, 1.15));
-    const sun = (this.sun = new THREE.DirectionalLight(0xfff0d8, 2.7));
-    sun.position.set(38, 60, 26);
+    const { scene, look } = this;
+    scene.add(new THREE.HemisphereLight(look.hemi.sky, look.hemi.ground, look.hemi.intensity));
+    const sun = (this.sun = new THREE.DirectionalLight(look.sun.color, look.sun.intensity));
+    sun.position.fromArray(look.sun.dir);
     sun.target.position.set(0, 0, 0);
     sun.castShadow = true;
     const c = sun.shadow.camera;
@@ -237,9 +241,10 @@ export class Game {
 
   // First-person weapons render in their own little scene after the world.
   setupViewmodelScene() {
+    const { look } = this;
     const vm = (this.vmScene = new THREE.Scene());
-    vm.add(new THREE.HemisphereLight(0xd2e4ff, 0x6a5646, 1.8));
-    this.vmSun = new THREE.DirectionalLight(0xfff0d8, 2.2);
+    vm.add(new THREE.HemisphereLight(look.hemi.sky, look.hemi.ground, look.vm.hemi));
+    this.vmSun = new THREE.DirectionalLight(look.sun.color, look.vm.sun);
     vm.add(this.vmSun, this.vmSun.target);
     this.vmCamera = new THREE.PerspectiveCamera(58, 1, 0.01, 10);
   }
@@ -568,6 +573,8 @@ export class Game {
     // (Glow tints aren't materials of their own.)
     for (const m of Object.values(this.materials)) if (!m.tintOf) m.dispose();
     for (const t of Object.values(this.textures)) t.dispose();
+    // The bake outlives the match (later matches reuse it); this only frees this renderer's copy.
+    this.bake.texture.dispose();
     disposeCharacterMaterial();
     disposeViewmodelMaterial();
     this.renderer.dispose();
