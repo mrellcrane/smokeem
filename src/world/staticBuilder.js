@@ -101,7 +101,11 @@ function sideBox(w, h, d, ws, hs, ds) {
 }
 
 // sideBox face order: +x, -x, +y, -y, +z, -z. Each face's UVs run 0 to 1; scale them to meters.
-function worldUvBox(geom, w, h, d, tile, ws, hs, ds) {
+// Upright boxes (not tilted, so not ramps) also turn their top around, so a texture's "up"
+// (the light its relief is painted with, see textures.js) points to world +z, toward the sun's
+// side, as it does up every wall. min: the world min corner of an axis-aligned box: its top and
+// bottom then sit on one world grid, so the floor's pattern runs on across neighboring boxes.
+function worldUvBox(geom, w, h, d, tile, ws, hs, ds, upright = false, min = null) {
   const uv = geom.attributes.uv;
   const x = (ds + 1) * (hs + 1);
   const y = ws === 1 || ds === 1 ? (ws + 1) * (ds + 1) : 2 * (ws + ds) + 1;
@@ -111,10 +115,16 @@ function worldUvBox(geom, w, h, d, tile, ws, hs, ds) {
     [w, d, y], [w, d, y],
     [w, h, z], [w, h, z],
   ];
+  // Per face: u = (u0 * su * a + ou) / tile, v likewise. Top (u0 runs with +x, v0 against +z)
+  // turned around: u = -x, v = +z. Bottom (u0 with +x, v0 with +z): u = x, v = z.
+  const [mx, , mz] = min ?? [0, 0, 0];
+  const top = upright ? [-1, min ? -mx : 0, -1, min ? mz + d : 0] : [1, 0, 1, 0];
+  const bottom = [1, min ? mx : 0, 1, min ? mz : 0];
   let idx = 0;
-  for (const [su, sv, count] of faces) {
-    for (let i = 0; i < count; i++, idx++) uv.setXY(idx, (uv.getX(idx) * su) / tile, (uv.getY(idx) * sv) / tile);
-  }
+  faces.forEach(([su, sv, count], f) => {
+    const [au, ou, av, ov] = f === 2 ? top : f === 3 ? bottom : [1, 0, 1, 0];
+    for (let i = 0; i < count; i++, idx++) uv.setXY(idx, (uv.getX(idx) * su * au + ou) / tile, (uv.getY(idx) * sv * av + ov) / tile);
+  });
   uv.needsUpdate = true;
 }
 
@@ -216,7 +226,10 @@ export class StaticBuilder {
       const ds = Math.min(64, Math.max(1, Math.ceil(d / 2)));
       const geom = sideBox(w, h, d, ws, hs, ds);
       placeRows(geom, h, rows);
-      if (uv === 'world' && mat.userData.tile > 0) worldUvBox(geom, w, h, d, mat.userData.tile, ws, hs, ds);
+      if (uv === 'world' && mat.userData.tile > 0) {
+        const min = quat || rotY ? null : [center[0] - w / 2, center[1] - h / 2, center[2] - d / 2];
+        worldUvBox(geom, w, h, d, mat.userData.tile, ws, hs, ds, !quat, min);
+      }
       geom.applyMatrix4(_m.compose(_p, q, _s));
       this._add(mat, geom, castShadow, tint);
       if (collide) {

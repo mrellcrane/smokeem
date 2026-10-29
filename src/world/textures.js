@@ -117,6 +117,9 @@ function relief(ctx, hctx, S, light, strength = 0.35, { grain: noise = 0, rand =
   for (let i = 0; i < NOISE; i++) table[i] = noise && rand ? (rand() - 0.5) * noise : 0;
   let ni = 0;
   for (let y = 0; y < S; y++) {
+    // A random start per row: walking straight through the table would repeat it every 4093
+    // texels (8 rows less 3 px at 512), a slanted lattice instead of grain.
+    if (rand) ni = Math.floor(rand() * NOISE);
     const up = left[y] * S;
     const o = y * S;
     const dn = right[y] * S;
@@ -215,11 +218,12 @@ function stencilDigits(ctx, text, x, y, h, color, alpha) {
   ctx.globalAlpha = 1;
 }
 
-// The ground is lit from the sun's azimuth: top faces map world x to u and world z down the
-// canvas, and the sun sits at (38, 60, 26).
+// The ground is lit from the sun's azimuth. Box tops (StaticBuilder's worldUvBox) map world -x
+// across the canvas and world -z down it, and the sun sits at (38, 60, 26). (Walls' light from
+// above lands on tops as light from +z, the sun's side.)
 const GROUND_LIGHT = (() => {
   const l = Math.hypot(38, 26);
-  return [38 / l, 26 / l];
+  return [-38 / l, -26 / l];
 })();
 
 function ground(S) {
@@ -374,7 +378,8 @@ function planks(S) {
       const stroke = rand() > 0.5 ? '#5e4329' : '#a7845d';
       const y = i * bh + 4 * k + rand() * (bh - 8 * k);
       const amp = (1 + rand() * 2) * k;
-      const freq = 0.01 + rand() * 0.03;
+      // Whole waves per tile, so each line meets itself across the left and right edges.
+      const cycles = rand() < 0.75 ? 1 : 2;
       const ph = rand() * 10;
       for (const [cc, style, a] of [[ctx, stroke, alpha], [hctx, gray(112), 1]]) {
         cc.globalAlpha = a;
@@ -382,7 +387,7 @@ function planks(S) {
         cc.lineWidth = k;
         cc.beginPath();
         for (let x = 0; x <= S; x += 8 * k) {
-          const yy = y + Math.sin(((x / k) * freq * Math.PI * 2) / 8 + ph) * amp;
+          const yy = y + Math.sin((x / S) * cycles * Math.PI * 2 + ph) * amp;
           if (x === 0) cc.moveTo(x, yy);
           else cc.lineTo(x, yy);
         }
