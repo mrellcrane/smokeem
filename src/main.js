@@ -267,9 +267,14 @@ function padMenu(gp, e, seat) {
       return;
     }
   }
-  // On the ready and pause screens, left/right changes that controller's own loadout.
+  // On the ready and pause screens, left/right changes that controller's own loadout, one step
+  // per push (holding it doesn't flip through them). On the pause screen the stick counts only
+  // once it has rested since the pause opened, since the others may still be strafing; the
+  // D-pad, which nobody moves with, counts at once.
   if ((screen === 'ready' || screen === 'pause') && seat && (e.dir === 'left' || e.dir === 'right')) {
-    cycleLoadout(seats.indexOf(seat), e.dir === 'right' ? 1 : -1);
+    if (!e.repeat && (screen === 'ready' || e.dpad || e.settled)) {
+      cycleLoadout(seats.indexOf(seat), e.dir === 'right' ? 1 : -1);
+    }
   } else if (e.dir) nav.move(e.dir);
   if (e.a) {
     menu.lastInput = 'pad';

@@ -7,8 +7,9 @@ import { allParts } from '../combat/guns/index.js';
 // match's renderer while the match loads. The pictures outlive the match (the models never
 // change), so later matches reuse them.
 
-const W = 192;
-const H = 96;
+// Twice the biggest size a card shows (128 x 64 CSS px), so they stay sharp on Retina screens.
+const W = 256;
+const H = 128;
 // Rendered at twice the size and scaled down on a 2D canvas: smooth edges without MSAA.
 const SS = 2;
 const icons = new Map();
@@ -21,10 +22,11 @@ export function gunIcon(id) {
 // Renders the guns in ids that have no picture yet.
 export function renderGunIcons(renderer, ids) {
   const todo = ids.filter((id) => !icons.has(id));
-  if (!todo.length) return;
+  const gl = renderer.getContext();
+  if (!todo.length || gl.isContextLost()) return;
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xf4ead8, 0x4a4c54, 3));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.8);
+  scene.add(new THREE.HemisphereLight(0xf4ead8, 0x4a4c54, 3.4));
+  const sun = new THREE.DirectionalLight(0xffffff, 3.2);
   sun.position.set(2, 3, 1.5);
   scene.add(sun);
   const material = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -56,8 +58,9 @@ export function renderGunIcons(renderer, ids) {
   for (const id of todo) {
     const geom = partsGeometry(allParts(id), 0x888888);
     const mesh = new THREE.Mesh(geom, material);
-    // A touch of the top and near side, so it reads as a solid gun.
-    mesh.rotation.set(0.12, 0.35, 0);
+    // Rolled about the barrel to show a touch of the top, and turned to show the near side, so
+    // it reads as a solid gun (XYZ order: the roll applies first, in the gun's own frame).
+    mesh.rotation.set(0, 0.35, -0.3);
     scene.add(mesh);
     mesh.updateMatrixWorld(true);
     box.setFromObject(mesh);
@@ -81,9 +84,11 @@ export function renderGunIcons(renderer, ids) {
     bigCtx.putImageData(image, 0, 0);
     smallCtx.clearRect(0, 0, W, H);
     smallCtx.drawImage(big, 0, 0, W, H);
-    icons.set(id, small.toDataURL('image/png'));
     scene.remove(mesh);
     geom.dispose();
+    // Lost mid-pass: the read came back blank, so keep nothing and let a later match draw it.
+    if (gl.isContextLost()) break;
+    icons.set(id, small.toDataURL('image/png'));
   }
   renderer.setRenderTarget(prevTarget);
   renderer.setClearColor(prevColor, prevAlpha);

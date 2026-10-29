@@ -134,6 +134,7 @@ export class Player {
     this.spawnShots = 0;
     // Last left/right direction on the respawn screen, for picking the next loadout.
     this.pickDir = 0;
+    this.pickHold = false;
     this.grenades = GRENADE.start;
     this.switchT = 0;
     this.meleeT = 0;
@@ -216,7 +217,11 @@ export class Player {
   pickLoadout() {
     const x = this.input.moveX;
     const dir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
-    if (dir && dir !== this.pickDir) {
+    // A direction still held from the pause menu (where it may have changed the loadout
+    // already) waits to be let go.
+    if (this.pickHold) {
+      if (!dir) this.pickHold = false;
+    } else if (dir && dir !== this.pickDir) {
       const n = this.game.arsenal.loadouts.length;
       this.loadout = (this.loadout + dir + n) % n;
     }

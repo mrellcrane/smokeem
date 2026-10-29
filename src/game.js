@@ -551,6 +551,7 @@ export class Game {
       s.state.clear();
       s.prime?.();
     }
+    for (const p of this.humans) p.pickHold = true;
     this.state = 'playing';
     this.acc = 0;
   }

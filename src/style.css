@@ -1307,6 +1307,7 @@ body.in-match .fps {
 }
 
 .loadout-row .step {
+  flex: none;
   min-width: 0;
   width: 38px;
   padding: 4px 0;
@@ -1490,6 +1491,7 @@ body.in-match .fps {
 .death .loadout small {
   align-self: flex-end;
   opacity: 0.7;
+  font-size: max(10px, calc(12px * var(--hud-scale, 1)));
 }
 
 .death .loadout-card img {
@@ -1497,17 +1499,16 @@ body.in-match .fps {
   height: calc(48px * var(--hud-scale, 1));
 }
 
-.death .loadout-card .demo {
-  width: calc(96px * var(--hud-scale, 1));
-  height: calc(24px * var(--hud-scale, 1));
+.death .loadout-card > b {
+  font-size: max(11px, calc(16px * var(--hud-scale, 1)));
 }
 
 .death .loadout-card figcaption {
-  font-size: calc(12px * var(--hud-scale, 1));
+  font-size: max(10px, calc(12px * var(--hud-scale, 1)));
 }
 
 /* The demos: every element loops on the same 2.4 s cycle (gunDemos.js CYCLE), placed in it
-   by its animation-delay. */
+   by its animation-delay plus --seek (0 unless reduced motion stops the demo on its still). */
 .demo {
   display: block;
   overflow: visible;
@@ -1517,6 +1518,7 @@ body.in-match .fps {
   animation-duration: 2.4s;
   animation-iteration-count: infinite;
   animation-timing-function: linear;
+  animation-delay: var(--seek, 0s);
 }
 
 .demo .dm-target {
@@ -1533,13 +1535,22 @@ body.in-match .fps {
   animation-name: dm-hit-big;
 }
 
-.demo .dm-shot {
+.demo .dm-shot,
+.demo .dm-fizzle {
   fill: none;
   stroke-linecap: round;
   stroke-dasharray: 14 200;
   stroke-dashoffset: 14;
   opacity: 0;
   animation-name: dm-shot;
+}
+
+.demo .dm-fizzle {
+  animation-name: dm-fizzle;
+}
+
+.demo .dm-down {
+  animation-name: dm-down;
 }
 
 .demo .dm-blast {
@@ -1644,6 +1655,21 @@ body.in-match .fps {
   8.1%, 100% { stroke-dashoffset: -100; opacity: 0; }
 }
 
+/* Out of range: the streak dies out about two thirds of the way along its line. */
+@keyframes dm-fizzle {
+  0% { stroke-dashoffset: 14; opacity: 1; }
+  4.6% { stroke-dashoffset: -51; opacity: 0.8; }
+  6% { stroke-dashoffset: -60; opacity: 0; }
+  100% { stroke-dashoffset: -60; opacity: 0; }
+}
+
+/* Smoked: the target drops as the burst finishes it, and is back for the next loop. */
+@keyframes dm-down {
+  0%, 33% { opacity: 1; }
+  37%, 92% { opacity: 0; }
+  98%, 100% { opacity: 1; }
+}
+
 @keyframes dm-blast {
   0% { opacity: 1; transform: scale(0.2); }
   14% { opacity: 0; transform: scale(1.25); }
@@ -1724,7 +1750,12 @@ body.in-match .fps {
   56%, 100% { opacity: 0; transform: translate(var(--bx), var(--by)); }
 }
 
+/* Reduced motion: each demo stops on its still (gunDemos.js), a paused moment of the loop. */
 @media (prefers-reduced-motion: reduce) {
+  .demo {
+    --seek: var(--still, 0s);
+  }
+
   .demo * {
     animation-play-state: paused;
   }
@@ -1771,6 +1802,24 @@ body.in-match .fps {
   width: min(840px, 100%);
 }
 
+/* 2 to 4 local players (Menu.crowded): smaller cards, so two fit side by side. */
+.panel.pair .loadout-card img,
+.panel.many .loadout-card img {
+  width: 96px;
+  height: 48px;
+}
+
+.panel.pair .loadout-card .demo,
+.panel.many .loadout-card .demo {
+  width: 112px;
+  height: 28px;
+}
+
+.panel.pair .loadout-card .guns,
+.panel.many .loadout-card .guns {
+  gap: 12px;
+}
+
 /* 3 or 4 local players (Menu.crowded). */
 .panel.many .gun-list ul {
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
@@ -1797,16 +1846,15 @@ body.in-match .fps {
   height: 27px;
 }
 
-.panel.many .loadout-card img {
-  width: 96px;
-  height: 48px;
-}
-
-.panel.many .loadout-card .demo {
-  width: 112px;
-  height: 28px;
-}
-
 .panel.many .loadouts {
   margin-bottom: 12px;
+}
+
+/* With the cards in, the pause screen's controls lists don't fit a short window; each view's
+   HUD strip already shows its player's controls. */
+@media (max-height: 959px) {
+  .panel.pause.pair .controls-list,
+  .panel.pause.many .controls-list {
+    display: none;
+  }
 }

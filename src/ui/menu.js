@@ -423,9 +423,12 @@ export class Menu {
   }
 
   // With 3 or 4 local players the ready and pause screens go compact, so every loadout card
-  // fits: the gun list becomes one row of pictures and demos, and the cards shrink.
+  // fits: the gun list becomes one row of pictures and demos and the cards shrink. With 2, only
+  // the cards shrink (they share a row). Either way a short window's pause screen leaves the
+  // controls to each view's strip.
   crowded() {
-    return (this.handlers.loadoutRows?.() ?? []).length > 2 ? ' many' : '';
+    const n = (this.handlers.loadoutRows?.() ?? []).length;
+    return n > 2 ? ' many' : n === 2 ? ' pair' : '';
   }
 
   // The match's weapon set: every gun in it, with a line on what it does.
@@ -452,7 +455,7 @@ export class Menu {
       rows
         .map(
           (r, i) =>
-            `<div class="loadout-row" style="--seat:${SEAT_COLORS[i]}"><b>P${i + 1}</b><button class="step" data-action="loadout-prev" data-seat="${i}" tabindex="-1">◀</button>${loadoutCard(r.loadout, r.pending ? 'from your next spawn' : '')}<button class="step" data-action="loadout-next" data-seat="${i}" tabindex="-1">▶</button></div>`,
+            `<div class="loadout-row" style="--seat:${SEAT_COLORS[i]}"><b>P${i + 1}</b><button class="step" data-action="loadout-prev" data-seat="${i}" tabindex="-1">◀</button>${loadoutCard(r.loadout, { note: r.pending ? 'from your next spawn' : '' })}<button class="step" data-action="loadout-next" data-seat="${i}" tabindex="-1">▶</button></div>`,
         )
         .join(''),
     );

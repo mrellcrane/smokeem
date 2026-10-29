@@ -9,6 +9,8 @@ const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), input[type="rang
 const STICK = 0.55;
 const REPEAT_DELAY = 0.38;
 const REPEAT_EVERY = 0.09;
+// How long a pad has to rest (no direction) after a menu opens over play to count as settled.
+const SETTLE = 0.4;
 const DIRS = ['up', 'down', 'left', 'right'];
 const DIR_BUTTON = { up: PAD.UP, down: PAD.DOWN, left: PAD.LEFT, right: PAD.RIGHT };
 
@@ -25,10 +27,12 @@ export class PadNav {
     let st = this.pads.get(gp.index);
     if (!st) {
       // Not "held": the press that made a new pad show up should count (that's how you join).
-      st = { prev: new Array(17).fill(false), dir: null, hold: 0, next: 0, blockDir: false };
+      st = { prev: new Array(17).fill(false), dir: null, hold: 0, next: 0, blockDir: false, rest: 0, settled: true };
       this.pads.set(gp.index, st);
     }
-    const out = { a: false, b: false, x: false, y: false, menu: false, view: false, down: false, dir: null };
+    // repeat: dir came from holding a direction, not a fresh push. dpad: it came from the D-pad.
+    // settled: the pad has rested since the menu opened (holdAll), so it isn't still playing.
+    const out = { a: false, b: false, x: false, y: false, menu: false, view: false, down: false, dir: null, repeat: false, dpad: false, settled: false };
     const edge = (i) => {
       const d = buttonDown(gp, i);
       const e = d && !st.prev[i];
@@ -47,6 +51,7 @@ export class PadNav {
     // Held direction from the D-pad or the stick, with key-repeat style timing.
     let dir = null;
     for (const d of DIRS) if (buttonDown(gp, DIR_BUTTON[d])) dir = d;
+    out.dpad = !!dir;
     if (!dir) {
       const x = gp.axes[0] ?? 0;
       const y = gp.axes[1] ?? 0;
@@ -54,6 +59,9 @@ export class PadNav {
         dir = Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up';
       }
     }
+    st.rest = dir ? 0 : st.rest + dt;
+    if (st.rest >= SETTLE) st.settled = true;
+    out.settled = st.settled;
     if (st.blockDir) {
       // A direction held since before the menu opened does nothing until it's let go.
       if (dir === st.dir) return out;
@@ -69,6 +77,7 @@ export class PadNav {
       if (st.hold >= st.next) {
         st.next += REPEAT_EVERY;
         out.dir = dir;
+        out.repeat = true;
       }
     }
     return out;
@@ -80,6 +89,8 @@ export class PadNav {
     for (const st of this.pads.values()) {
       st.prev.fill(true);
       st.blockDir = !!st.dir;
+      st.rest = 0;
+      st.settled = false;
     }
   }
 
