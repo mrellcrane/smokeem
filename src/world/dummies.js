@@ -128,8 +128,10 @@ export class Dummy {
     this.feet.copy(this.post);
     this.prevFeet.copy(this.post);
     this.t = 0;
+    this.moveSpeed = 0;
     this.placeBody(true);
     this.collider.setEnabled(true);
+    this.model.reset();
     this.model.group.visible = true;
   }
 
