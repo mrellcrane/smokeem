@@ -168,6 +168,8 @@ export class StaticBuilder {
     this.solids = [];
     this.lights = [];
     this.stains = [];
+    // Glowing strips that get a halo (beacons.js).
+    this.halos = [];
   }
 
   // shade: whether build() shades the vertices (quads and glows don't get it).
@@ -210,11 +212,12 @@ export class StaticBuilder {
 
   // Box by center and size. Options: rotY (radians) or quat, uv ('world' | 'fit'),
   // collide (default true), visible (default true), castShadow (default true), floor (it's
-  // walkable ground: the bake measures heights from it).
+  // walkable ground: the bake measures heights from it), halo (a glowing strip's open face as
+  // an axis normal like [0, 0, 1]: beacons.js draws a soft glow around it there).
   box(matOrTint, center, size, opts = {}) {
     const [mat, tint] = resolve(matOrTint);
     const [w, h, d] = size;
-    const { rotY = 0, quat = null, uv = 'world', collide = true, visible = true, castShadow = true, floor = false } = opts;
+    const { rotY = 0, quat = null, uv = 'world', collide = true, visible = true, castShadow = true, floor = false, halo = null } = opts;
     const q = quat ? _q.copy(quat) : _q.setFromAxisAngle(UP, rotY);
     _p.set(center[0], center[1], center[2]);
     if (visible && mat) {
@@ -232,6 +235,10 @@ export class StaticBuilder {
       }
       geom.applyMatrix4(_m.compose(_p, q, _s));
       this._add(mat, geom, castShadow, tint);
+      if (halo && !quat && !rotY) {
+        const min = [center[0] - w / 2, center[1] - h / 2, center[2] - d / 2];
+        this.halos.push({ min, max: [min[0] + w, min[1] + h, min[2] + d], normal: halo, color: tint ?? 0xffffff });
+      }
       if (collide) {
         this.solids.push({ x: _p.x, y: _p.y, z: _p.z, hx: w / 2, hy: h / 2, hz: d / 2, quat: quat || rotY ? q.toArray() : null, floor });
       }

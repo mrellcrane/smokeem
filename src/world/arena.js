@@ -71,6 +71,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     bake,
     zones,
     spawnPoints,
+    halos: B.halos,
     update(dt, time) {
       fire.update(time);
       // Slow drift so the mud looks a little alive.
@@ -100,10 +101,10 @@ function perimeter(B, M, H) {
   B.boxMinMax(M.hazard, [-H, 0, H - e], [H, 0.6, H], deco);
   B.boxMinMax(M.hazard, [-H, 0, -H], [-H + e, 0.6, H], deco);
   B.boxMinMax(M.hazard, [H - e, 0, -H], [H, 0.6, H], deco);
-  B.boxMinMax(M.glowCyan, [-H, 6.4, -H], [H, 6.52, -H + e], glow);
-  B.boxMinMax(M.glowCyan, [-H, 6.4, H - e], [H, 6.52, H], glow);
-  B.boxMinMax(M.glowCyan, [-H, 6.4, -H], [-H + e, 6.52, H], glow);
-  B.boxMinMax(M.glowCyan, [H - e, 6.4, -H], [H, 6.52, H], glow);
+  B.boxMinMax(M.glowCyan, [-H, 6.4, -H], [H, 6.52, -H + e], { ...glow, halo: [0, 0, 1] });
+  B.boxMinMax(M.glowCyan, [-H, 6.4, H - e], [H, 6.52, H], { ...glow, halo: [0, 0, -1] });
+  B.boxMinMax(M.glowCyan, [-H, 6.4, -H], [-H + e, 6.52, H], { ...glow, halo: [1, 0, 0] });
+  B.boxMinMax(M.glowCyan, [H - e, 6.4, -H], [H, 6.52, H], { ...glow, halo: [-1, 0, 0] });
 
   // Buttresses on the north, east and west walls (the south wall has the catwalk).
   for (const p of [-20, -10, 0, 10, 20]) {
@@ -127,10 +128,10 @@ function summit(B, M, zones) {
   // Solid core under the deck for cover.
   B.boxMinMax(M.metal, [-1.2, 0, -1.2], [1.2, deckBottom, 1.2]);
   const glow = { collide: false, castShadow: false };
-  B.boxMinMax(M.glowCyan, [-0.5, 1.0, -1.24], [0.5, 4.5, -1.2], glow);
-  B.boxMinMax(M.glowCyan, [-0.5, 1.0, 1.2], [0.5, 4.5, 1.24], glow);
-  B.boxMinMax(M.glowCyan, [-1.24, 1.0, -0.5], [-1.2, 4.5, 0.5], glow);
-  B.boxMinMax(M.glowCyan, [1.2, 1.0, -0.5], [1.24, 4.5, 0.5], glow);
+  B.boxMinMax(M.glowCyan, [-0.5, 1.0, -1.24], [0.5, 4.5, -1.2], { ...glow, halo: [0, 0, -1] });
+  B.boxMinMax(M.glowCyan, [-0.5, 1.0, 1.2], [0.5, 4.5, 1.24], { ...glow, halo: [0, 0, 1] });
+  B.boxMinMax(M.glowCyan, [-1.24, 1.0, -0.5], [-1.2, 4.5, 0.5], { ...glow, halo: [-1, 0, 0] });
+  B.boxMinMax(M.glowCyan, [1.2, 1.0, -0.5], [1.24, 4.5, 0.5], { ...glow, halo: [1, 0, 0] });
 
   // Rails: full on east and west, corners only on north and south so nets can arrive.
   const railTop = top + 0.9;
@@ -276,6 +277,7 @@ function ropeGantry(B, M, zones) {
   B.boxMinMax(M.glowOrange, [-12, deckTop - 0.25, zFront - 0.03], [14, deckTop - 0.1, zFront], {
     collide: false,
     castShadow: false,
+    halo: [0, 0, -1],
   });
   // Ramp along the wall from the southeast corner up to the catwalk's east end.
   B.ramp(M.metal, [24.6, 0, 28.5], [14, deckTop, 28.5], 3);
@@ -302,8 +304,9 @@ function netBlock(B, M, zones) {
   B.boxMinMax(M.metalDark, [25.7, top, -26.5], [26, top + 0.8, -22]);
   B.boxMinMax(M.hazard, [15.98, top - 0.3, -22.02], [26.02, top, -21.98], { collide: false });
   // (Just proud of the block's face: flush with it they'd flicker through.)
-  B.boxMinMax(M.glowCyan, [17, 1.5, -22], [17.3, 4.2, -21.97], { collide: false, castShadow: false });
-  B.boxMinMax(M.glowCyan, [24.7, 1.5, -22], [25, 4.2, -21.97], { collide: false, castShadow: false });
+  const strip = { collide: false, castShadow: false, halo: [0, 0, 1] };
+  B.boxMinMax(M.glowCyan, [17, 1.5, -22], [17.3, 4.2, -21.97], strip);
+  B.boxMinMax(M.glowCyan, [24.7, 1.5, -22], [25, 4.2, -21.97], strip);
   cargoNet(B, M, zones, [21, 0, -21.85], [21, top, -21.85], 5, [0, 0, 1]);
 }
 
@@ -363,7 +366,7 @@ function lightPylons(B, M, H) {
       const z = sz * p;
       B.cylinder(M.metalDark, [x, 0, z], 0.25, 12, { segments: 8 });
       B.box(M.metalDark, [x, 12.2, z], [1.6, 0.5, 0.8], { collide: false });
-      B.box(M.glowCyan, [x, 11.93, z], [1.4, 0.05, 0.6], { collide: false, castShadow: false });
+      B.box(M.glowCyan, [x, 11.93, z], [1.4, 0.05, 0.6], { collide: false, castShadow: false, halo: [0, -1, 0] });
     }
   }
 }

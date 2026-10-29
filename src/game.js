@@ -6,6 +6,7 @@ import { qualityPreset, onSettingsChange } from './settings.js';
 import { createRenderer, pixelRatioFor } from './render/renderer.js';
 import { viewportRects } from './render/splitscreen.js';
 import { warmUp } from './render/warmup.js';
+import { gfx } from './render/gfx.js';
 import { createTextures, applyAnisotropy } from './world/textures.js';
 import { createMaterials } from './world/materials.js';
 import { buildArena, ARENA_HALF } from './world/arena.js';
@@ -13,6 +14,7 @@ import { createSky } from './world/sky.js';
 import { MUDLARK_LOOK } from './world/looks.js';
 import { Dummy, DUMMY_POSTS } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
+import { Beacons } from './world/beacons.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -160,6 +162,11 @@ export class Game {
     this.bolts.onImpact.jar = (b, hit) => this.swarms.release(b, hit);
     if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'beam')) this.fx.enableBeams(scene);
     this.pickups = new Pickups(this, this.materials.props);
+    if (gfx.beacons) {
+      this.beacons = new Beacons(this.pickups.pads, this.arena.halos, this.materials);
+      this.beacons.setHalos(gfx.halos && preset.halos);
+      scene.add(this.beacons.mesh);
+    }
     this.setupViewmodelScene();
     // One step so scene queries see the static colliders before anyone spawns.
     this.physics.world.step();
@@ -308,6 +315,7 @@ export class Game {
         this.sun.shadow.map = null;
       }
       this.applyAnisotropy(preset);
+      this.beacons?.setHalos(gfx.halos && preset.halos);
     }
     this.needsRender = true;
   }
@@ -498,6 +506,7 @@ export class Game {
     this.bolts.updateVisuals(alpha);
     this.swarms.updateVisuals(alpha);
     this.pickups.updateVisuals(this.time);
+    this.beacons?.update(dt, this.time, this.pickups.pads);
     this.fx.update(dt);
   }
 
@@ -568,6 +577,7 @@ export class Game {
     this.swarms.dispose();
     this.missiles.dispose();
     this.pickups.dispose();
+    this.beacons?.dispose();
     this.fx.dispose();
     this.scene.traverse((o) => {
       if (!o.isSkinnedMesh) o.geometry?.dispose();

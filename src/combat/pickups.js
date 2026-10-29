@@ -55,10 +55,14 @@ export class Pickups {
         active: true,
         timer: 0,
         look: gun ?? 'grenades',
+        // Which pad it sits on (its beacon's look).
+        kind: spot.type === 'grenades' ? 'grenades' : spot.pad,
       };
       this.resetAmmo(item);
       this.items.push(item);
     }
+    // The spawners, in PICKUP_SPOTS order (items also holds dropped guns).
+    this.pads = this.items.slice();
 
     // One instanced mesh per look (each gun in the set, and briquette pairs), so all pickups
     // of a kind are one draw call; nothing draws while none is out.
