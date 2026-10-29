@@ -154,7 +154,10 @@ Live build: https://mrellcrane.github.io/smokeem/
   (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
   `InputState` each tick. A new map needs its own links list.
-- `src/render/`: renderer setup, split-screen viewports, shader warm-up.
+- `src/render/`: renderer setup, split-screen viewports, shader warm-up, and the death replay
+  (`replay.js`: records bodies, eyes and tracers every frame; `Game.render` draws replaying views
+  last, between `replay.begin` and `replay.end`; tracers with owner `1000 + viewer` show only
+  in that view).
 - `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD (with
   the motion tracker, `radar.js`: one small 2D canvas per view), the
   3-player info panel (`infoPanel.js`), FPS counter, and the loadout cards

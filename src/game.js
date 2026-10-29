@@ -19,6 +19,7 @@ import { renderGunIcons } from './ui/gunIcons.js';
 import { Oysters } from './modes/oysters.js';
 import { Props } from './world/props.js';
 import { Gravity } from './combat/gravity.js';
+import { Replay } from './render/replay.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -234,6 +235,8 @@ export class Game {
     this.physics.world.step();
     // Sounds fade with distance from the local players.
     this.sfx.listeners = this.humans;
+    // Death replays record every body from here on.
+    this.replay = new Replay(this);
     // 3 players leave a spare quadrant: fill it with the scoreboard and map.
     if (this.humans.length === 3) this.infoPanel = new InfoPanel(this.hudRoot, this);
 
@@ -535,6 +538,7 @@ export class Game {
     this.oysters?.onKill(victim, info, this.match);
     // Smoked: your sticky bombs fizzle and what your gravity gun held drops.
     if (victim.kind === 'player') {
+      this.replay?.start(victim, info.attacker);
       this.grenades.removeStickies(victim);
       this.gravity?.release(victim, false);
     }
@@ -676,6 +680,7 @@ export class Game {
     this.oysters?.updateVisuals(dt);
     this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
+    this.replay?.record(alpha);
   }
 
   render(alpha, dt) {
@@ -690,18 +695,26 @@ export class Game {
     st.views = rects.length;
     let before = 0;
     _sunDir.copy(this.sun.position).sub(this.sun.target.position).normalize();
-    for (let i = 0; i < this.humans.length; i++) {
+    // Views showing a death replay render last, so the shared shadow pass (in the first view's
+    // render) sees the present.
+    const order = this._viewOrder ?? (this._viewOrder = []);
+    order.length = 0;
+    for (let i = 0; i < this.humans.length; i++) if (!(this.replay?.showing(this.humans[i]) >= 0)) order.push(i);
+    for (let i = 0; i < this.humans.length; i++) if (!order.includes(i)) order.push(i);
+    for (const i of order) {
       const p = this.humans[i];
       const rect = rects[i];
       p.updateCamera(alpha, dt, rect.w / rect.h);
+      const replaying = this.replay?.showing(p) >= 0 && this.replay.begin(p, p.camera);
       // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
       this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
       r.setViewport(rect.x, rect.y, rect.w, rect.h);
       r.setScissor(rect.x, rect.y, rect.w, rect.h);
       r.clear(true, true, false);
       r.render(this.scene, p.camera);
+      if (replaying) this.replay.end(p.camera);
 
-      if (p.showsViewmodel()) {
+      if (!replaying && p.showsViewmodel()) {
         for (const o of this.humans) o.viewmodel.root.visible = o === p;
         const vc = this.vmCamera;
         if (vc.aspect !== rect.w / rect.h) {
@@ -716,7 +729,7 @@ export class Game {
       }
 
       // Draw calls this view cost (the first view also pays for the shared shadow pass).
-      st.viewCalls[i] = r.info.render.calls - before - (i === 0 ? st.shadowCalls : 0);
+      st.viewCalls[i] = r.info.render.calls - before - (i === order[0] ? st.shadowCalls : 0);
       before = r.info.render.calls;
 
       this.huds[i].layout(rect, H);

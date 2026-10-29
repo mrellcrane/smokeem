@@ -539,6 +539,42 @@ kbd {
   text-shadow: 0 3px 6px rgba(0, 0, 0, 0.9);
 }
 
+/* The death replay (render/replay.js): a banner, and the death card out of the way. */
+.killcam {
+  display: none;
+  position: absolute;
+  top: calc(48px * var(--hud-scale, 1));
+  left: 50%;
+  transform: translateX(-50%);
+  gap: 0.6em;
+  align-items: baseline;
+  padding: 4px 14px;
+  border-radius: 4px;
+  background: rgba(10, 8, 7, 0.6);
+  font-size: max(12px, calc(18px * var(--hud-scale, 1)));
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.killcam b {
+  font-family: var(--display);
+  letter-spacing: 0.12em;
+  color: #ff5a3c;
+}
+
+.hud-view.killcam-on .killcam {
+  display: flex;
+}
+
+.hud-view.killcam-on .death {
+  background: none;
+  justify-content: flex-end;
+  padding-bottom: 6%;
+}
+
+.hud-view.killcam-on .death h3 {
+  font-size: calc(32px * var(--hud-scale, 1));
+}
+
 .death h3 {
   margin: 0;
   font-family: var(--display);

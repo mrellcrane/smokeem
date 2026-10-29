@@ -286,6 +286,7 @@ function fire(game, p) {
     // flood the pool.
     if (rays === 1 ? (w.shots - 1) % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
       game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, { a3: _m3, owner: p.id, linger: d.tracerLife });
+      game.replay?.shot(p, _muzzle, _end, d.tracerColor, d.tracerWidth, d.tracerLife);
     }
     if (!hit.hit) continue;
     if (hit.entity) {
