@@ -84,6 +84,16 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
   - Dying pops it in a puff, back to small. Bots don't sauce anyone (yet).
 - **Later:** team modes, online play between separate houses.
 
+## The show
+
+The arena is a game show (owner request, "game-show arena hell yeah"):
+- Grandstands rise behind all four walls, packed with a cheering crowd in mixed shirt colors.
+  They sway, and the stands go up (arms in the air, bouncing) on every kill, louder for a
+  headshot, then settle back. A crowd roar plays with it.
+- A big screen over the north stands shows "SMOKE EM' LIVE", the leader (or a tie) in their
+  color with their score, the next two, and the last kill for a few seconds.
+- Coming next: confetti and a winner's podium at the end of a match.
+
 ## Characters
 
 Contestants are armored soldiers with human proportions, styled after Halo's multiplayer
@@ -801,3 +811,7 @@ Need answers before the step that uses them gets built.
   the past onto the bodies, renders, and puts the present back. Replaying views render after
   live ones so the shared shadow pass sees the present. Kills by yourself, fire or falling
   don't replay.
+- 2026-10-29: Game-show stands and big screen. The stands are looks only (no collision, no
+  shadows) and merge into the arena's existing meshes; the crowd (about 770 people) is one
+  instanced mesh animated in its vertex shader and the screen a canvas texture redrawn only when
+  the scores change: two draw calls per view, none in the shadow pass. gfx switch `show`.

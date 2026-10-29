@@ -16,4 +16,6 @@ export const gfx = {
   halos: true,
   // Bullet marks and blast scorches (medium and high presets only).
   decals: true,
+  // The game-show stands: crowd and big screen (world/show.js).
+  show: true,
 };

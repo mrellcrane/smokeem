@@ -147,7 +147,9 @@ Live build: https://mrellcrane.github.io/smokeem/
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
   played for local players (`!player.isBot`).
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
-  training dummies, per-map looks (`looks.js`), the baked arena light (`bake.js`) and the
+  training dummies, per-map looks (`looks.js`), the game show (`show.js`: the crowd on the
+  arena's grandstands as one instanced mesh moved in its vertex shader by a hype uniform, and
+  the big screen's canvas texture), the baked arena light (`bake.js`) and the
   pickup beacons (`beacons.js`: pad light columns, respawn rings and strip halos in one mesh,
   fed by `Pickups.pads` each frame).
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
