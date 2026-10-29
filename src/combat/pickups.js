@@ -1,17 +1,20 @@
 import * as THREE from 'three';
-import { WEAPONS, GRENADE, STARTING_WEAPON } from './weapons.js';
-import { GUN_PARTS, partsGeometry, briquetteGeometry } from './weaponModels.js';
+import { WEAPONS, GRENADE } from './weapons.js';
+import { partsGeometry, briquetteGeometry } from './weaponModels.js';
+import { GUNS } from './guns/index.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Weapon and grenade pickups: fixed spawners on pads that come back on a timer, plus weapons
 // dropped by swapping or dying, which vanish after a while. Walking over a pickup takes it if
 // it fits (empty slot, same-weapon ammo, grenade room); otherwise E swaps for it.
 
-// Spawners. The arena builds a pad under each one.
+// Spawners. The arena builds a pad under each one. Weapon pads say which kind of pad they are;
+// the match's weapon set decides the gun: its power gun on the power pad, its field guns on
+// the rest, in order.
 export const PICKUP_SPOTS = [
-  { type: 'weapon', weapon: 'smokeSignal', pos: [-1.5, 6.0, -1.5], respawn: 60 },
-  { type: 'weapon', weapon: 'mesquite', pos: [0, 0, 2.6], respawn: 30 },
-  { type: 'weapon', weapon: 'mesquite', pos: [-18, 0, 25], respawn: 30 },
+  { type: 'weapon', pad: 'power', pos: [-1.5, 6.0, -1.5], respawn: 60 },
+  { type: 'weapon', pad: 'field', pos: [0, 0, 2.6], respawn: 30 },
+  { type: 'weapon', pad: 'field', pos: [-18, 0, 25], respawn: 30 },
   { type: 'grenades', count: 2, pos: [6, 5.5, 28.5], respawn: 20 },
   { type: 'grenades', count: 2, pos: [24.5, 5.0, -23.2], respawn: 20 },
   { type: 'grenades', count: 2, pos: [8.5, 2.4, -1.2], respawn: 20 },
@@ -26,8 +29,9 @@ export class Pickups {
   constructor(game, material) {
     this.game = game;
     this.material = material;
+    const { set, guns } = game.arsenal;
     this.geoms = {};
-    for (const id of Object.keys(GUN_PARTS)) this.geoms[id] = partsGeometry(GUN_PARTS[id], 0x888888, { scale: 1.3 });
+    for (const id of guns) this.geoms[id] = partsGeometry(GUNS[id].parts, 0x888888, { scale: 1.3 });
     // Two briquettes side by side, merged so each grenade pickup is one draw call.
     const a = briquetteGeometry().rotateY(-0.4).translate(-0.11, 0, 0);
     const b = briquetteGeometry().rotateY(0.4).translate(0.11, 0, 0);
@@ -37,24 +41,30 @@ export class Pickups {
     this.items = [];
     this.dropPool = {};
 
+    let field = 0;
     for (const spot of PICKUP_SPOTS) {
+      let gun = null;
+      if (spot.type === 'weapon') {
+        gun = spot.pad === 'power' ? set.power : set.field.length ? set.field[field++ % set.field.length] : null;
+        if (!gun) continue;
+      }
       const pos = new THREE.Vector3(...spot.pos);
       const item = {
         type: spot.type,
-        def: spot.type === 'weapon' ? WEAPONS[spot.weapon] : null,
+        def: gun ? WEAPONS[gun] : null,
         count: spot.count ?? 0,
         pos,
         respawn: spot.respawn,
         spawner: true,
         active: true,
         timer: 0,
-        mesh: spot.type === 'weapon' ? this.weaponMesh(spot.weapon) : this.grenadeMesh(),
+        mesh: gun ? this.weaponMesh(gun) : this.grenadeMesh(),
       };
       this.resetAmmo(item);
       item.mesh.position.copy(pos);
       this.items.push(item);
     }
-    for (const id of Object.keys(GUN_PARTS)) {
+    for (const id of guns) {
       this.dropPool[id] = [];
       for (let i = 0; i < DROP_POOL; i++) {
         const m = this.weaponMesh(id);
@@ -104,7 +114,7 @@ export class Pickups {
   }
 
   drop(def, mag, reserve, x, y, z) {
-    if (def.id === STARTING_WEAPON || mag + reserve <= 0) return;
+    if (mag + reserve <= 0) return;
     const pool = this.dropPool[def.id];
     // Reuse the oldest drop of this type if the pool is empty.
     let mesh = pool.pop();
@@ -120,11 +130,11 @@ export class Pickups {
     this.items.push({ type: 'weapon', def, mag, reserve, pos, spawner: false, active: true, life: DROP_LIFETIME, mesh });
   }
 
-  // A smoked player drops whatever they picked up.
+  // A smoked player drops whatever they picked up (their loadout guns go with them).
   dropFrom(p) {
     const y = p.feetY();
     p.slots.forEach((w, i) => {
-      if (w) this.drop(w.def, w.mag, w.reserve, p.center.x + (i ? 0.5 : -0.5), y, p.center.z);
+      if (w && !w.spawnGun) this.drop(w.def, w.mag, w.reserve, p.center.x + (i ? 0.5 : -0.5), y, p.center.z);
     });
   }
 

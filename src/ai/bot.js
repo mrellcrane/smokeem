@@ -31,6 +31,16 @@ function wrap(a) {
   return a;
 }
 
+// How well a gun suits a fight at this distance: 1 at its preferred range, a bit less across
+// its band, negative outside it, and worst of all when it's empty.
+function bandFit(w, dist) {
+  if (w.empty) return -100;
+  const b = w.def.bot;
+  if (dist < b.min) return -(b.min - dist) / 4;
+  if (dist > b.max) return -(dist - b.max) / 10;
+  return 1 - (Math.abs(dist - b.pref) / Math.max(4, b.max - b.min)) * 0.5;
+}
+
 export class BotBrain {
   constructor(game, skillName = 'normal') {
     this.kind = 'bot';
@@ -121,6 +131,9 @@ export class BotBrain {
       this.guideMissile();
       return;
     }
+
+    // Standing on a gun worth swapping for (we walked here for it): hold the swap.
+    if (p.pickupPrompt && (this.goalKind === 'weapon' || p.pickupPrompt.def.bot.power)) s.press('interact');
 
     const t = this.game.time;
     const sees = this.target && t - this.lastSeenT < 0.4;
@@ -240,7 +253,7 @@ export class BotBrain {
       this.burstOn = !this.burstOn;
       this.burstT = (this.burstOn ? sk.burst[0] : sk.burst[1]) * (0.7 + Math.random() * 0.6);
     }
-    const inRange = w.kind === 'pellets' ? dist < 14 : w.kind === 'missile' ? dist > 8 : true;
+    const inRange = dist >= w.bot.min && dist <= w.bot.max * 1.2;
     const cone = sk.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist));
     if (this.reactT <= 0 && this.throwT <= 0 && inRange && this.aimError(_t) < cone) {
       if (w.auto) {
@@ -280,7 +293,7 @@ export class BotBrain {
       this.strafe = Math.random() < 0.5 ? -1 : 1;
       this.strafeT = 0.5 + Math.random();
     }
-    const pref = w.kind === 'pellets' ? 4 : 18;
+    const pref = w.bot.pref;
     s.moveX = this.strafe * sk.strafe;
     s.moveY = dist > pref * 1.5 ? 1 : dist < pref * 0.5 ? -0.7 : 0;
     if (Math.random() < sk.jumpRate * dt) s.press('jump');
@@ -291,17 +304,15 @@ export class BotBrain {
     }
   }
 
+  // Use whichever gun's range band fits the fight better. Power weapons only now and then.
   chooseWeapon(dist) {
     const p = this.player;
     const other = p.slots[1 - p.slot];
     if (!other || other.empty || p.switchT > 0) return;
-    const cur = p.weapon.def.id;
-    const o = other.def.id;
-    if ((o === 'mesquite' && dist < 9) || (cur === 'mesquite' && dist > 14) || (cur === 'smokeSignal' && dist < 8)) {
-      this.state.press('switchWeapon');
-    } else if (o === 'smokeSignal' && dist > 16 && Math.random() < 0.02) {
-      this.state.press('switchWeapon');
-    }
+    const cur = bandFit(p.weapon, dist);
+    const alt = bandFit(other, dist);
+    if (other.def.bot.power && Math.random() > 0.02) return;
+    if (alt > cur + 0.25) this.state.press('switchWeapon');
   }
 
   // Steer our own Smoke Signal into the target.
@@ -352,12 +363,13 @@ export class BotBrain {
       }
       return best;
     };
-    if (!p.slots[1] && Math.random() < 0.65) {
-      const it = pick((i) => i.type === 'weapon');
-      if (it) {
-        goal = it.pos;
-        kind = 'weapon';
-      }
+    // Go for the power weapon, or now and then a gun we don't have.
+    const lacks = (i) => i.type === 'weapon' && !p.slots.some((w) => w?.def === i.def);
+    const r = Math.random();
+    const it = r < 0.35 ? pick((i) => lacks(i) && i.def.bot.power) : r < 0.5 ? pick(lacks) : null;
+    if (it) {
+      goal = it.pos;
+      kind = 'weapon';
     } else if (p.grenades < 2 && Math.random() < 0.6) {
       const it = pick((i) => i.type === 'grenades');
       if (it) {

@@ -3,7 +3,7 @@ import { BODY, MOVE, CAMERA } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
-import { WEAPONS, WeaponState, GRENADE, STARTING_WEAPON } from '../combat/weapons.js';
+import { WEAPONS, WeaponState, GRENADE } from '../combat/weapons.js';
 import { InputState } from '../input/inputState.js';
 import { updateShooting, cancelReload } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
@@ -45,7 +45,8 @@ const NO_PRESSES = NEUTRAL_INPUT.consumePressed();
 
 export class Player {
   // brain: set for bots (an AI writing `input`); bots have no camera view or viewmodel.
-  constructor(game, { id, input, name, brain = null, color = null }) {
+  // loadout: index into the match's weapon set loadouts (bots roll a new one every life).
+  constructor(game, { id, input, name, brain = null, color = null, loadout = 0 }) {
     this.game = game;
     this.kind = 'player';
     this.id = id;
@@ -119,8 +120,11 @@ export class Player {
 
     // Combat.
     this.vitals = new Vitals();
-    this.slots = [new WeaponState(WEAPONS[STARTING_WEAPON]), null];
+    this.slots = [null, null];
     this.slot = 0;
+    this.loadout = loadout;
+    // Last left/right direction on the respawn screen, for picking the next loadout.
+    this.pickDir = 0;
     this.grenades = GRENADE.start;
     this.switchT = 0;
     this.meleeT = 0;
@@ -145,7 +149,7 @@ export class Player {
     // and the first-person rifle.
     const armor = color ?? PLAYER_COLORS[id % PLAYER_COLORS.length];
     this.color = armor;
-    this.model = new CharacterModel({ armor });
+    this.model = new CharacterModel({ armor, guns: game.arsenal.guns });
     if (this.isBot) {
       // Everyone sees bots; they have no view of their own.
       this.viewmodel = null;
@@ -153,8 +157,32 @@ export class Player {
       this.model.setLayer(1 + id);
       this.camera.layers.enableAll();
       this.camera.layers.disable(1 + id);
-      this.viewmodel = new Viewmodel(game.textures, armor);
+      this.viewmodel = new Viewmodel(game.textures, armor, game.arsenal.guns);
     }
+    this.armLoadout();
+  }
+
+  // Both guns of the chosen loadout, full ammo. They stay with you when you're smoked.
+  armLoadout() {
+    const loadouts = this.game.arsenal.set.loadouts;
+    this.loadout = ((this.loadout % loadouts.length) + loadouts.length) % loadouts.length;
+    loadouts[this.loadout].guns.forEach((id, i) => {
+      const w = new WeaponState(WEAPONS[id]);
+      w.spawnGun = true;
+      this.slots[i] = w;
+    });
+    this.slot = 0;
+  }
+
+  // On the respawn screen, left/right picks the loadout for the next life.
+  pickLoadout() {
+    const x = this.input.moveX;
+    const dir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
+    if (dir && dir !== this.pickDir) {
+      const n = this.game.arsenal.set.loadouts.length;
+      this.loadout = (this.loadout + dir + n) % n;
+    }
+    this.pickDir = dir;
   }
 
   get alive() {
@@ -259,8 +287,8 @@ export class Player {
     this.sprintLock = 0;
     this.input.clear();
     this.vitals.reset();
-    this.slots[0] = new WeaponState(WEAPONS[STARTING_WEAPON]);
-    this.slots[1] = null;
+    if (this.isBot) this.loadout = Math.floor(Math.random() * this.game.arsenal.set.loadouts.length);
+    this.armLoadout();
     this.slot = 0;
     this.grenades = GRENADE.start;
     this.switchT = this.meleeT = this.throwT = this.lungeT = this.knockT = 0;
@@ -302,6 +330,7 @@ export class Player {
     this.prevCenter.copy(this.center);
     if (this.mode === 'dead') {
       this.deathT += dt;
+      if (!this.isBot) this.pickLoadout();
       if (this.deathT >= RESPAWN_DELAY) this.game.respawn(this);
       return;
     }

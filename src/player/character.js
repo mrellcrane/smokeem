@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp } from '../util/math.js';
-import { GUN_PARTS } from '../combat/weaponModels.js';
+import { GUNS } from '../combat/guns/index.js';
 
 // The contestant body: chunky armor, a wide amber visor and a smoker canister on the back.
 // Built from boxes, rigidly skinned to a 13-bone skeleton so each body is a single draw call
@@ -20,10 +20,6 @@ const JOINTS = {
   legLL: [-0.12, 0.5, 0],
   legUR: [0.12, 0.92, 0],
   legLR: [0.12, 0.5, 0],
-  // Grip points for each held weapon; the launcher rides on the right shoulder.
-  gunHickory: [0.12, 1.2, -0.3],
-  gunMesquite: [0.12, 1.2, -0.3],
-  gunSignal: [0.24, 1.32, -0.1],
 };
 const PARENT = {
   hips: 'root',
@@ -37,12 +33,23 @@ const PARENT = {
   legLL: 'legUL',
   legUR: 'hips',
   legLR: 'legUR',
-  gunHickory: 'spine',
-  gunMesquite: 'spine',
-  gunSignal: 'spine',
 };
-const GUN_BONES = { hickory: 'gunHickory', mesquite: 'gunMesquite', smokeSignal: 'gunSignal' };
-const BONES = Object.keys(JOINTS);
+const BODY_BONES = Object.keys(JOINTS);
+
+// The skeleton for a body carrying these guns: the body bones plus one bone per gun, at the
+// gun's grip point (each gun module's `carry`), hung off the spine.
+function rig(guns) {
+  const joints = { ...JOINTS };
+  const parent = { ...PARENT };
+  const gunBones = {};
+  for (const id of guns) {
+    const bone = `gun:${id}`;
+    joints[bone] = GUNS[id].carry;
+    parent[bone] = 'spine';
+    gunBones[id] = bone;
+  }
+  return { joints, parent, gunBones, names: [...BODY_BONES, ...Object.values(gunBones)] };
+}
 
 // Arm poses as rotations of the rest pose (arms hanging straight down). Each segment is aimed
 // at a direction in spine space; forearm rotations are relative to their upper arm.
@@ -73,7 +80,7 @@ const METAL = 0x33373c;
 const WOOD = 0x8a5a33;
 
 // [bone, center, size, colorKey]
-function parts() {
+function parts(r) {
   const P = [
     ['hips', [0, 0.93, 0], [0.4, 0.18, 0.26], 'suit'],
     ['hips', [0, 1.0, 0], [0.42, 0.06, 0.28], 'trim'],
@@ -102,19 +109,19 @@ function parts() {
     );
   }
   // Every weapon is baked in on its own bone; the ones not held are scaled to nothing.
-  for (const [id, bone] of Object.entries(GUN_BONES)) {
-    const j = JOINTS[bone];
-    for (const [c, size, color] of GUN_PARTS[id]) {
+  for (const [id, bone] of Object.entries(r.gunBones)) {
+    const j = r.joints[bone];
+    for (const [c, size, color] of GUNS[id].parts) {
       P.push([bone, [j[0] + c[0], j[1] + c[1], j[2] + c[2]], size, color ?? 'armor']);
     }
   }
   return P;
 }
 
-function buildGeometry(colors, inflate) {
+function buildGeometry(colors, inflate, r) {
   const geoms = [];
   const c = new THREE.Color();
-  for (const [bone, center, size, key] of parts()) {
+  for (const [bone, center, size, key] of parts(r)) {
     const pad = inflate ? 0.035 : 0;
     const g = new THREE.BoxGeometry(size[0] + pad, size[1] + pad, size[2] + pad);
     g.deleteAttribute('uv');
@@ -124,7 +131,7 @@ function buildGeometry(colors, inflate) {
     c.set(typeof key === 'string' ? colors[key] : key);
     for (let i = 0; i < n; i++) c.toArray(col, i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const bi = BONES.indexOf(bone);
+    const bi = r.names.indexOf(bone);
     const si = new Uint16Array(n * 4);
     const sw = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
@@ -155,7 +162,9 @@ export function disposeCharacterMaterial() {
 }
 
 export class CharacterModel {
-  constructor({ armor, trim = null, visor = 0xffb347 }) {
+  // guns: ids of every gun this body might hold this match (the match's weapon set).
+  constructor({ armor, trim = null, visor = 0xffb347, guns = ['hickory'] }) {
+    const r = (this.rig = rig(guns));
     const armorColor = new THREE.Color(armor);
     const colors = {
       armor: armorColor,
@@ -170,28 +179,28 @@ export class CharacterModel {
     this.group = new THREE.Group();
     this.group.name = 'character';
     this.bones = {};
-    for (const name of BONES) {
+    for (const name of r.names) {
       const b = new THREE.Bone();
       b.name = name;
       this.bones[name] = b;
     }
-    for (const name of BONES) {
-      const j = JOINTS[name];
-      const parent = PARENT[name];
+    for (const name of r.names) {
+      const j = r.joints[name];
+      const parent = r.parent[name];
       if (parent) {
-        const pj = JOINTS[parent];
+        const pj = r.joints[parent];
         this.bones[name].position.set(j[0] - pj[0], j[1] - pj[1], j[2] - pj[2]);
         this.bones[parent].add(this.bones[name]);
       }
     }
 
-    this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false), bodyMaterial());
+    this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r), bodyMaterial());
     this.mesh.add(this.bones.root);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.group.add(this.mesh);
     this.group.updateMatrixWorld(true);
-    this.skeleton = new THREE.Skeleton(BONES.map((n) => this.bones[n]));
+    this.skeleton = new THREE.Skeleton(r.names.map((n) => this.bones[n]));
     this.mesh.bind(this.skeleton);
     this.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 1.4);
 
@@ -204,14 +213,14 @@ export class CharacterModel {
       depthWrite: false,
     });
     this.shellMaterial.name = 'shieldShell';
-    this.shell = new THREE.SkinnedMesh(buildGeometry(colors, true), this.shellMaterial);
+    this.shell = new THREE.SkinnedMesh(buildGeometry(colors, true, r), this.shellMaterial);
     this.shell.bind(this.skeleton, this.mesh.bindMatrix);
     this.shell.boundingSphere = this.mesh.boundingSphere;
     this.shell.visible = false;
     this.group.add(this.shell);
 
     this.weaponId = null;
-    this.setWeapon('hickory');
+    this.setWeapon(guns[0]);
 
     this.shieldFlash = 0;
     this.phase = 0;
@@ -223,7 +232,7 @@ export class CharacterModel {
   setWeapon(id) {
     if (id === this.weaponId) return;
     this.weaponId = id;
-    for (const [wid, bone] of Object.entries(GUN_BONES)) {
+    for (const [wid, bone] of Object.entries(this.rig.gunBones)) {
       // Not exactly zero, so skinned normals never divide by zero.
       this.bones[bone].scale.setScalar(wid === id ? 1 : 1e-4);
     }

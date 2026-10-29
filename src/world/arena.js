@@ -351,12 +351,12 @@ function lightPylons(B, M, H) {
   }
 }
 
-// A pad with a glowing rim under every pickup spawner. Orange for the Smoke Signal, cyan for
+// A pad with a glowing rim under every pickup spawner. Orange for the power pad, cyan for
 // other guns, ember for grenades.
 function pickupPads(B, M) {
   for (const spot of PICKUP_SPOTS) {
     const [x, y, z] = spot.pos;
-    const glow = spot.type === 'grenades' ? M.ember : spot.weapon === 'smokeSignal' ? M.glowOrange : M.glowCyan;
+    const glow = spot.type === 'grenades' ? M.ember : spot.pad === 'power' ? M.glowOrange : M.glowCyan;
     B.cylinder(glow, [x, y, z], 0.62, 0.04, { segments: 16, collide: false, castShadow: false });
     B.cylinder(M.metalDark, [x, y + 0.01, z], 0.55, 0.07, { segments: 16, collide: false });
   }

@@ -1,106 +1,16 @@
+import { GUNS } from './guns/index.js';
+
 // Weapon definitions (data only) and per-player weapon state. Angles in degrees.
 //
 // kind:
 //   hitscan  one ray per shot (Hickory)
 //   pellets  several rays per shot (Mesquite)
 //   missile  a guided rocket you fly from its own camera (Smoke Signal)
+// bot: { min, max, pref } is the range band (meters) bots like to use a gun in; `power` marks
+// a power weapon bots save for good moments.
 
-export const WEAPONS = {
-  hickory: {
-    id: 'hickory',
-    name: 'Hickory',
-    kind: 'hitscan',
-    auto: true,
-    fireRate: 9, // shots per second
-    damage: 13,
-    headshotMul: 1.5,
-    // Damage falls off linearly from falloffStart to falloffEnd meters, down to falloffMin.
-    falloffStart: 35,
-    falloffEnd: 80,
-    falloffMin: 0.6,
-    range: 150,
-    mag: 32,
-    reserve: 160,
-    reloadTime: 1.7,
-    spreadBase: 0.5,
-    spreadMax: 3.4,
-    spreadPerShot: 0.32,
-    spreadRecovery: 8, // degrees per second
-    spreadMoveAdd: 0.9,
-    spreadAirAdd: 1.4,
-    aimSpreadMul: 0.5,
-    crouchSpreadMul: 0.8,
-    climbSpreadMul: 1.6,
-    zoom: 1.35,
-    tracerColor: 0xffc070,
-    sound: 'shot',
-  },
-  mesquite: {
-    id: 'mesquite',
-    name: 'Mesquite',
-    kind: 'pellets',
-    auto: false,
-    fireRate: 1 / 0.85,
-    pellets: 10,
-    damage: 12, // per pellet: two point-blank shots smoke a full-shield target
-    headshotMul: 1,
-    falloffStart: 6,
-    falloffEnd: 18,
-    falloffMin: 0.15,
-    range: 60,
-    mag: 6,
-    reserve: 18,
-    // Loads one shell at a time; firing interrupts the reload.
-    reloadTime: 0.5,
-    reloadPerShell: true,
-    // Rack the pump after every shot (sound only; the viewmodel animates it too).
-    pump: true,
-    spreadBase: 6,
-    spreadMax: 6,
-    spreadPerShot: 0,
-    spreadRecovery: 0,
-    spreadMoveAdd: 0.5,
-    spreadAirAdd: 0.5,
-    aimSpreadMul: 1,
-    crouchSpreadMul: 0.9,
-    climbSpreadMul: 1.2,
-    zoom: 1,
-    tracerColor: 0xffd890,
-    sound: 'shotgun',
-  },
-  smokeSignal: {
-    id: 'smokeSignal',
-    name: 'Smoke Signal',
-    kind: 'missile',
-    auto: false,
-    fireRate: 1 / 1.2,
-    mag: 1,
-    reserve: 1,
-    reloadTime: 2.4,
-    spreadBase: 0,
-    spreadMax: 0,
-    spreadPerShot: 0,
-    spreadRecovery: 0,
-    spreadMoveAdd: 0,
-    spreadAirAdd: 0,
-    aimSpreadMul: 1,
-    crouchSpreadMul: 1,
-    climbSpreadMul: 1,
-    zoom: 1,
-    sound: 'launch',
-    // Missile flight.
-    missileSpeed: 15,
-    missileMaxSpeed: 25,
-    missileAccel: 12,
-    missileLife: 7,
-    missileTurnRate: 2.8, // radians per second, caps how hard you can steer
-    // Full damage inside `inner` meters, so a direct hit always smokes.
-    explosion: { radius: 5.5, inner: 1.6, damage: 210, knockback: 14 },
-  },
-};
-
-// The spawn loadout.
-export const STARTING_WEAPON = 'hickory';
+// Stats per gun, by id (each gun's module under src/combat/guns/ owns its numbers).
+export const WEAPONS = Object.fromEntries(Object.entries(GUNS).map(([id, g]) => [id, g.def]));
 
 export const GRENADE = {
   name: 'Briquette',

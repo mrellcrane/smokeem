@@ -93,6 +93,10 @@ export class Menu {
       case 'rematch':
         h.onRematch?.();
         break;
+      case 'loadout-prev':
+      case 'loadout-next':
+        h.onLoadout?.(Number(btn.dataset.seat), action === 'loadout-next' ? 1 : -1);
+        break;
       case 'start':
       case 'resume':
         h.onResume?.();
@@ -348,13 +352,31 @@ export class Menu {
       `
       <div class="panel ready">
         <h2>Mudlark Gauntlet</h2>
-        <button data-action="start" class="big">${label}</button>
+        <div class="loadouts"></div>
+        <button data-action="start" class="big" data-autofocus>${label}</button>
         ${message ? `<p class="warn">${message}</p>` : ''}
         ${this.soundHint()}
         ${controlsFor(kinds)}
       </div>`,
       'ready',
       'dim',
+    );
+    this.renderLoadouts();
+  }
+
+  // Each local player's spawn loadout, changed with the arrows (or left/right on their pad).
+  renderLoadouts() {
+    const el = this.root.querySelector('.loadouts');
+    if (!el) return;
+    const rows = this.handlers.loadoutRows?.() ?? [];
+    this.setHtml(
+      el,
+      rows
+        .map(
+          (r, i) =>
+            `<div class="loadout-row" style="--seat:${SEAT_COLORS[i]}"><b>P${i + 1}</b><button class="step" data-action="loadout-prev" data-seat="${i}" tabindex="-1">◀</button><span>${r}</span><button class="step" data-action="loadout-next" data-seat="${i}" tabindex="-1">▶</button></div>`,
+        )
+        .join(''),
     );
   }
 

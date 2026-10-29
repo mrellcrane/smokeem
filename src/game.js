@@ -23,6 +23,7 @@ import { disposeViewmodelMaterial } from './player/viewmodel.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
+import { WEAPON_SETS, DEFAULT_SET, setGuns } from './combat/arsenal.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -49,11 +50,14 @@ export class Game {
     botSkill = 'normal',
     practiceTargets = true,
     timeLimit = 5,
+    weaponSet = DEFAULT_SET,
     onProgress = () => {},
   }) {
     onProgress('Lighting the smoker', 0.05);
     await initRapier();
     const game = new Game(stage, hudRoot, fps, sfx);
+    const set = WEAPON_SETS[weaponSet] ?? WEAPON_SETS[DEFAULT_SET];
+    game.arsenal = { set, guns: setGuns(set) };
     game.match = new Match(game, timeLimit);
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
@@ -133,7 +137,7 @@ export class Game {
     }
 
     playerDefs.forEach((def, i) => {
-      const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}` });
+      const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}`, loadout: def.loadout ?? 0 });
       def.source.player = p;
       this.players.push(p);
       this.humans.push(p);

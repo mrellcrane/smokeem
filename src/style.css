@@ -1259,4 +1259,58 @@ button:disabled {
 body.in-match .fps {
   /* Beats the inline display the counter sets on itself. */
   display: none !important;
+
+.death .loadout {
+  margin: 14px 0 0;
+  padding: 4px 12px;
+  border-radius: 4px;
+  background: rgba(10, 8, 7, 0.55);
+  font-size: calc(16px * var(--hud-scale, 1));
+  color: var(--ember-2);
+}
+
+.death .loadout:empty {
+  display: none;
+}
+
+/* ---------- loadout picker on the ready screen */
+
+.loadouts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 auto 22px;
+  width: min(520px, 100%);
+}
+
+.loadout-row {
+  --seat: #888;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-left: 4px solid var(--seat);
+  border-radius: 4px;
+  background: rgba(20, 17, 15, 0.7);
+}
+
+.loadout-row b {
+  font-family: var(--display);
+  color: var(--seat);
+  min-width: 2em;
+}
+
+.loadout-row span {
+  flex: 1;
+  text-align: center;
+}
+
+.loadout-row .step {
+  min-width: 0;
+  width: 38px;
+  padding: 4px 0;
+  font-size: 18px;
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(244, 234, 216, 0.35);
 }
