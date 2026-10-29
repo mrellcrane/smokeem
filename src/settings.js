@@ -38,6 +38,8 @@ const DEFAULTS = {
   volume: 0.7,
   bots: 3,
   botSkill: 'normal',
+  // Match length in minutes; 0 means no limit.
+  timeLimit: 5,
   // Multiplier on horizontal movement and climbing speed for everyone (players and bots).
   moveSpeed: 0.7,
 };
@@ -49,6 +51,7 @@ export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 };
 export const MAX_BOTS = 7;
 export const MOVE_SPEED_RANGE = { min: 0.4, max: 1.3, step: 0.05 };
 export const BOT_SKILLS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+export const TIME_LIMITS = { 3: '3 min', 5: '5 min', 10: '10 min', 0: 'No limit' };
 
 function load() {
   const out = { ...DEFAULTS };
@@ -65,6 +68,7 @@ function load() {
   if (!Number.isFinite(out.volume)) out.volume = DEFAULTS.volume;
   out.bots = Number.isInteger(out.bots) ? Math.max(0, Math.min(MAX_BOTS, out.bots)) : DEFAULTS.bots;
   if (!BOT_SKILLS[out.botSkill]) out.botSkill = DEFAULTS.botSkill;
+  if (!(String(out.timeLimit) in TIME_LIMITS)) out.timeLimit = DEFAULTS.timeLimit;
   if (!Number.isFinite(out.moveSpeed)) out.moveSpeed = DEFAULTS.moveSpeed;
   out.moveSpeed = Math.max(MOVE_SPEED_RANGE.min, Math.min(MOVE_SPEED_RANGE.max, out.moveSpeed));
   return out;

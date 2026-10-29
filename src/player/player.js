@@ -132,7 +132,7 @@ export class Player {
     this.lungeDir = new THREE.Vector3();
     this.knockT = 0;
     this.shake = 0;
-    this.stats = { kills: 0, deaths: 0 };
+    this.stats = { kills: 0, deaths: 0, score: 0 };
     this.aimZoom = 1;
     this.aimTarget = null;
     this.sprintLock = 0;

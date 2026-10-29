@@ -36,8 +36,16 @@ procedurally in code (canvas) or come from CC0 sources. No external art pipeline
 
 ## Modes
 
-- **Free-for-all** (v1). 5-minute matches. Most kills wins.
-  - Default scoring (proposal): kill +1, suicide or environment death -1.
+- **Free-for-all** (v1). Timed matches, 5 minutes by default (3, 5, 10 or no limit on the
+  title screen). Most points when time runs out wins.
+  - Scoring: a kill is +1; smoking yourself (your own blast, the fire, falling out) is -1.
+    Ties on points share a place.
+  - Each view shows the clock (red in the last 30 seconds, a beep each second for the last
+    10), your place and points, and a kill feed. Hold Tab (View on a controller) for the
+    scoreboard.
+  - When time runs out a horn sounds, play freezes and the results screen shows everyone's
+    place, points, kills, deaths and smoked meat rank, with Play again and Quit. The pause
+    menu can also end a match early (the only way to see results with no time limit).
 - **Bots** (v1) for solo testing and filling out matches. Choose 0 to 7 bots and a skill level
   (Easy / Normal / Hard) on the title screen. With 0 bots, training dummies fill in.
   - Bots are regular players driven by an AI instead of a controller: same movement, same
@@ -61,9 +69,9 @@ skeleton (one draw call each), so they can run, crouch, jump and climb without i
 - 1 to 4 local players in one tab, rendered with renderer viewports and scissor.
 - Layouts: 1 player full screen, 2 players stacked top and bottom, 4 players in quadrants.
 - 3 players: three equal quadrants (players 1 and 2 on top, player 3 bottom left). The 4th
-  quadrant is a match info panel: live scoreboard and an arena map that shows only the local
-  players (the clock and kill feed join it in step 5). Equal views are fair, and this renders
-  25% fewer pixels than a wide view on top, which matters on Xbox.
+  quadrant is a match info panel: clock, live scoreboard, kill feed and an arena map that
+  shows only the local players. Equal views are fair, and this renders 25% fewer pixels
+  than a wide view on top, which matters on Xbox.
 - **Joining** happens on the title screen, which shows four seats. A controller joins by
   pressing A (that press does nothing else) and leaves with B. Keyboard and mouse joins by
   clicking an empty seat, or by hitting Play with nobody joined (solo on a Mac). Seats fill
@@ -289,7 +297,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 | Sprint | Left stick click (stays on until you let off forward or crouch) |
 | Zoom | Right stick click (toggle) |
 | Pause | Menu, or D-pad down |
-| Scoreboard (step 5) | View |
+| Scoreboard (hold) | View |
 
 - Menus: D-pad or left stick moves, A selects, B goes back, left/right changes sliders and
   choices.
@@ -347,8 +355,8 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
    permanent on-screen controls.
 4. **Bots (done)**: bots that run the obstacle course and fight, bot count and skill on the
    title screen, a damage-direction arrow on the HUD.
-5. **Match flow**: free-for-all rules, 5-minute timer, kill feed, respawns, end-of-match
-   scoreboard with smoked meat ranks.
+5. **Match flow (done)**: free-for-all rules, match timer, kill feed, respawns, hold-to-view
+   scoreboard, end-of-match results with smoked meat ranks.
 6. **Split-screen + controllers (done)**: 1 to 4 local players, Gamepad API, press A to
    join, full controller navigation of every menu, the 3-player info panel.
 7. **Xbox pass**: performance tuning on Edge on Xbox with 3 views, placeholder sounds, polish.
@@ -398,3 +406,8 @@ Need answers before the step that uses them gets built.
   CC0 recordings (The Free Firearm Sound Library and others from OpenGameArt), with distance
   falloff, muffling, panning and an arena echo. Bots' personal sounds (hit markers, hurt) no
   longer play.
+- 2026-10-29: Match length is a title-screen choice (3, 5, 10 minutes or no limit, default
+  5); Pause has End match. Ties on points share a place.
+- 2026-10-29: Owner wants everyone to spawn with two guns and to pick loadouts. Next PR:
+  three new guns (Toothpick pistol, Cold Smoke marksman rifle, Kindling SMG), a default
+  loadout of Hickory + Toothpick, and loadouts picked per player on the respawn screen.

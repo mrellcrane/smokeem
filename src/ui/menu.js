@@ -8,12 +8,15 @@ import {
   VOLUME_RANGE,
   MAX_BOTS,
   BOT_SKILLS,
+  TIME_LIMITS,
   MOVE_SPEED_RANGE,
 } from '../settings.js';
 import { controlsHtml } from './controls.js';
 import { PLAYER_COLORS } from '../player/player.js';
+import { ordinal } from '../match.js';
 
-// All full-screen UI: title (with the join lobby), settings, loading, ready, pause, error.
+// All full-screen UI: title (with the join lobby), settings, loading, ready, pause, results,
+// error.
 // Plain DOM buttons, so keyboard focus and controller navigation (PadNav) both work.
 
 const LOGO = `<h1 class="logo">SMOKE <span>EM'</span></h1>`;
@@ -78,6 +81,16 @@ export class Menu {
       case 'botSkill':
         updateSettings({ botSkill: btn.dataset.value });
         this.renderMatchValues();
+        break;
+      case 'timeLimit':
+        updateSettings({ timeLimit: Number(btn.dataset.value) });
+        this.renderMatchValues();
+        break;
+      case 'end-match':
+        h.onEndMatch?.();
+        break;
+      case 'rematch':
+        h.onRematch?.();
         break;
       case 'start':
       case 'resume':
@@ -149,6 +162,12 @@ export class Menu {
               .join('')}</div>
           </div>
           <p class="hint bots-hint"></p>
+          <div class="row-inline">
+            <label>Time limit</label>
+            <div class="segmented">${[3, 5, 10, 0]
+              .map((k) => `<button data-action="timeLimit" data-value="${k}" class="seg">${TIME_LIMITS[k]}</button>`)
+              .join('')}</div>
+          </div>
         </div>
         <div class="lobby"></div>
         <p class="hint lobby-hint"></p>
@@ -156,7 +175,7 @@ export class Menu {
           <button data-action="play" data-autofocus>Play</button>
           <button data-action="settings" class="secondary">Settings</button>
         </div>
-        <p class="note">Step 6 build: 1 to 4 players split-screen against bots. Match timer and scoreboard come next.</p>
+        <p class="note">Free-for-all: most points when time runs out wins. A kill is +1, smoking yourself is -1.</p>
       </div>`,
       'title',
     );
@@ -207,6 +226,9 @@ export class Menu {
     if (v) v.textContent = settings.bots;
     for (const btn of r.querySelectorAll('[data-action="botSkill"]')) {
       btn.classList.toggle('active', btn.dataset.value === settings.botSkill);
+    }
+    for (const btn of r.querySelectorAll('[data-action="timeLimit"]')) {
+      btn.classList.toggle('active', Number(btn.dataset.value) === settings.timeLimit);
     }
     const h = r.querySelector('.bots-hint');
     if (h) h.textContent = settings.bots === 0 ? 'No bots: training dummies take their place.' : '';
@@ -342,12 +364,45 @@ export class Menu {
         <div class="buttons">
           <button data-action="resume">Resume</button>
           <button data-action="settings" class="secondary">Settings</button>
+          <button data-action="end-match" class="secondary">End match</button>
           <button data-action="quit" class="secondary">Quit to menu</button>
         </div>
         ${message ? `<p class="warn">${message}</p>` : ''}
         ${controlsFor(this.kinds())}
       </div>`,
       'pause',
+      'dim',
+    );
+  }
+
+  // End of match: who won, everyone's place, score and smoked meat rank.
+  showResults({ standings, winners }, localPlayers = []) {
+    const hex = (c) => `#${c.toString(16).padStart(6, '0')}`;
+    const headline =
+      winners.length === 1
+        ? `${winners[0].name} wins`
+        : `Tie: ${winners.map((w) => w.name).join(' and ')}`;
+    const rows = standings
+      .map(({ player: p, place, rank }) => {
+        const local = localPlayers.includes(p) ? ' class="local"' : '';
+        return `<tr${local}><td>${ordinal(place)}</td><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td><td class="rank">${rank}</td></tr>`;
+      })
+      .join('');
+    this.set(
+      `
+      <div class="panel results">
+        <h2>Match over</h2>
+        <p class="winner">${headline}</p>
+        <table class="results-table">
+          <thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th><th>Rank</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="buttons">
+          <button data-action="rematch" data-autofocus>Play again</button>
+          <button data-action="quit" class="secondary">Quit to menu</button>
+        </div>
+      </div>`,
+      'results',
       'dim',
     );
   }

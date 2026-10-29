@@ -59,6 +59,15 @@ const SOUNDS = {
   swing: (ctx) => synth(ctx, 0.22, (t) => 0.3 * noise() * Math.sin((Math.PI * t) / 0.22)),
   bash: (ctx) =>
     synth(ctx, 0.2, (t) => 0.9 * Math.sin(t * 120 * Math.PI * 2) * Math.exp(-t * 22) + 0.4 * noise() * Math.exp(-t * 30)),
+  // Last seconds of the match clock, and time's up.
+  tick: (ctx) => synth(ctx, 0.09, (t) => 0.35 * Math.sin(t * 1320 * Math.PI * 2) * Math.exp(-t * 40)),
+  horn: (ctx) =>
+    synth(ctx, 1.4, (t, s, rate) => {
+      s.phase += (233 * Math.PI * 2) / rate;
+      s.phase2 += (349 * Math.PI * 2) / rate;
+      const env = Math.min(1, t / 0.04) * Math.min(1, (1.4 - t) / 0.4);
+      return 0.3 * env * (Math.sign(Math.sin(s.phase)) * 0.5 + Math.sin(s.phase2) * 0.6);
+    }),
   pickup: (ctx) => synth(ctx, 0.2, (t) => 0.3 * click(t, 0, 880, 25) + 0.3 * click(t, 0.07, 1320, 25)),
   burn: (ctx) =>
     synth(ctx, 0.3, (t) => {

@@ -61,6 +61,9 @@ Live build: https://mrellcrane.github.io/smokeem/
 
 - `src/main.js`: boot, screen flow (menu, loading, play, pause).
 - `src/game.js`: one match. Owns the renderer, scene, physics world, players, fixed-step loop.
+- `src/match.js`: free-for-all rules: clock, scoring, kill feed, standings, smoked meat ranks.
+  `game.match`; when time runs out `game.endMatch()` sets state `'over'` and `main.js` shows
+  the results.
 - `src/config.js`: movement and body tuning numbers.
 - `src/settings.js`: quality presets and saved settings (`localStorage`).
 - `src/input/`: input sources (keyboard/mouse, gamepads; bots write theirs from `src/ai/`)

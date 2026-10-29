@@ -9,6 +9,7 @@ export const CONTROL_ROWS = {
       ['Space', 'jump, again in air'],
       ['Shift', 'sprint'],
       ['C', 'crouch'],
+      ['Tab', 'scores'],
       ['Esc', 'pause'],
     ],
     [
@@ -29,6 +30,7 @@ export const CONTROL_ROWS = {
       ['A', 'jump, again in air'],
       ['LS click', 'sprint'],
       ['B', 'crouch'],
+      ['View', 'scores'],
       ['Menu / D-pad ↓', 'pause'],
     ],
     [

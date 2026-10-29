@@ -1036,3 +1036,208 @@ kbd {
 .hud-view.split .ctl-row {
   justify-content: flex-start;
 }
+
+/* ---------- match: clock, place, kill feed, scoreboard, results */
+
+.hud-match {
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(2px * var(--hud-scale, 1));
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.hud-clock {
+  font-family: var(--display);
+  font-size: calc(24px * var(--hud-scale, 1));
+  letter-spacing: 0.04em;
+}
+
+.hud-clock.hot,
+.ip-clock.hot {
+  color: #ff5a3c;
+}
+
+.hud-place {
+  font-size: calc(14px * var(--hud-scale, 1));
+  font-weight: 700;
+  color: var(--ember-2);
+}
+
+.hud-feed,
+.ip-feed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-top: calc(6px * var(--hud-scale, 1));
+  font-size: max(10px, calc(13px * var(--hud-scale, 1)));
+}
+
+.hud-feed div,
+.ip-feed div {
+  padding: 1px 8px;
+  border-radius: 3px;
+  background: rgba(10, 8, 7, 0.5);
+  white-space: nowrap;
+}
+
+.hud-feed span,
+.ip-feed span {
+  color: var(--ink-dim);
+  margin: 0 0.3em;
+}
+
+.hud-scores {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: min(440px, 86%);
+  max-height: 86%;
+  overflow: hidden;
+  padding: calc(14px * var(--hud-scale, 1)) calc(18px * var(--hud-scale, 1));
+  border-radius: 8px;
+  background: rgba(14, 11, 9, 0.86);
+  border: 1px solid rgba(244, 234, 216, 0.15);
+  font-size: max(11px, calc(15px * var(--hud-scale, 1)));
+}
+
+.hud-scores h4 {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hud-scores table,
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.hud-scores th,
+.results-table th {
+  font-size: 0.75em;
+  font-weight: 400;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: right;
+  padding: 0 0 4px 10px;
+}
+
+.hud-scores td,
+.results-table td {
+  padding: 3px 0 3px 10px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink-dim);
+}
+
+.hud-scores td:nth-child(1),
+.results-table td:nth-child(1) {
+  padding-left: 0;
+  width: 2.6em;
+  text-align: left;
+}
+
+.hud-scores td:nth-child(2),
+.results-table td:nth-child(2) {
+  text-align: left;
+}
+
+.hud-scores tr.local td,
+.results-table tr.local td {
+  color: var(--ink);
+}
+
+.hud-scores tr.me td {
+  color: var(--ink);
+  font-weight: 700;
+  background: rgba(255, 122, 26, 0.12);
+}
+
+.ip-head .ip-mode {
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.ip-clock {
+  font-family: var(--display);
+  font-size: 1.2em;
+}
+
+.ip-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ip-feed {
+  align-items: flex-start;
+  margin-top: auto;
+}
+
+.results {
+  width: min(720px, 100%);
+}
+
+.results .winner {
+  font-family: var(--display);
+  font-size: 26px;
+  color: var(--ember);
+  margin: -12px 0 18px;
+}
+
+.results-table {
+  margin: 0 auto 24px;
+  font-size: 17px;
+  background: rgba(20, 17, 15, 0.7);
+  border-radius: 8px;
+}
+
+.results-table td,
+.results-table th {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.results-table td:first-child,
+.results-table th:first-child {
+  padding-left: 14px;
+}
+
+.results-table td:last-child,
+.results-table th:last-child {
+  padding-right: 14px;
+}
+
+.results-table tr.local td {
+  font-weight: 700;
+  background: rgba(255, 122, 26, 0.12);
+}
+
+.results-table td.rank {
+  color: var(--ember-2);
+}
+
+.results-table i,
+.hud-scores i {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.5em;
+  border-radius: 50%;
+}
+
+.ip-side .ip-score {
+  flex: none;
+  align-self: stretch;
+}

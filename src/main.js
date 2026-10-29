@@ -34,6 +34,8 @@ const menu = new Menu(uiRoot, {
   onPlay: startMatch,
   onResume: resumeMatch,
   onQuit: quitMatch,
+  onEndMatch: () => game?.match.end(),
+  onRematch: rematch,
   onJoinKbm: () => join(kbm),
   onLeave: (i) => leave(seats[i]),
   inMatch: () => !!game,
@@ -149,9 +151,15 @@ async function startMatch() {
       bots: settings.bots,
       botSkill: settings.botSkill,
       practiceTargets: settings.bots === 0,
+      timeLimit: settings.timeLimit,
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;
+    game.onMatchEnd = (results) => {
+      kbm.setEnabled(false);
+      lock.exit();
+      menu.showResults(results, game.humans);
+    };
     game.start();
     menu.showReady();
   } catch (err) {
@@ -164,7 +172,7 @@ async function startMatch() {
   }
 }
 
-function quitMatch() {
+function endGame() {
   kbm.setEnabled(false);
   lock.exit();
   if (game) {
@@ -173,7 +181,17 @@ function quitMatch() {
   }
   // Controllers that dropped out mid-match give up their seats.
   for (const s of [...seats]) if (s.kind === 'gamepad' && !s.connected) leave(s);
+}
+
+function quitMatch() {
+  endGame();
   menu.showTitle();
+}
+
+// Same players and settings, fresh match.
+function rematch() {
+  endGame();
+  startMatch();
 }
 
 // ---------------------------------------------------------------- controllers
