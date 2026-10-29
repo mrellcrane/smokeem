@@ -457,15 +457,16 @@ function ring(ctx, R) {
 }
 
 // Bright along the middle of the cell's width, tapering to both ends (stretched along a
-// direction by particles.js).
+// direction by particles.js). It fills half the cell's height, so the particle's size sets
+// its thickness (and its minimum on-screen size still shows).
 function streak(ctx, R) {
-  ctx.scale(1, 0.18);
+  ctx.scale(1, 0.5);
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
   g.addColorStop(0, 'rgba(255,255,255,1)');
   g.addColorStop(0.35, 'rgba(255,255,255,0.75)');
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
-  ctx.fillRect(-R, -R / 0.18, R * 2, (R * 2) / 0.18);
+  ctx.fillRect(-R, -R / 0.5, R * 2, (R * 2) / 0.5);
 }
 
 function shard(ctx, R) {

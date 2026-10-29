@@ -12,8 +12,8 @@ import { viewUniforms } from './viewUniforms.js';
 // the faint full-length line stays once it lands (s).
 const SPEED = 700;
 const STREAK = 9;
-const RESIDUAL = 0.06;
-const RESIDUAL_ALPHA = 0.35;
+const RESIDUAL = 0.08;
+const RESIDUAL_ALPHA = 0.45;
 const MIN_PX = 1.6;
 // Default owner: nobody's (never equal to a viewer id or -1).
 const NO_OWNER = -2;
@@ -62,6 +62,8 @@ const fragmentShader = /* glsl */ `
     float a = vColor.a * (1.0 - 0.5 * vSide * vSide);
     if (a < 0.003) discard;
     gl_FragColor = vec4(vColor.rgb, a);
+    // Colors are linear: encode them for the sRGB screen like the built-in materials do.
+    #include <colorspace_fragment>
   }
 `;
 
@@ -72,7 +74,7 @@ export class Tracers {
     this.max = max;
     this.items = [];
     for (let i = 0; i < max; i++) {
-      this.items.push({ live: false, age: 0, len: 1, travel: true, life: 0, linger: RESIDUAL });
+      this.items.push({ live: false, age: 0, len: 1, travel: true, life: 0, linger: RESIDUAL, landed: false });
     }
     this.next = 0;
     const n = max * 4;
@@ -131,6 +133,7 @@ export class Tracers {
     const { a3 = a, owner = NO_OWNER, startWidth = width, life = 0, linger = RESIDUAL } = opts;
     t.live = true;
     t.age = 0;
+    t.landed = false;
     t.len = Math.max(0.01, a3.distanceTo(b));
     t.travel = life <= 0;
     t.life = life;
@@ -168,8 +171,18 @@ export class Tracers {
       let head = 1;
       let alpha;
       if (t.travel) {
-        const run = t.age * SPEED;
-        if (run < t.len) {
+        let run = t.age * SPEED;
+        // The first frame the head reaches the end it's drawn there at full brightness (so a
+        // shot shorter than one frame's travel still shows its bright streak), and the faint
+        // line counts from then.
+        if (run >= t.len && !t.landed) {
+          t.landed = true;
+          run = t.len;
+          t.age = t.len / SPEED;
+          head = 1;
+          tail = Math.max(0, (run - STREAK) / t.len);
+          alpha = 1;
+        } else if (run < t.len) {
           head = run / t.len;
           tail = Math.max(0, (run - STREAK) / t.len);
           alpha = 1;
@@ -200,6 +213,19 @@ export class Tracers {
     let top = -1;
     for (let i = this.max - 1; i >= 0 && top < 0; i--) if (this.items[i].live) top = i;
     this.mesh.geometry.setDrawRange(0, (top + 1) * 6);
+  }
+
+  // Ends every tracer at once (after warm-up).
+  clear() {
+    for (const t of this.items) t.live = false;
+    // (An explicit range: a later partial update in the same frame would otherwise replace a
+    // whole-buffer upload.)
+    this.aSpan.array.fill(0);
+    this.aSpan.addUpdateRange(0, this.aSpan.array.length);
+    this.aSpan.needsUpdate = true;
+    this.live = 0;
+    this.mesh.visible = false;
+    this.mesh.geometry.setDrawRange(0, 0);
   }
 
   dispose() {

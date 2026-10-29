@@ -293,7 +293,7 @@ export class Game {
     this.bolts.warmup(false);
     this.swarms.warmup(false);
     this.pickups.warmup(false);
-    this.fx.update(10);
+    this.fx.clear();
     this.needsRender = true;
   }
 

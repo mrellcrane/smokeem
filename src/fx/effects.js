@@ -77,7 +77,7 @@ export class Effects {
     const cell = STAR + Math.floor(Math.random() * 3);
     this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, color, size, 0.07, { cell, owner, minPx: 14, grow: 1.2 });
     _t.copy(dir).multiplyScalar(size * 2.2);
-    this.sparks.spawn(pos.x + _t.x * 0.5, pos.y + _t.y * 0.5, pos.z + _t.z * 0.5, 0, 0, 0, color, size * 0.35, 0.07, {
+    this.sparks.spawn(pos.x + _t.x * 0.5, pos.y + _t.y * 0.5, pos.z + _t.z * 0.5, 0, 0, 0, color, size * 0.13, 0.07, {
       cell: STREAK,
       owner,
       minPx: 3,
@@ -196,6 +196,14 @@ export class Effects {
     this.beamPool?.update(dt);
     this.sparks.update(dt);
     this.smoke.update(dt);
+  }
+
+  // Ends every effect at once (after warm-up).
+  clear() {
+    this.tracerPool.clear();
+    this.beamPool?.clear();
+    this.sparks.update(1e3);
+    this.smoke.update(1e3);
   }
 
   dispose() {
