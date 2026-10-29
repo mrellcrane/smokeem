@@ -517,6 +517,8 @@ export class Game {
       const p = this.humans[i];
       const rect = rects[i];
       p.updateCamera(alpha, dt, rect.w / rect.h);
+      // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
+      this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
       r.setViewport(rect.x, rect.y, rect.w, rect.h);
       r.setScissor(rect.x, rect.y, rect.w, rect.h);
       r.clear(true, true, false);

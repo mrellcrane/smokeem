@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Tracers } from './tracers.js';
 import { Particles } from './particles.js';
+import { setView } from './viewUniforms.js';
 
 // All pooled world effects. Everything is created at load and stays in the scene, so the
 // shaders are compiled during warm-up and nothing new appears mid-match.
@@ -9,16 +10,29 @@ const _t = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
+// Cells of the effect atlases (textures.js).
+const STAR = 1; // 1 to 3
+const RING = 4;
+const STREAK = 5;
+const SHARD = 6;
+const PUFF = 0; // 0 to 3, in the smoke atlas
+
 export class Effects {
   constructor(scene, textures) {
     this.tracerPool = new Tracers(64);
-    this.sparks = new Particles({ max: 400, texture: textures.spark, additive: true, name: 'sparks' });
-    this.smoke = new Particles({ max: 260, texture: textures.smoke, additive: false, name: 'smoke' });
+    this.sparks = new Particles({ max: 400, texture: textures.fxAtlas, additive: true, name: 'sparks' });
+    this.smoke = new Particles({ max: 260, texture: textures.smokeAtlas, additive: false, name: 'smoke' });
     scene.add(this.tracerPool.mesh, this.sparks.mesh, this.smoke.mesh);
   }
 
-  tracer(a, b, color, width, life) {
-    this.tracerPool.spawn(a, b, color, width, life);
+  // Before each split-screen view renders: whose view it is and its height in pixels.
+  setView(viewer, viewportH) {
+    setView(viewer, viewportH);
+  }
+
+  // opts: a3 (start in other players' views), owner (shooter id), linger (see Tracers.spawn)
+  tracer(a, b, color, width, opts) {
+    this.tracerPool.spawn(a, b, color, width, opts);
   }
 
   // Heat beams get their own small pool (built only when the match has a beam gun), so they
@@ -30,12 +44,13 @@ export class Effects {
     scene.add(this.beamPool.mesh);
   }
 
-  beam(a, b, color, width) {
-    (this.beamPool ?? this.tracerPool).spawn(a, b, color, width, 0.07, width * 0.2);
+  // opts: a3 and owner, as for tracers.
+  beam(a, b, color, width, opts = {}) {
+    (this.beamPool ?? this.tracerPool).spawn(a, b, color, width, { ...opts, life: 0.07, startWidth: width * 0.2 });
   }
 
-  // Sparks thrown out of a surface around its normal.
-  burst(point, normal, color, count, speed, size) {
+  // Sparks thrown out of a surface around its normal, at least minPx pixels on screen.
+  burst(point, normal, color, count, speed, size, minPx = 2) {
     for (let i = 0; i < count; i++) {
       randomInHemisphere(normal, _t);
       const s = speed * (0.4 + Math.random() * 0.8);
@@ -49,8 +64,41 @@ export class Effects {
         color,
         size * (0.7 + Math.random() * 0.6),
         0.12 + Math.random() * 0.14,
-        { gravity: 9, drag: 2, grow: 0.4 },
+        { gravity: 9, drag: 2, grow: 0.4, minPx },
       );
+    }
+  }
+
+  // A gun going off, as other players see it: a star at the muzzle and a short streak along the
+  // shot, tinted per gun. The star is at least 14 px across (its bright core about half that),
+  // so a far shooter still blinks. owner: the shooter, who sees their own first-person flash
+  // instead.
+  muzzleFlash(pos, dir, color, size, owner) {
+    const cell = STAR + Math.floor(Math.random() * 3);
+    this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, color, size, 0.07, { cell, owner, minPx: 14, grow: 1.2 });
+    _t.copy(dir).multiplyScalar(size * 2.2);
+    this.sparks.spawn(pos.x + _t.x * 0.5, pos.y + _t.y * 0.5, pos.z + _t.z * 0.5, 0, 0, 0, color, size * 0.35, 0.07, {
+      cell: STREAK,
+      owner,
+      minPx: 3,
+      axis: _t,
+    });
+  }
+
+  // A shield breaking: a cyan ring blooming out and a burst of shards.
+  shieldPop(pos) {
+    this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, 0x7ff0ff, 0.2, 0.25, { cell: RING, grow: 7, minPx: 10 });
+    for (let i = 0; i < 14; i++) {
+      randomInHemisphere(UP, _t);
+      _t.y -= 0.6;
+      const s = 3 + Math.random() * 3;
+      this.sparks.spawn(pos.x, pos.y, pos.z, _t.x * s, _t.y * s + 1.5, _t.z * s, 0x7ff0ff, 0.09, 0.35 + Math.random() * 0.15, {
+        cell: SHARD,
+        gravity: 9,
+        drag: 1,
+        rotVel: (Math.random() - 0.5) * 20,
+        minPx: 2,
+      });
     }
   }
 
@@ -66,12 +114,12 @@ export class Effects {
       0xb89a80,
       0.18,
       0.45,
-      { grow: 3, drag: 3, alpha: 0.55, rotVel: 1 },
+      { grow: 3, drag: 3, alpha: 0.55, rotVel: 1, cell: PUFF + Math.floor(Math.random() * 4) },
     );
   }
 
   impactBody(point, normal, shield) {
-    this.burst(point, normal, shield ? 0x7ff0ff : 0xff4a2a, 5, 5, 0.09);
+    this.burst(point, normal, shield ? 0x7ff0ff : 0xff4a2a, 5, 5, 0.09, 3);
   }
 
   // A glowing ember drifting off something hot (Chimney coals in flight).
@@ -79,8 +127,11 @@ export class Effects {
     this.sparks.spawn(p.x, p.y, p.z, (Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.6, 0xff8a2a, 0.06, 0.35);
   }
 
-  // The "you got smoked" puff: rising grey smoke with a few embers.
-  deathPuff(x, y, z) {
+  // The "you got smoked" puff: rising grey smoke with a few embers. color (the victim's armor)
+  // tints some of the smoke and embers and adds a white flash, so you can tell from across the
+  // map who went down.
+  deathPuff(x, y, z, color = null) {
+    if (color !== null) this.sparks.spawn(x, y + 0.9, z, 0, 0, 0, 0xffffff, 1.2, 0.18, { cell: STAR, minPx: 16, grow: 1.3 });
     for (let i = 0; i < 26; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.random() * 0.35;
@@ -92,18 +143,19 @@ export class Effects {
         Math.cos(a) * (0.6 + Math.random()),
         0.8 + Math.random() * 1.2,
         Math.sin(a) * (0.6 + Math.random()),
-        i % 4 === 0 ? 0x6e6a66 : 0x9c9894,
+        color !== null && i % 4 === 1 ? color : i % 4 === 0 ? 0x6e6a66 : 0x9c9894,
         0.6 + Math.random() * 0.4,
         1.2 + Math.random() * 0.8,
-        { grow: 2.6, drag: 1.2, alpha: 0.85, rotVel: (Math.random() - 0.5) * 2 },
+        { grow: 2.6, drag: 1.2, alpha: 0.85, rotVel: (Math.random() - 0.5) * 2, cell: PUFF + (i % 4) },
       );
     }
     _b.set(0, 1, 0);
     for (let i = 0; i < 10; i++) {
       randomInHemisphere(_b, _t);
-      this.sparks.spawn(x, y + 0.9, z, _t.x * 4, _t.y * 5, _t.z * 4, 0xff7a1a, 0.1, 0.6 + Math.random() * 0.4, {
+      this.sparks.spawn(x, y + 0.9, z, _t.x * 4, _t.y * 5, _t.z * 4, color !== null && i < 4 ? color : 0xff7a1a, 0.1, 0.6 + Math.random() * 0.4, {
         gravity: 6,
         drag: 1,
+        minPx: 2,
       });
     }
   }
@@ -130,6 +182,7 @@ export class Effects {
       const s = (1.5 + Math.random() * 2.5) * r;
       this.smoke.spawn(pos.x + _t.x * r, pos.y + _t.y * r * 0.6, pos.z + _t.z * r, _t.x * s, _t.y * s + 0.8, _t.z * s,
         i % 3 === 0 ? 0x4a4440 : 0x7a7470, (1.2 + Math.random()) * r, 1.4 + Math.random() * 0.9, {
+          cell: PUFF + (i % 4),
           grow: 2.4,
           drag: 1.6,
           alpha: 0.85,

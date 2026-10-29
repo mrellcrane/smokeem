@@ -3,6 +3,8 @@ import { DEG } from '../util/math.js';
 import { dealDamage } from './damage.js';
 import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
 import { SWARM } from './swarms.js';
+import { GUNS } from './guns/index.js';
+import { gfx } from '../render/gfx.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
 // reload, weapon switching, grenades, melee, launching and detonating the Smoke Signal.
@@ -20,6 +22,19 @@ const _pt = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _col = new THREE.Color();
 const _hot = new THREE.Color();
+const _m3 = new THREE.Vector3();
+
+// Third-person muzzle flashes: at most one per shooter this often (s), so bots' fast guns
+// don't flood the sparks pool.
+const FLASH_EVERY = 0.05;
+
+// The flash other players see at our third-person gun (we see our first-person one).
+function muzzleFlash(game, p, dir) {
+  if (!gfx.thirdPersonFlashes || game.time - p.flashT < FLASH_EVERY) return;
+  p.flashT = game.time;
+  const view = GUNS[p.weapon.def.id].view;
+  game.fx.muzzleFlash(p.worldMuzzle(_m3), dir, view.flashColor ?? 0xffc070, 0.3 * view.flash, p.id);
+}
 
 // Pellet hits are summed per target so one shotgun blast is one damage event.
 const pelletHits = new Map();
@@ -199,6 +214,7 @@ function fire(game, p) {
 
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
+  muzzleFlash(game, p, _f);
 
   if (d.kind === 'launcher') {
     // Out of the muzzle along the aim, with a little lift and half your own velocity.
@@ -234,8 +250,10 @@ function fire(game, p) {
 
   const spread = currentSpread(p) * DEG;
   w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
-  // Tracers start near the barrel, so other players see them come from the gun.
+  // Tracers start near the first-person barrel in our own view, and at our third-person gun
+  // in everyone else's.
   _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.14);
+  p.worldMuzzle(_m3);
   const rays = d.pellets ?? 1;
   pelletHits.clear();
   for (let i = 0; i < rays; i++) {
@@ -250,7 +268,7 @@ function fire(game, p) {
     // Fast guns draw a tracer on every few rounds (always the first) so several of them never
     // flood the pool.
     if (rays === 1 ? (w.shots - 1) % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
-      game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, d.tracerLife);
+      game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, { a3: _m3, owner: p.id, linger: d.tracerLife });
     }
     if (!hit.hit) continue;
     if (hit.entity) {
@@ -387,7 +405,9 @@ function fireBeam(game, p) {
   const dps = Math.min(d.rampMax, d.rampStart + d.rampRate * w.beamHeat);
   const glow = (dps - d.rampStart) / (d.rampMax - d.rampStart);
   _col.set(d.beamColor).lerp(_hot.set(d.beamHot), glow);
-  game.fx.beam(_muzzle, _end, _col, d.beamWidth * (1 + glow * 0.5));
+  // A small glow at the gun every third pulse; the beam starts there in other players' views.
+  if (w.shots % 3 === 0) muzzleFlash(game, p, _f);
+  game.fx.beam(_muzzle, _end, _col, d.beamWidth * (1 + glow * 0.5), { a3: p.worldMuzzle(_m3), owner: p.id });
 
   if (game.swarms.count) game.swarms.shot(_o, _f, dist, SWARM.hp / (SWARM.beamKillTime * d.fireRate), p);
 

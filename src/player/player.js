@@ -8,6 +8,7 @@ import { InputState } from '../input/inputState.js';
 import { updateShooting, cancelReload } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
 import { CharacterModel } from './character.js';
+import { GUNS } from '../combat/guns/index.js';
 import { Viewmodel } from './viewmodel.js';
 
 // One player's body, movement and first-person camera. Reads an InputState, so the same
@@ -131,6 +132,8 @@ export class Player {
     this.switchT = 0;
     this.meleeT = 0;
     this.throwT = 0;
+    // When our last third-person muzzle flash went off (game time).
+    this.flashT = -1;
     this.guiding = null;
     this.pickupPrompt = null;
     this.lungeT = 0;
@@ -202,6 +205,15 @@ export class Player {
 
   centerPosition(out) {
     return out.copy(this.center);
+  }
+
+  // The muzzle of the gun in our third-person body's hands, as last drawn (at most a frame
+  // behind): where other players see our shots and flashes come from.
+  worldMuzzle(out) {
+    const id = this.weapon.def.id;
+    const bone = this.model.bones[`gun:${id}`];
+    if (!bone) return this.eyePosition(out);
+    return out.fromArray(GUNS[id].muzzle).applyMatrix4(bone.matrixWorld);
   }
 
   facing(out) {
@@ -436,7 +448,7 @@ export class Player {
     this.net = this.rope = this.bars = null;
     this.collider.setEnabled(false);
     this.model.group.visible = false;
-    this.game.fx.deathPuff(this.center.x, this.feetY(), this.center.z);
+    this.game.fx.deathPuff(this.center.x, this.feetY(), this.center.z, this.color);
     this.game.sfx.play('death', { at: this.center, source: this });
   }
 

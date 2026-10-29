@@ -65,6 +65,6 @@ export default {
     [[-0.04, -0.11, -0.22], [0.05, 0.05, 0.1], GLOVE],
   ],
   muzzle: [0, 0.03, -0.41],
-  view: { pos: [0.2, -0.2, -0.44], rot: [0.03, 0.06, 0], scale: 0.75, kick: 2.4, flash: 1.4 },
+  view: { pos: [0.2, -0.2, -0.44], rot: [0.03, 0.06, 0], scale: 0.75, kick: 2.4, flash: 1.4, flashColor: 0xff7a1a },
   carry: [0.12, 1.2, -0.3],
 };

@@ -461,7 +461,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   sharper shadows (done); (2) readable contestants: team-color rim light, glowing visors, a
   bot palette that avoids arena colors, chunkier armor (done); (3) world light: baked ground shading
   and glow pools, contact shading on walls and props, a light grade per map (done); (4) shots you
-  can read: third-person muzzle flashes, tracers that stay visible far away, combat cues;
+  can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0; (7) body language: real locomotion, aiming
   separate from legs, jumps and landings; (8) pickup beacons; (9) explosions, impacts and
   decals; (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
@@ -555,3 +555,8 @@ Need answers before the step that uses them gets built.
   it's one block in `looks.js` if the owner wants it changed. The floor bake costs no draw calls
   and two shader programs; it runs once per map and quality (about 90 ms headless, cached for
   rematches).
+- 2026-10-29: Shots you can read (graphics PR 4). Other players' guns flash when they fire
+  (tinted per gun), tracers race from the gun you see in their hands and never thin below
+  about 1.6 px, a broken shield pops with a cyan ring, and a death puff carries the victim's
+  armor color. Fuse blink, low-health smoke and spawn flashes were left out until the owner
+  wants them.
