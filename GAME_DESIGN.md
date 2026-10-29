@@ -92,7 +92,11 @@ The arena is a game show (owner request, "game-show arena hell yeah"):
   headshot, then settle back. A crowd roar plays with it.
 - A big screen over the north stands shows "SMOKE EM' LIVE", the leader (or a tie) in their
   color with their score, the next two, and the last kill for a few seconds.
-- Coming next: confetti and a winner's podium at the end of a match.
+- When the horn goes, the finale: the top three stand on a gold, silver and bronze podium on
+  the Summit deck, the winner (everyone tied for first) pumping both arms over their head and
+  the others clapping, while confetti blasts out of two cannons and keeps raining, the crowd
+  stays on its feet and the big screen says "AND THE WINNER IS" (or "IT'S A TIE!") with the
+  name. A slow camera orbits the podium, full screen; the results sit on the right.
 
 ## Characters
 
@@ -815,3 +819,7 @@ Need answers before the step that uses them gets built.
   shadows) and merge into the arena's existing meshes; the crowd (about 770 people) is one
   instanced mesh animated in its vertex shader and the screen a canvas texture redrawn only when
   the scores change: two draw calls per view, none in the shadow pass. gfx switch `show`.
+- 2026-10-29: The finale (confetti and podium). Built only when a match ends (its shaders are
+  warmed up at load), it takes over the screen from the split views: one full-screen camera, no
+  HUDs. Everyone not on the podium is hidden. Confetti is one instanced mesh of 600 pieces moved
+  on the CPU, which is fine with gameplay over.

@@ -605,6 +605,26 @@ export class CharacterModel {
     });
   }
 
+  // On the podium (world/finale.js), after update(): amount 1 pumps both arms over the head and
+  // bounces, less claps in front.
+  cheer(t, amount) {
+    const B = this.bones;
+    const up = amount >= 1;
+    for (const [u, l, sd] of [['armUL', 'armLL', -1], ['armUR', 'armLR', 1]]) {
+      if (up) {
+        _e.set(-0.3, 0, sd * (2.65 + 0.25 * Math.sin(t * 7 + sd)));
+        B[u].quaternion.setFromEuler(_e);
+        _e.set(-0.3 - 0.3 * Math.max(0, Math.sin(t * 7 + sd)), 0, 0);
+      } else {
+        _e.set(-1.25, 0, sd * (0.25 + 0.18 * (0.5 + 0.5 * Math.sin(t * 9))));
+        B[u].quaternion.setFromEuler(_e);
+        _e.set(-0.9, 0, 0);
+      }
+      B[l].quaternion.setFromEuler(_e);
+    }
+    this.group.position.y += (up ? 0.12 : 0.04) * Math.abs(Math.sin(t * (up ? 4 : 3)));
+  }
+
   // Smoked: the body goes limp, driven by the player's corpse (Player.updateCorpse): c.pos (the
   // feet), c.yaw, c.axis and c.tip (the fall, about a horizontal axis in body space), c.air
   // (tumbling) and c.limp (0 to 1 as it goes slack). Arms fling out and flop, the knees and
