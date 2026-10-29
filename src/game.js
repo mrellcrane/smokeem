@@ -21,6 +21,7 @@ import { Player } from './player/player.js';
 import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial } from './player/viewmodel.js';
 import { Hud } from './ui/hud.js';
+import { InfoPanel } from './ui/infoPanel.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -62,6 +63,7 @@ export class Game {
     this.bots = [];
     this.inputs = [];
     this.huds = [];
+    this.infoPanel = null;
     this.dummies = [];
     this.entities = new Map();
     this.showDebug = false;
@@ -118,10 +120,11 @@ export class Game {
 
     playerDefs.forEach((def, i) => {
       const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}` });
+      def.source.player = p;
       this.players.push(p);
       this.humans.push(p);
       this.inputs.push(def.source);
-      this.huds.push(new Hud(this.hudRoot, def.source.kind));
+      this.huds.push(new Hud(this.hudRoot, def.source, { index: i, color: `#${p.color.toString(16).padStart(6, '0')}` }));
       scene.add(p.model.group);
       this.vmScene.add(p.viewmodel.root);
       this.respawn(p, i);
@@ -142,6 +145,8 @@ export class Game {
       this.respawn(p, this.players.length - 1);
     }
     this.physics.world.step();
+    // 3 players leave a spare quadrant: fill it with the scoreboard and map.
+    if (this.humans.length === 3) this.infoPanel = new InfoPanel(this.hudRoot, this);
 
     onProgress('Compiling shaders', 0.7);
     await nextFrame();
@@ -346,7 +351,10 @@ export class Game {
 
   resume() {
     if (this.state === 'playing') return;
-    for (const s of this.inputs) s.state.clear();
+    for (const s of this.inputs) {
+      s.state.clear();
+      s.prime?.();
+    }
     this.state = 'playing';
     this.acc = 0;
   }
@@ -364,7 +372,7 @@ export class Game {
     this.last = now;
 
     if (this.state === 'playing') {
-      for (const src of this.inputs) src.update();
+      for (const src of this.inputs) src.update(dt);
       for (const p of this.humans) p.applyLook();
       this.acc += dt;
       let steps = 0;
@@ -374,6 +382,8 @@ export class Game {
         steps++;
       }
       if (steps === MAX_STEPS_PER_FRAME) this.acc = 0;
+      for (let i = 0; i < this.humans.length; i++) this.inputs[i].feel?.(this.humans[i]);
+      this.infoPanel?.update(dt);
       this.updateVisuals(dt, this.acc / PHYSICS_DT);
       this.render(this.acc / PHYSICS_DT, dt);
     } else if (this.needsRender) {
@@ -448,6 +458,10 @@ export class Game {
       this.huds[i].layout(rect, H);
       this.huds[i].update(p, this, this.showDebug);
     }
+    if (this.infoPanel) {
+      this.infoPanel.layout(viewportRects(4, W, H)[3], H);
+      if (dt === 0) this.infoPanel.update(1);
+    }
   }
 
   dispose() {
@@ -455,6 +469,7 @@ export class Game {
     window.removeEventListener('resize', this._onResize);
     this._offSettings?.();
     for (const h of this.huds) h.dispose();
+    this.infoPanel?.dispose();
     for (const p of this.players) p.dispose();
     for (const d of this.dummies) d.dispose();
     this.grenades.clear();

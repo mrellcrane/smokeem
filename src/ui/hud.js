@@ -16,7 +16,10 @@ const HURT_TIME = 0.4;
 const KILL_MSG_TIME = 1.8;
 
 export class Hud {
-  constructor(root, inputKind) {
+  // source: the player's input source (keyboard/mouse or a controller).
+  constructor(root, source, { index = 0, color = '#ffffff' } = {}) {
+    const inputKind = source.kind;
+    this.source = source;
     this.keys = KEY_LABELS[inputKind] ?? KEY_LABELS.keyboardMouse;
     this.el = document.createElement('div');
     this.el.className = 'hud-view';
@@ -28,7 +31,9 @@ export class Hud {
         <div class="bar shield"><i></i></div>
         <div class="bar health"><i></i></div>
       </div>
+      <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
       <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="target-name"></div>
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
       <div class="kill-msg"></div>
       <div class="ammo">
@@ -61,6 +66,8 @@ export class Hud {
       health: q('.health'),
       healthFill: q('.health i'),
       cross: q('.crosshair'),
+      tag: q('.hud-tag'),
+      targetName: q('.target-name'),
       ticks: [...this.el.querySelectorAll('.crosshair i')],
       hit: q('.hitmarker'),
       killMsg: q('.kill-msg'),
@@ -104,8 +111,12 @@ export class Hud {
     s.setProperty('--hud-scale', Math.max(0.6, Math.min(1.2, rect.h / 720)).toFixed(3));
   }
 
-  hintFor(player, zones) {
+  hintFor(player, zones, game) {
     const k = this.keys;
+    // Resumed from a controller: the mouse isn't captured until the keyboard player clicks.
+    if (this.source.kind === 'keyboardMouse' && !this.source.enabled && game.state === 'playing') {
+      return 'Click to aim with the mouse';
+    }
     switch (player.mode) {
       case 'net':
       case 'rope':
@@ -196,6 +207,16 @@ export class Hud {
       right.style.transform = `translateX(${g}px)`;
     });
     this.set('enemy', !!player.aimTarget && alive, (x) => e.cross.classList.toggle('enemy', x));
+    // Who's under the crosshair, so split-screen friends and bots are easy to tell apart.
+    const tn = alive && !g && player.aimTarget ? player.aimTarget.name ?? '' : '';
+    this.set('targetName', tn, (x) => {
+      e.targetName.textContent = x;
+      e.targetName.style.opacity = x ? '1' : '0';
+    });
+    this.set('split', game.humans.length > 1, (x) => {
+      e.tag.style.display = x ? 'block' : 'none';
+      this.el.classList.toggle('split', x);
+    });
     this.set('crossVis', alive && !g, (x) => (e.cross.style.display = x ? '' : 'none'));
 
     // Hit marker.
@@ -225,7 +246,7 @@ export class Hud {
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
     }
 
-    const hint = this.hintFor(player, game.zones);
+    const hint = this.hintFor(player, game.zones, game);
     this.set('hint', hint, (x) => {
       e.hint.textContent = x;
       e.hint.style.opacity = x ? '1' : '0';

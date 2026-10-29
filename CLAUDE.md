@@ -18,10 +18,15 @@ Then open the localhost URL it prints.
 
 - `npm run build` builds to `dist/`, `npm run preview` serves that build.
 - Add `?debug` to the URL to expose `window.smokeem` in the console (current game, input,
-  menu). `smokeem.playWithoutLock()` starts play without pointer lock, for headless browser
-  tests. Headless Chromium (Playwright) renders the game fine with SwiftShader; drive it by
-  pausing the game and calling `game.tick(1 / 60)` with values written into the player's
-  `InputState`, since headless frame rates are too low for real-time checks.
+  menu, pads, seats). `smokeem.playWithoutLock()` starts play without pointer lock, for
+  headless browser tests. Headless Chromium (Playwright) renders the game fine with
+  SwiftShader; drive it by pausing the game and calling `game.tick(1 / 60)` with values
+  written into the player's `InputState`, since headless frame rates are too low for
+  real-time checks.
+- To test controllers headless, override `navigator.getGamepads` in `page.addInitScript`
+  with fake pad objects (`connected`, `mapping: 'standard'`, `axes`, `buttons[i].pressed` /
+  `.value`) and dispatch `gamepadconnected`. Menu code reads pads once per animation frame,
+  so hold a button for a couple of frames.
 - With the FPS counter on, each view also shows the player's movement state, speed and position.
 
 ## Deploy
@@ -58,8 +63,10 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/game.js`: one match. Owns the renderer, scene, physics world, players, fixed-step loop.
 - `src/config.js`: movement and body tuning numbers.
 - `src/settings.js`: quality presets and saved settings (`localStorage`).
-- `src/input/`: input sources (keyboard/mouse, later gamepads and bots) all write the same
-  `InputState`, so the player controller doesn't care where input comes from.
+- `src/input/`: input sources (keyboard/mouse, gamepads; bots write theirs from `src/ai/`)
+  all write the same `InputState`, so the player controller doesn't care where input comes
+  from. `gamepad.js` has `Gamepads` (reads `navigator.getGamepads()` once per frame) and
+  `GamepadInput` (one pad's gameplay mapping, rumble).
 - `src/player/`: the player controller (movement, climbing, mantling, camera), the skinned
   character body and the first-person viewmodel.
 - `src/combat/`: vitals (shields/health), weapon data and state (`weapons.js`), the shared
@@ -76,13 +83,20 @@ Live build: https://mrellcrane.github.io/smokeem/
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
   `InputState` each tick. A new map needs its own links list.
 - `src/render/`: renderer setup, split-screen viewports, shader warm-up.
-- `src/ui/`: menus, HUD, FPS counter.
+- `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD, the
+  3-player info panel (`infoPanel.js`), FPS counter.
 
 ### Game loop
 
 - `game.players` is everyone in the match (local people and bots); `game.humans` is just the
   local people with views and HUDs; `game.bots` the bots. Bots think and apply look inside the
   fixed tick; humans apply look per frame.
+- Local players come from `seats` in `main.js`: each seat is an input source (`kbm` or a
+  `GamepadInput`) with a `kind`. `Game.create({ players: [{ source, name }] })` gives each
+  its own Player, view and HUD, sets `source.player`, calls `source.update(dt)` every frame
+  and `source.prime()` on resume (so the button that resumed doesn't also act).
+- `main.js` runs its own animation-frame loop for controllers outside gameplay: joining,
+  menu navigation, Menu to pause and resume, dropped-controller handling.
 - Physics and gameplay run at a fixed 60 Hz step. Rendering runs at display rate and
   interpolates positions, so 120 Hz MacBook screens stay smooth.
 - Look input is applied every rendered frame for responsiveness; movement is applied per tick.
@@ -111,6 +125,8 @@ Live build: https://mrellcrane.github.io/smokeem/
   - Poll `navigator.getGamepads()` every frame. A pad only appears after its first button press, so show a "press any button" hint.
   - Use the `standard` mapping layout and apply a deadzone to the sticks.
   - The Gamepad API only works in a secure context: `localhost` is fine, but testing from the Xbox needs an HTTPS URL.
+  - A controller press is not a user gesture for pointer lock, so resuming from a pad never requests the lock; the keyboard player clicks to capture the mouse.
+  - Edge on Xbox uses B as browser Back (guarded with a spare history entry) and may keep Menu for itself, so D-pad down also pauses. Verify both on the console in step 7.
 - On Edge on Xbox the controller is the only input, so every menu and gameplay action must be reachable with it.
 
 ### Rendering performance
@@ -141,7 +157,9 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 
 - Mouse sensitivity setting: a multiplier applied to pointer lock `movementX` / `movementY`, saved to `localStorage` so it persists between sessions.
 - Also saved: quality preset, invert Y, field of view, FPS counter, volume, bot count and skill,
-  movement speed (`settings.moveSpeed`, read live by the player controller every tick).
+  movement speed (`settings.moveSpeed`, read live by the player controller every tick),
+  controller look speed (`stickSensitivity`) and vibration (`rumble`). Settings are shared by
+  all local players.
 
 ## Style
 

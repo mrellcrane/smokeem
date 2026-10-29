@@ -580,7 +580,7 @@ kbd {
 .hud-debug {
   position: absolute;
   left: 10px;
-  top: 8px;
+  top: calc(8px + 30px * var(--hud-scale, 1));
   font: 12px ui-monospace, Menlo, Consolas, monospace;
   color: rgba(255, 255, 255, 0.8);
   text-shadow: 0 1px 1px #000;
@@ -607,12 +607,12 @@ kbd {
   bottom: calc(6px * var(--hud-scale, 1));
   transform: translateX(-50%);
   width: max-content;
-  max-width: 66%;
+  max-width: min(94%, 980px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  font-size: calc(11px * var(--hud-scale, 1));
+  font-size: max(9px, calc(11px * var(--hud-scale, 1)));
   color: rgba(244, 234, 216, 0.82);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
   pointer-events: none;
@@ -815,4 +815,224 @@ kbd {
   border-right: 16px solid transparent;
   border-bottom: 22px solid rgba(255, 60, 30, 0.85);
   filter: drop-shadow(0 0 4px rgba(255, 40, 0, 0.8));
+}
+
+/* ---------- lobby (title screen seats) */
+
+.lobby {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 0 auto 8px;
+  width: min(640px, 100%);
+}
+
+.slot {
+  --seat: #888;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 10px;
+  border: 2px dashed rgba(244, 234, 216, 0.22);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  min-height: 92px;
+}
+
+.slot b {
+  font-family: var(--display);
+  font-size: 22px;
+  color: var(--seat);
+  opacity: 0.55;
+}
+
+.slot small {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.slot.empty[data-action] {
+  cursor: pointer;
+}
+
+.slot.empty[data-action]:hover {
+  border-color: rgba(244, 234, 216, 0.5);
+}
+
+.slot.joined {
+  border-style: solid;
+  border-color: var(--seat);
+  background: color-mix(in srgb, var(--seat) 18%, transparent);
+  color: var(--ink);
+}
+
+.slot.joined b {
+  opacity: 1;
+}
+
+.slot .leave {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lobby-hint {
+  text-align: center;
+  margin: 0 0 22px;
+  min-height: 1.2em;
+}
+
+.controls-list h4 {
+  margin: 6px 0 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* ---------- controller focus (pad-mode is set while a controller drives the menus) */
+
+.pad-mode button:focus {
+  transform: scale(1.04);
+  outline: none;
+  border-color: var(--ember-2);
+  box-shadow: 0 0 0 3px rgba(255, 179, 71, 0.55);
+}
+
+.pad-mode .row:focus-within {
+  outline: 2px solid rgba(255, 179, 71, 0.7);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.pad-mode input:focus {
+  outline: none;
+}
+
+/* ---------- split-screen extras */
+
+.hud-tag {
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  padding: 1px 8px;
+  border-left: 4px solid var(--seat);
+  background: rgba(10, 8, 7, 0.5);
+  font-family: var(--display);
+  font-size: calc(16px * var(--hud-scale, 1));
+  color: var(--ink);
+  display: none;
+}
+
+.target-name {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 34px * var(--hud-scale, 1));
+  transform: translateX(-50%);
+  font-size: calc(13px * var(--hud-scale, 1));
+  font-weight: 700;
+  color: #ff6b5a;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  opacity: 0;
+}
+
+.info-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: calc(14px * var(--hud-scale, 1));
+  background: radial-gradient(circle at 30% 20%, #2a201a, #120e0c 80%);
+  border-left: 2px solid rgba(0, 0, 0, 0.6);
+  border-top: 2px solid rgba(0, 0, 0, 0.6);
+  font-size: calc(15px * var(--hud-scale, 1));
+  overflow: hidden;
+}
+
+.ip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: calc(10px * var(--hud-scale, 1));
+}
+
+.ip-head b {
+  font-family: var(--display);
+  font-size: 1.3em;
+  letter-spacing: 0.03em;
+}
+
+.ip-mode {
+  color: var(--ember-2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.85em;
+}
+
+.ip-body {
+  flex: 1;
+  display: flex;
+  gap: calc(16px * var(--hud-scale, 1));
+  min-height: 0;
+}
+
+.ip-map {
+  flex: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px rgba(244, 234, 216, 0.12);
+}
+
+.ip-score {
+  flex: 1;
+  border-collapse: collapse;
+  align-self: flex-start;
+}
+
+.ip-score th {
+  font-size: 0.75em;
+  font-weight: 400;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: right;
+  padding: 0 0 4px 8px;
+}
+
+.ip-score td {
+  padding: 2px 0 2px 8px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink-dim);
+}
+
+.ip-score td:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.ip-score tr.local td {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ip-score i {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.5em;
+  border-radius: 50%;
+}
+
+/* Split-screen views: the controls strip moves bottom-left, clear of the ammo counter. */
+.hud-view.split .hud-controls {
+  left: 8px;
+  transform: none;
+  align-items: flex-start;
+  max-width: calc(100% - 150px * var(--hud-scale, 1));
+}
+
+.hud-view.split .ctl-row {
+  justify-content: flex-start;
 }

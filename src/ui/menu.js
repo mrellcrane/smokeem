@@ -3,6 +3,7 @@ import {
   updateSettings,
   QUALITY_PRESETS,
   SENSITIVITY_RANGE,
+  STICK_SENSITIVITY_RANGE,
   FOV_RANGE,
   VOLUME_RANGE,
   MAX_BOTS,
@@ -10,13 +11,22 @@ import {
   MOVE_SPEED_RANGE,
 } from '../settings.js';
 import { controlsHtml } from './controls.js';
+import { PLAYER_COLORS } from '../player/player.js';
 
-// All full-screen UI: title, settings, loading, ready, pause, error.
-// Plain DOM buttons so keyboard (and, later, gamepad) focus navigation works.
+// All full-screen UI: title (with the join lobby), settings, loading, ready, pause, error.
+// Plain DOM buttons, so keyboard focus and controller navigation (PadNav) both work.
 
 const LOGO = `<h1 class="logo">SMOKE <span>EM'</span></h1>`;
+export const MAX_LOCAL_PLAYERS = 4;
+const SEAT_COLORS = PLAYER_COLORS.map((c) => `#${c.toString(16).padStart(6, '0')}`);
+const KIND_TITLES = { keyboardMouse: 'Keyboard + mouse', gamepad: 'Controller' };
 
-const CONTROLS = `<div class="controls-list">${controlsHtml('keyboardMouse')}</div>`;
+function controlsFor(kinds) {
+  const list = [...new Set(kinds.length ? kinds : ['keyboardMouse'])];
+  return list
+    .map((k) => `<div class="controls-list">${list.length > 1 ? `<h4>${KIND_TITLES[k]}</h4>` : ''}${controlsHtml(k)}</div>`)
+    .join('');
+}
 
 export class Menu {
   constructor(root, handlers) {
@@ -24,6 +34,11 @@ export class Menu {
     this.handlers = handlers;
     this.screen = null;
     this.returnTo = null;
+    // What last drove the menu: 'kbm' (mouse or keyboard) or 'pad'. Set to 'pad' by the
+    // controller code right before it activates something.
+    this.lastInput = 'kbm';
+    window.addEventListener('keydown', () => (this.lastInput = 'kbm'), true);
+    this.root.addEventListener('pointerdown', () => (this.lastInput = 'kbm'), true);
     this.root.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
@@ -38,6 +53,12 @@ export class Menu {
     switch (action) {
       case 'play':
         h.onPlay?.();
+        break;
+      case 'join-kbm':
+        h.onJoinKbm?.();
+        break;
+      case 'leave':
+        h.onLeave?.(Number(btn.dataset.seat));
         break;
       case 'settings':
         this.showSettings(this.screen);
@@ -96,7 +117,7 @@ export class Menu {
     this.screen = screen;
     this.root.innerHTML = `<div class="screen ${cls}">${html}</div>`;
     this.root.style.display = 'block';
-    const first = this.root.querySelector('button');
+    const first = this.root.querySelector('[data-autofocus]') ?? this.root.querySelector('button');
     first?.focus({ preventScroll: true });
   }
 
@@ -129,15 +150,55 @@ export class Menu {
           </div>
           <p class="hint bots-hint"></p>
         </div>
+        <div class="lobby"></div>
+        <p class="hint lobby-hint"></p>
         <div class="buttons">
-          <button data-action="play">Play</button>
+          <button data-action="play" data-autofocus>Play</button>
           <button data-action="settings" class="secondary">Settings</button>
         </div>
-        <p class="note">Step 4 build: free-for-all against bots. Match timer, scoreboard and split-screen come next.</p>
+        <p class="note">Step 6 build: 1 to 4 players split-screen against bots. Match timer and scoreboard come next.</p>
       </div>`,
       'title',
     );
     this.renderMatchValues();
+    this.renderLobby();
+  }
+
+  // The four seats: who has joined, and how to join.
+  renderLobby() {
+    const el = this.root.querySelector('.lobby');
+    if (!el) return;
+    const { seats, padsSeen } = this.handlers.lobby?.() ?? { seats: [], padsSeen: false };
+    const kbmIn = seats.some((s) => s.kind === 'keyboardMouse');
+    let html = '';
+    for (let i = 0; i < MAX_LOCAL_PLAYERS; i++) {
+      const s = seats[i];
+      const color = `--seat:${SEAT_COLORS[i]}`;
+      if (s) {
+        const leave = s.kind === 'gamepad' ? 'B to leave' : `<span class="leave" data-action="leave" data-seat="${i}">Leave</span>`;
+        html += `<div class="slot joined" style="${color}"><b>P${i + 1}</b><span>${s.label}</span><small>${leave}</small></div>`;
+      } else {
+        const kbm = kbmIn ? '' : ' data-action="join-kbm"';
+        html += `<div class="slot empty" style="${color}"${kbm}><b>P${i + 1}</b><span>Press A to join</span><small>${
+          kbmIn ? '' : 'or click for keyboard + mouse'
+        }</small></div>`;
+      }
+    }
+    this.setHtml(el, html);
+    const hint = this.root.querySelector('.lobby-hint');
+    if (hint) {
+      let text = '';
+      if (!seats.length) text = 'Solo on keyboard and mouse? Just hit Play.';
+      if (!padsSeen) text += `${text ? ' ' : ''}Controllers show up once you press a button on them.`;
+      hint.textContent = text;
+    }
+  }
+
+  // innerHTML, skipped when nothing changed (the lobby re-renders every frame a pad is around).
+  setHtml(el, html) {
+    if (el._html === html) return;
+    el._html = html;
+    el.innerHTML = html;
   }
 
   renderMatchValues() {
@@ -176,6 +237,10 @@ export class Menu {
           <input id="sens" type="range" data-setting="sensitivity" min="${s.min}" max="${s.max}" step="${s.step}" />
         </div>
         <div class="row">
+          <label for="ssens">Controller look speed <span class="val" data-val="stickSensitivity"></span></label>
+          <input id="ssens" type="range" data-setting="stickSensitivity" min="${STICK_SENSITIVITY_RANGE.min}" max="${STICK_SENSITIVITY_RANGE.max}" step="${STICK_SENSITIVITY_RANGE.step}" />
+        </div>
+        <div class="row">
           <label for="fov">Field of view <span class="val" data-val="fov"></span></label>
           <input id="fov" type="range" data-setting="fov" min="${f.min}" max="${f.max}" step="${f.step}" />
         </div>
@@ -185,6 +250,9 @@ export class Menu {
         </div>
         <div class="row check">
           <label><input type="checkbox" data-setting="invertY" /> Invert look up/down</label>
+        </div>
+        <div class="row check">
+          <label><input type="checkbox" data-setting="rumble" /> Controller vibration</label>
         </div>
         <div class="row check">
           <label><input type="checkbox" data-setting="showFps" /> Show FPS counter</label>
@@ -217,6 +285,8 @@ export class Menu {
     }
     const sv = r.querySelector('[data-val="sensitivity"]');
     if (sv) sv.textContent = `${settings.sensitivity.toFixed(2)}x`;
+    const ssv = r.querySelector('[data-val="stickSensitivity"]');
+    if (ssv) ssv.textContent = `${settings.stickSensitivity.toFixed(2)}x`;
     const fv = r.querySelector('[data-val="fov"]');
     if (fv) fv.textContent = `${Math.round(settings.fov)}°`;
     const mv = r.querySelector('[data-val="moveSpeed"]');
@@ -241,14 +311,23 @@ export class Menu {
     this.root.querySelector('.fill').style.width = `${Math.round(progress * 100)}%`;
   }
 
+  // Input kinds in the current match, for the right prompts and control lists.
+  kinds() {
+    return this.handlers.matchKinds?.() ?? ['keyboardMouse'];
+  }
+
   showReady(message) {
+    const kinds = this.kinds();
+    const kbm = kinds.includes('keyboardMouse');
+    const pad = kinds.includes('gamepad');
+    const label = kbm && pad ? 'Click or press A to drop in' : pad ? 'Press A to drop in' : 'Click to drop in';
     this.set(
       `
       <div class="panel ready">
         <h2>Mudlark Gauntlet</h2>
-        <button data-action="start" class="big">Click to drop in</button>
+        <button data-action="start" class="big">${label}</button>
         ${message ? `<p class="warn">${message}</p>` : ''}
-        ${CONTROLS}
+        ${controlsFor(kinds)}
       </div>`,
       'ready',
       'dim',
@@ -266,7 +345,7 @@ export class Menu {
           <button data-action="quit" class="secondary">Quit to menu</button>
         </div>
         ${message ? `<p class="warn">${message}</p>` : ''}
-        ${CONTROLS}
+        ${controlsFor(this.kinds())}
       </div>`,
       'pause',
       'dim',
