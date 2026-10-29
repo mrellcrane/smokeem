@@ -59,56 +59,277 @@ function blobs(ctx, w, h, rand, count, rMin, rMax, colors, alpha) {
   ctx.globalAlpha = 1;
 }
 
-function ground() {
-  const S = 256;
+// Relief: every painter below also paints a grayscale height canvas with the same shapes
+// (128 flat, seams and gaps lower, rivets and pebbles higher). relief() then shades the color
+// by the height's slope toward a light direction, so raised details catch light on one side and
+// shadow on the other, painted in (no normal maps, no shader cost).
+
+function heightCanvas(S) {
   const [c, ctx] = canvas(S, S);
+  ctx.fillStyle = gray(128);
+  ctx.fillRect(0, 0, S, S);
+  return [c, ctx];
+}
+
+function gray(v) {
+  return `rgb(${v},${v},${v})`;
+}
+
+// light: [x, y] toward the light in canvas coordinates (y down). Walls are lit from above
+// ([0, -1]: world UVs keep v pointing up on every wall face); the ground from the sun's azimuth.
+// grain: per-pixel brightness noise added in the same pass (like grain()).
+const WALL_LIGHT = [0, -1];
+function relief(ctx, hctx, S, light, strength = 0.35, { grain: noise = 0, rand = null } = {}) {
+  const img = ctx.getImageData(0, 0, S, S);
+  const c = img.data;
+  const hd = hctx.getImageData(0, 0, S, S).data;
+  // Softened by a wrapped 3 x 3 blur, so edges shade over a pixel or two and tiles stay seamless.
+  // (Neighbor indices are precomputed so the loops need no modulo.)
+  const left = new Int32Array(S);
+  const right = new Int32Array(S);
+  for (let x = 0; x < S; x++) {
+    left[x] = (x - 1 + S) % S;
+    right[x] = (x + 1) % S;
+  }
+  const h0 = new Float32Array(S * S);
+  for (let i = 0; i < S * S; i++) h0[i] = hd[i * 4];
+  // Rows first, then columns.
+  const hr = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) {
+    const o = y * S;
+    for (let x = 0; x < S; x++) hr[o + x] = h0[o + left[x]] + h0[o + x] + h0[o + right[x]];
+  }
+  const h = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) {
+    const up = left[y] * S;
+    const o = y * S;
+    const dn = right[y] * S;
+    for (let x = 0; x < S; x++) h[o + x] = (hr[up + x] + hr[o + x] + hr[dn + x]) / 9;
+  }
+  // Slopes per 256-px texel, so a texture shades the same at any size.
+  const k = (S / 256) * 0.5;
+  const [lx, ly] = light;
+  const sk = strength / 16;
+  // Grain from a small table of random values walked at a stride, instead of a random call
+  // per texel (the slow part at 512 px).
+  const NOISE = 4093;
+  const table = new Float32Array(NOISE);
+  for (let i = 0; i < NOISE; i++) table[i] = noise && rand ? (rand() - 0.5) * noise : 0;
+  let ni = 0;
+  for (let y = 0; y < S; y++) {
+    const up = left[y] * S;
+    const o = y * S;
+    const dn = right[y] * S;
+    for (let x = 0; x < S; x++) {
+      const gx = h[o + right[x]] - h[o + left[x]];
+      const gy = h[dn + x] - h[up + x];
+      const n = table[ni];
+      ni += 1777;
+      if (ni >= NOISE) ni -= NOISE;
+      const i = (o + x) * 4;
+      if (gx === 0 && gy === 0) {
+        c[i] += n;
+        c[i + 1] += n;
+        c[i + 2] += n;
+        continue;
+      }
+      // Facing the light where the height falls away toward it.
+      let f = 1 - sk * k * (gx * lx + gy * ly);
+      f = f < 0.55 ? 0.55 : f > 1.5 ? 1.5 : f;
+      c[i] = c[i] * f + n;
+      c[i + 1] = c[i + 1] * f + n;
+      c[i + 2] = c[i + 2] * f + n;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// A shape drawn on both canvases: color on ctx, height level on hctx (null: color only).
+function both(ctx, hctx, color, level, draw) {
+  ctx.fillStyle = color;
+  draw(ctx);
+  if (level !== null) {
+    hctx.fillStyle = gray(level);
+    draw(hctx);
+  }
+}
+
+function circle(x, y, r) {
+  return (c) => {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+  };
+}
+
+// A hairline crack: a jittered random walk, dark and low, wrapped across tile edges.
+function crack(ctx, hctx, S, rand, length, color) {
+  let x = rand() * S;
+  let y = rand() * S;
+  let a = rand() * Math.PI * 2;
+  const pts = [[x, y]];
+  const step = S / 64;
+  for (let i = 0; i < length; i++) {
+    a += (rand() - 0.5) * 0.7;
+    x += Math.cos(a) * step;
+    y += Math.sin(a) * step;
+    pts.push([x, y]);
+  }
+  for (const [c, style, w] of [[ctx, color, S / 256], [hctx, gray(110), S / 256]]) {
+    c.strokeStyle = style;
+    c.lineWidth = w;
+    c.globalAlpha = c === ctx ? 0.55 : 1;
+    for (const ox of [-S, 0, S]) {
+      for (const oy of [-S, 0, S]) {
+        c.beginPath();
+        pts.forEach(([px, py], i) => (i ? c.lineTo(px + ox, py + oy) : c.moveTo(px + ox, py + oy)));
+        c.stroke();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+}
+
+// Stenciled digits as vector strokes (no fonts): 7-segment style, `h` tall, at (x, y) top-left.
+const SEGMENTS = {
+  0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg',
+};
+function stencilDigits(ctx, text, x, y, h, color, alpha) {
+  const w = h * 0.55;
+  const t = h * 0.13;
+  ctx.fillStyle = color;
+  ctx.globalAlpha = alpha;
+  for (const ch of text) {
+    const seg = SEGMENTS[ch] ?? '';
+    const r = {
+      a: [x, y, w, t], b: [x + w - t, y, t, h / 2], c: [x + w - t, y + h / 2, t, h / 2], d: [x, y + h - t, w, t],
+      e: [x, y + h / 2, t, h / 2], f: [x, y, t, h / 2], g: [x, y + h / 2 - t / 2, w, t],
+    };
+    // Stencil bridges: small gaps where strokes meet.
+    for (const sname of seg) {
+      const [rx, ry, rw, rh] = r[sname];
+      ctx.fillRect(rx + (rw > rh ? t * 0.6 : 0), ry + (rh > rw ? t * 0.6 : 0), rw - (rw > rh ? t * 1.2 : 0), rh - (rh > rw ? t * 1.2 : 0));
+    }
+    x += w + h * 0.25;
+  }
+  ctx.globalAlpha = 1;
+}
+
+// The ground is lit from the sun's azimuth: top faces map world x to u and world z down the
+// canvas, and the sun sits at (38, 60, 26).
+const GROUND_LIGHT = (() => {
+  const l = Math.hypot(38, 26);
+  return [38 / l, 26 / l];
+})();
+
+function ground(S) {
+  const k = S / 256;
+  const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
   const rand = mulberry32(11);
   ctx.fillStyle = '#9a6a48';
   ctx.fillRect(0, 0, S, S);
-  blobs(ctx, S, S, rand, 70, 8, 34, ['#7d5236', '#ab7a52', '#8c5e3e'], 0.35);
-  blobs(ctx, S, S, rand, 400, 0.6, 2.2, ['#5c3b26', '#c89a72', '#6e4a33'], 0.8);
-  grain(ctx, S, S, 22, rand);
+  blobs(ctx, S, S, rand, 70, 8 * k, 34 * k, ['#7d5236', '#ab7a52', '#8c5e3e'], 0.35);
+  blobs(ctx, S, S, rand, 400 * k * k, 0.6 * k, 2.2 * k, ['#5c3b26', '#c89a72', '#6e4a33'], 0.8);
+  // Pebbles: a few, raised, close to the dirt's own tones; bigger ones rarer.
+  for (let i = 0; i < 70 * k * k; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const r = (0.7 + rand() * rand() * 2.6) * k;
+    const tone = ['#a8805e', '#86603f', '#9c8a76', '#8f6849'][Math.floor(rand() * 4)];
+    const level = 140 + Math.floor(rand() * 35);
+    ctx.globalAlpha = 0.75;
+    wrapped(ctx, S, S, x, y, (cc, px, py) => both(cc, hctx, tone, level, circle(px, py, r)));
+    ctx.globalAlpha = 1;
+  }
+  for (let i = 0; i < 3; i++) crack(ctx, hctx, S, rand, 10 + Math.floor(rand() * 12), '#5a3c28');
+  relief(ctx, hctx, S, GROUND_LIGHT, 0.25, { grain: 22, rand });
   return toTexture(c);
 }
 
-function panels(base, seam, highlight, seed) {
-  const S = 256;
+// Metal wall panels, 4 across and 2 up per tile (1 m x 2 m at the 4 m tile): each its own tint,
+// with seams, worn bright edges, rivets, grime low down, and two rust streaks under rivets.
+// (No stenciled numbers: anything that distinctive shows the 4 m repeat along a wall.)
+function panels(S, base, seam, highlight, seed) {
+  const k = S / 256;
   const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
   const rand = mulberry32(seed);
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, S, S);
+  const baseC = new THREE.Color(base);
+  const PW = S / 4;
+  const PH = S / 2;
+  const tmp = new THREE.Color();
+  for (let py = 0; py < 2; py++) {
+    for (let px = 0; px < 4; px++) {
+      tmp.copy(baseC).multiplyScalar(0.94 + rand() * 0.1);
+      tmp.offsetHSL((rand() - 0.5) * 0.01, 0, 0);
+      ctx.fillStyle = `#${tmp.getHexString()}`;
+      ctx.fillRect(px * PW, py * PH, PW, PH);
+    }
+  }
   // Subtle vertical streaks.
-  for (let i = 0; i < 40; i++) {
-    ctx.globalAlpha = 0.06 + rand() * 0.06;
+  for (let i = 0; i < 60; i++) {
+    ctx.globalAlpha = 0.04 + rand() * 0.05;
     ctx.fillStyle = rand() > 0.5 ? '#000' : '#fff';
-    ctx.fillRect(rand() * S, 0, 1 + rand() * 3, S);
+    ctx.fillRect(rand() * S, 0, (1 + rand() * 3) * k, S);
   }
   ctx.globalAlpha = 1;
-  const P = S / 2;
+  const seamW = 3 * k;
+  const rivetR = 2.6 * k;
   for (let py = 0; py < 2; py++) {
-    for (let px = 0; px < 2; px++) {
-      const x = px * P;
-      const y = py * P;
-      ctx.fillStyle = seam;
-      ctx.fillRect(x, y, P, 3);
-      ctx.fillRect(x, y, 3, P);
+    for (let px = 0; px < 4; px++) {
+      const x = px * PW;
+      const y = py * PH;
+      // Grime collects at the bottom of each panel.
+      const g = ctx.createLinearGradient(0, y + PH * 0.65, 0, y + PH);
+      g.addColorStop(0, 'rgba(20,18,16,0)');
+      g.addColorStop(1, 'rgba(20,18,16,0.32)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y + PH * 0.65, PW, PH * 0.35);
+      // Seams (low) along the top and left edges; the next panel's make the others.
+      both(ctx, hctx, seam, 40, (cc) => {
+        cc.fillRect(x, y, PW, seamW);
+        cc.fillRect(x, y, seamW, PH);
+      });
+      // Worn bright edges just inside the seams, chipped here and there.
       ctx.fillStyle = highlight;
-      ctx.fillRect(x + 3, y + 3, P - 3, 1);
-      ctx.fillRect(x + 3, y + 3, 1, P - 3);
-      // Rivets.
-      for (const [rx, ry] of [[10, 10], [P - 10, 10], [10, P - 10], [P - 10, P - 10]]) {
-        ctx.fillStyle = seam;
-        ctx.beginPath();
-        ctx.arc(x + rx, y + ry, 3, 0, Math.PI * 2);
-        ctx.fill();
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(x + seamW, y + seamW, PW - seamW, k);
+      ctx.fillRect(x + seamW, y + seamW, k, PH - seamW);
+      for (let i = 0; i < 5; i++) {
+        ctx.globalAlpha = 0.25 + rand() * 0.3;
+        ctx.fillRect(x + seamW + rand() * (PW - seamW * 2), y + seamW, (2 + rand() * 6) * k, 2 * k);
+      }
+      ctx.globalAlpha = 1;
+      // Rivets (raised) in the corners and halfway up the long sides.
+      const inset = 7 * k;
+      for (const [rx, ry] of [[inset, inset], [PW - inset, inset], [inset, PH - inset], [PW - inset, PH - inset], [inset, PH / 2], [PW - inset, PH / 2]]) {
+        both(ctx, hctx, seam, 215, circle(x + rx, y + ry, rivetR));
         ctx.fillStyle = highlight;
-        ctx.beginPath();
-        ctx.arc(x + rx - 0.8, y + ry - 0.8, 1.4, 0, Math.PI * 2);
-        ctx.fill();
+        circle(x + rx - 0.6 * k, y + ry - 0.6 * k, rivetR * 0.45)(ctx);
       }
     }
   }
-  grain(ctx, S, S, 12, rand);
+  // Rare features: two rust streaks below rivets.
+  for (let i = 0; i < 2; i++) {
+    const px = Math.floor(rand() * 4);
+    const py = Math.floor(rand() * 2);
+    const x = px * PW + (rand() < 0.5 ? 7 * k : PW - 7 * k);
+    const y = py * PH + (rand() < 0.5 ? 7 * k : PH / 2) + rivetR;
+    const len = PH * (0.25 + rand() * 0.3);
+    const g = ctx.createLinearGradient(0, y, 0, y + len);
+    g.addColorStop(0, 'rgba(140,72,30,0.55)');
+    g.addColorStop(1, 'rgba(140,72,30,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x - 1.5 * k, y);
+    ctx.lineTo(x + 1.5 * k, y);
+    ctx.lineTo(x + (2.5 + rand() * 2) * k, y + len);
+    ctx.lineTo(x - (2.5 + rand() * 2) * k, y + len);
+    ctx.closePath();
+    ctx.fill();
+  }
+  relief(ctx, hctx, S, WALL_LIGHT, 0.35, { grain: 12, rand });
   return toTexture(c);
 }
 
@@ -136,9 +357,10 @@ function hazard() {
   return toTexture(c);
 }
 
-function planks() {
-  const S = 256;
+function planks(S) {
+  const k = S / 256;
   const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
   const rand = mulberry32(21);
   const boards = 4;
   const bh = S / boards;
@@ -146,83 +368,153 @@ function planks() {
   for (let i = 0; i < boards; i++) {
     ctx.fillStyle = tones[i % tones.length];
     ctx.fillRect(0, i * bh, S, bh);
-    // Grain lines.
+    // Grain lines (slightly low, so they read as grooves).
     for (let g = 0; g < 14; g++) {
-      ctx.globalAlpha = 0.18 + rand() * 0.15;
-      ctx.strokeStyle = rand() > 0.5 ? '#5e4329' : '#a7845d';
-      ctx.lineWidth = 1;
-      const y = i * bh + 4 + rand() * (bh - 8);
-      const amp = 1 + rand() * 2;
+      const alpha = 0.18 + rand() * 0.15;
+      const stroke = rand() > 0.5 ? '#5e4329' : '#a7845d';
+      const y = i * bh + 4 * k + rand() * (bh - 8 * k);
+      const amp = (1 + rand() * 2) * k;
       const freq = 0.01 + rand() * 0.03;
       const ph = rand() * 10;
-      ctx.beginPath();
-      for (let x = 0; x <= S; x += 8) {
-        const yy = y + Math.sin(x * freq * Math.PI * 2 / 8 + ph) * amp;
-        if (x === 0) ctx.moveTo(x, yy);
-        else ctx.lineTo(x, yy);
+      for (const [cc, style, a] of [[ctx, stroke, alpha], [hctx, gray(112), 1]]) {
+        cc.globalAlpha = a;
+        cc.strokeStyle = style;
+        cc.lineWidth = k;
+        cc.beginPath();
+        for (let x = 0; x <= S; x += 8 * k) {
+          const yy = y + Math.sin(((x / k) * freq * Math.PI * 2) / 8 + ph) * amp;
+          if (x === 0) cc.moveTo(x, yy);
+          else cc.lineTo(x, yy);
+        }
+        cc.stroke();
+        cc.globalAlpha = 1;
       }
-      ctx.stroke();
     }
-    ctx.globalAlpha = 1;
-    // Gap between boards.
-    ctx.fillStyle = '#3b2a1a';
-    ctx.fillRect(0, i * bh, S, 3);
-    // Bolts.
-    ctx.fillStyle = '#4a4a4a';
+    // Gap between boards (low).
+    both(ctx, hctx, '#3b2a1a', 30, (cc) => cc.fillRect(0, i * bh, S, 3 * k));
+    // Nail heads at both ends of each board's span (raised).
     for (const bx of [24, 152]) {
-      ctx.beginPath();
-      ctx.arc(bx, i * bh + bh / 2, 3, 0, Math.PI * 2);
-      ctx.fill();
+      for (const dy of [-0.22, 0.22]) {
+        both(ctx, hctx, '#4f4f4f', 210, circle(bx * k, i * bh + bh / 2 + dy * bh, 2.2 * k));
+      }
     }
   }
-  grain(ctx, S, S, 14, rand);
+  // One or two knots per tile: a dark eye with grain curving around it.
+  for (let n = 0; n < 2; n++) {
+    const x = rand() * S;
+    const y = Math.floor(rand() * boards) * bh + bh * (0.35 + rand() * 0.3);
+    const rx = (6 + rand() * 5) * k;
+    const ry = rx * 0.55;
+    for (let r = 3; r >= 0; r--) {
+      ctx.globalAlpha = r === 0 ? 0.85 : 0.18;
+      ctx.strokeStyle = '#4a3220';
+      ctx.fillStyle = '#4a3220';
+      ctx.lineWidth = k;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx * (1 + r * 0.45), ry * (1 + r * 0.35), 0, 0, Math.PI * 2);
+      if (r === 0) ctx.fill();
+      else ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    hctx.fillStyle = gray(100);
+    hctx.beginPath();
+    hctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    hctx.fill();
+  }
+  relief(ctx, hctx, S, WALL_LIGHT, 0.35, { grain: 14, rand });
   return toTexture(c);
 }
 
-function concrete() {
-  const S = 256;
+// Poured concrete (3 m tile): aggregate, form joints along the tile edges and a grid of
+// form-tie holes, like real cast walls.
+function concrete(S) {
+  const k = S / 256;
   const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
   const rand = mulberry32(31);
   ctx.fillStyle = '#a19f98';
   ctx.fillRect(0, 0, S, S);
-  blobs(ctx, S, S, rand, 60, 6, 30, ['#8f8d86', '#b2b0a9', '#97958d'], 0.3);
-  blobs(ctx, S, S, rand, 250, 0.5, 1.6, ['#6f6d68', '#c4c2bb'], 0.7);
-  ctx.fillStyle = '#7a7872';
-  ctx.fillRect(0, 0, S, 2);
-  ctx.fillRect(0, 0, 2, S);
-  grain(ctx, S, S, 14, rand);
+  blobs(ctx, S, S, rand, 60, 6 * k, 30 * k, ['#8f8d86', '#b2b0a9', '#97958d'], 0.3);
+  // Aggregate: fine speckles, a few small pits and stones with a little relief.
+  blobs(ctx, S, S, rand, 250 * k * k, 0.5 * k, 1.4 * k, ['#86847e', '#b8b6af'], 0.55);
+  for (let i = 0; i < 70 * k * k; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const r = (0.5 + rand() * rand() * 1.6) * k;
+    const pit = rand() < 0.6;
+    ctx.globalAlpha = 0.6;
+    wrapped(ctx, S, S, x, y, (cc, px, py) => both(cc, hctx, pit ? '#77756f' : '#b3b1aa', pit ? 100 : 150, circle(px, py, r)));
+    ctx.globalAlpha = 1;
+  }
+  // Form joints along the tile edges.
+  both(ctx, hctx, '#7a7872', 70, (cc) => {
+    cc.fillRect(0, 0, S, 2 * k);
+    cc.fillRect(0, 0, 2 * k, S);
+  });
+  // Form-tie holes: 2 x 2 per tile.
+  for (const fx of [0.25, 0.75]) {
+    for (const fy of [0.25, 0.75]) {
+      both(ctx, hctx, '#5f5d58', 45, circle(fx * S, fy * S, 3.2 * k));
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#86847e';
+      circle(fx * S, fy * S, 5.5 * k)(ctx);
+      ctx.globalAlpha = 1;
+    }
+  }
+  relief(ctx, hctx, S, WALL_LIGHT, 0.3, { grain: 14, rand });
   return toTexture(c);
 }
 
-function crate() {
-  const S = 256;
+// One crate face (UVs fit each face): steel frame, orange boards with a diagonal brace,
+// chipped paint, a stencil, corner bolts.
+function crate(S) {
+  const k = S / 256;
   const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
   const rand = mulberry32(41);
   ctx.fillStyle = '#2d3238';
   ctx.fillRect(0, 0, S, S);
-  const b = 22;
-  ctx.fillStyle = '#c0601d';
-  ctx.fillRect(b, b, S - b * 2, S - b * 2);
-  // Diagonal brace.
-  ctx.strokeStyle = '#8f4512';
-  ctx.lineWidth = 18;
-  ctx.beginPath();
-  ctx.moveTo(b + 6, b + 6);
-  ctx.lineTo(S - b - 6, S - b - 6);
-  ctx.stroke();
-  // Stencil marks.
-  ctx.fillStyle = '#e9d9b8';
-  ctx.fillRect(S - b - 70, b + 14, 52, 10);
-  ctx.fillRect(S - b - 70, b + 30, 30, 6);
-  // Corner bolts.
-  ctx.fillStyle = '#9aa1a8';
-  for (const [x, y] of [[11, 11], [S - 11, 11], [11, S - 11], [S - 11, S - 11]]) {
+  hctx.fillStyle = gray(150);
+  hctx.fillRect(0, 0, S, S);
+  const b = 22 * k;
+  both(ctx, hctx, '#c0601d', 120, (cc) => cc.fillRect(b, b, S - b * 2, S - b * 2));
+  // Board seams.
+  for (let i = 1; i < 4; i++) {
+    both(ctx, hctx, '#8f4512', 95, (cc) => cc.fillRect(b, b + ((S - b * 2) * i) / 4, S - b * 2, 2 * k));
+  }
+  // Diagonal brace (raised).
+  for (const [cc, style] of [[ctx, '#8f4512'], [hctx, gray(165)]]) {
+    cc.strokeStyle = style;
+    cc.lineWidth = 18 * k;
+    cc.beginPath();
+    cc.moveTo(b + 6 * k, b + 6 * k);
+    cc.lineTo(S - b - 6 * k, S - b - 6 * k);
+    cc.stroke();
+  }
+  // Chipped paint: the dark frame showing through small flakes.
+  for (let i = 0; i < 26; i++) {
+    const x = b + rand() * (S - b * 2);
+    const y = b + rand() * (S - b * 2);
+    const r = (1 + rand() * 3.5) * k;
+    ctx.fillStyle = rand() < 0.7 ? '#3a2c22' : '#e08a4a';
+    ctx.globalAlpha = 0.6;
     ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.ellipse(x, y, r, r * (0.4 + rand() * 0.5), rand() * Math.PI, 0, Math.PI * 2);
     ctx.fill();
   }
-  blobs(ctx, S, S, rand, 40, 2, 8, ['#4a3a2a', '#20242a'], 0.25);
-  grain(ctx, S, S, 14, rand);
+  ctx.globalAlpha = 1;
+  // Stencil: a code and a bar.
+  stencilDigits(ctx, '07', S - b - 70 * k, b + 12 * k, 16 * k, '#e9d9b8', 0.8);
+  ctx.fillStyle = '#e9d9b8';
+  ctx.globalAlpha = 0.8;
+  ctx.fillRect(S - b - 70 * k, b + 32 * k, 44 * k, 5 * k);
+  ctx.globalAlpha = 1;
+  // Corner bolts (raised).
+  for (const [x, y] of [[11, 11], [S / k - 11, 11], [11, S / k - 11], [S / k - 11, S / k - 11]]) {
+    both(ctx, hctx, '#9aa1a8', 220, circle(x * k, y * k, 5 * k));
+  }
+  blobs(ctx, S, S, rand, 40, 2 * k, 8 * k, ['#4a3a2a', '#20242a'], 0.25);
+  relief(ctx, hctx, S, WALL_LIGHT, 0.4, { grain: 14, rand });
   return toTexture(c, { repeat: false });
 }
 
@@ -553,25 +845,48 @@ function keep(name, paint) {
   return fresh;
 }
 
-export function createTextures() {
+// size: texels per side of the main surface textures (the quality preset's textureSize).
+// The textures of a match, by name: [cache key, painter]. size: texels per side of the main
+// surface textures (the quality preset's textureSize).
+function painters(S) {
   return {
-    ground: keep('ground', ground),
-    metal: keep('metal', () => panels('#727d86', '#3e454b', '#a2adb6', 81)),
-    metalDark: keep('metalDark', () => panels('#41484f', '#24282c', '#626b73', 82)),
-    hazard: keep('hazard', hazard),
-    plank: keep('plank', planks),
-    concrete: keep('concrete', concrete),
-    crate: keep('crate', crate),
-    mud: keep('mud', mud),
-    net: keep('net', net),
-    rope: keep('rope', rope),
-    flame: keep('flame', flame),
-    planet: keep('planet', planet),
-    spark: keep('spark', spark),
-    fxAtlas: keep('fxAtlas', fxAtlas),
-    smokeAtlas: keep('smokeAtlas', smokeAtlas),
-    flash: keep('flash', flash),
+    ground: [`ground@${S}`, () => ground(S)],
+    metal: [`metal@${S}`, () => panels(S, '#727d86', '#3e454b', '#a2adb6', 81)],
+    metalDark: [`metalDark@${S}`, () => panels(S, '#41484f', '#24282c', '#626b73', 82)],
+    hazard: ['hazard', hazard],
+    plank: [`plank@${S}`, () => planks(S)],
+    concrete: [`concrete@${S}`, () => concrete(S)],
+    crate: [`crate@${S}`, () => crate(S)],
+    mud: ['mud', mud],
+    net: ['net', net],
+    rope: ['rope', rope],
+    flame: ['flame', flame],
+    planet: ['planet', planet],
+    spark: ['spark', spark],
+    fxAtlas: ['fxAtlas', fxAtlas],
+    smokeAtlas: ['smokeAtlas', smokeAtlas],
+    flash: ['flash', flash],
   };
+}
+
+export function createTextures(size = 512) {
+  const out = {};
+  for (const [name, [key, paint]] of Object.entries(painters(size))) out[name] = keep(key, paint);
+  return out;
+}
+
+// Paints a size's textures ahead of time (on the title screen), one per idle moment, so the
+// first match only clones them: at 512 px they take a few hundred ms in all.
+export function prepaintTextures(size) {
+  const queue = Object.values(painters(size)).filter(([key]) => !painted.has(key));
+  const later = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 30));
+  const next = () => {
+    const job = queue.shift();
+    if (!job) return;
+    if (!painted.has(job[0])) keep(job[0], job[1]);
+    later(next);
+  };
+  later(next);
 }
 
 export function applyAnisotropy(textures, anisotropy) {
