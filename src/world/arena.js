@@ -79,6 +79,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     spawnPoints,
     halos: B.halos,
     surfaces: B.surfaces,
+    blockers: B.blockers,
     trims: B.trims,
     // fx: the match's Effects (embers and wisps off the fire troughs).
     update(dt, time, fx) {

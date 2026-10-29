@@ -172,6 +172,8 @@ export class StaticBuilder {
     this.halos = [];
     // Collider handle to what it's made of (materials.js surface), for bullet impacts.
     this.surfaces = new Map();
+    // Handles of the invisible blockers (collider()), which can't be kicked off.
+    this.blockers = new Set();
     // Visible boxes and cylinders with no collider (trims standing proud of a collider), so
     // bullet marks can sit on their face (Game.trimFace).
     this.trims = [];
@@ -271,7 +273,9 @@ export class StaticBuilder {
 
   // Invisible blocker.
   collider(min, max) {
-    this.boxMinMax(null, min, max, { visible: false });
+    _p.set((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
+    const desc = this.RAPIER.ColliderDesc.cuboid((max[0] - min[0]) / 2, (max[1] - min[1]) / 2, (max[2] - min[2]) / 2);
+    this.blockers.add(this._collider(desc, _p, null).handle);
   }
 
   // Vertical cylinder by base center.
