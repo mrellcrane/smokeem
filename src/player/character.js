@@ -227,6 +227,7 @@ const FOOT_EDGE = 0.19;
 const BACK_ENTER = 115 * (Math.PI / 180);
 const BACK_LEAVE = 85 * (Math.PI / 180);
 
+const _yAxis = new THREE.Vector3(0, 1, 0);
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
 const _qc = new THREE.Quaternion();
@@ -524,6 +525,8 @@ export class CharacterModel {
         this.bones[parent].add(this.bones[name]);
       }
     }
+    // The body bones' rest offsets, for reset() after a ragdoll.
+    this.restPos = BODY_BONES.map((n) => this.bones[n].position.clone());
 
     // The spine turns (against the hips) before it pitches with the aim. The hips roll about the
     // aim's forward axis (roll after turn), so the spine's counter-turn cancels the turn exactly
@@ -594,6 +597,53 @@ export class CharacterModel {
     this.shell.visible = false;
     // Event counters start from the first state seen.
     this.seen = false;
+    // Out of a ragdoll: standing up straight, every body bone back at rest.
+    this.group.quaternion.identity();
+    BODY_BONES.forEach((n, i) => {
+      this.bones[n].position.copy(this.restPos[i]);
+      this.bones[n].quaternion.identity();
+    });
+  }
+
+  // Smoked: the body goes limp, driven by the player's corpse (Player.updateCorpse): c.pos (the
+  // feet), c.yaw, c.axis and c.tip (the fall, about a horizontal axis in body space), c.air
+  // (tumbling) and c.limp (0 to 1 as it goes slack). Arms fling out and flop, the knees and
+  // spine fold, the head lolls; while airborne the limbs flail.
+  ragdoll(dt, c) {
+    const g = this.group;
+    g.position.copy(c.pos);
+    _qa.setFromAxisAngle(_yAxis, c.yaw);
+    _qb.setFromAxisAngle(c.axis, c.tip);
+    g.quaternion.copy(_qa).multiply(_qb);
+    const B = this.bones;
+    const k = c.limp;
+    const t = c.t;
+    const fl = c.air ? 1 : Math.max(0, 1 - t * 1.5);
+    const w = (f, ph) => Math.sin(t * f + ph + c.seed) * fl;
+    B.hips.position.copy(this.restPos[BODY_BONES.indexOf('hips')]);
+    B.hips.rotation.set(0.15 * k + 0.2 * w(9, 0), 0, 0.1 * w(7, 1));
+    B.spine.rotation.set(c.front * 0.35 * k + 0.25 * w(8, 2), 0.25 * k * c.side, 0.15 * w(6, 3));
+    B.head.rotation.set(c.front * 0.5 * k + 0.3 * w(11, 4), 0.5 * k * c.side, 0.25 * k * c.side);
+    B.head.position.copy(this.restPos[BODY_BONES.indexOf('head')]);
+    // Arms out to the sides and up a little, flopping.
+    for (const [u, l, sd] of [['armUL', 'armLL', -1], ['armUR', 'armLR', 1]]) {
+      _e.set(-0.4 * k + 0.6 * w(10, sd), 0, sd * (1.1 * k + 0.4 * w(8, 5 + sd)));
+      B[u].quaternion.setFromEuler(_e);
+      _e.set(-0.5 * k - 0.4 * Math.abs(w(12, sd)), 0, 0);
+      B[l].quaternion.setFromEuler(_e);
+      B[sd < 0 ? 'handL' : 'handR'].quaternion.identity();
+    }
+    // Legs fold at the knees, one more than the other.
+    B.legUL.rotation.set(0.3 * k + 0.5 * w(9, 6), 0, -0.12 * k);
+    B.legUR.rotation.set(0.6 * k + 0.5 * w(9, 7), 0, 0.12 * k);
+    B.legLL.rotation.set(-0.5 * k - 0.4 * Math.abs(w(10, 8)), 0, 0);
+    B.legLR.rotation.set(-1.0 * k - 0.4 * Math.abs(w(10, 9)), 0, 0);
+    B.footL.rotation.set(0.4 * k, 0, 0);
+    B.footR.rotation.set(0.4 * k, 0, 0);
+    if (this.shieldFlash > 0) {
+      this.shieldFlash = 0;
+      this.shell.visible = false;
+    }
   }
 
   // A shot fired out of a sprint: drop the sprint hold now and move the gun bone, so this very

@@ -113,6 +113,11 @@ jump kicks a knee up, hard landings squash, and crouching is a deep squat with t
 back. Whatever the pose, the helmet stays inside the hitbox's head band (from just under the
 head line to the capsule top), so a shot at the visible head is a headshot.
 
+Deaths are ragdoll-ish: a smoked body is knocked the way the hit came from (a little for bullets,
+more for melee, thrown up and away by blasts, punts and flying props), tips over with its limbs
+flung out and flopping, slides to a stop against the floor or a wall, lies there and puffs away
+in its color just before the respawn (2.6 s). It's a visual only: nothing collides with it.
+
 Character options (owner request, planned after the new bodies): Crash Bandicoot, Link and
 James Bond, each as close to the source as we can make them, with the shared skeleton so they
 animate like everyone else. You pick one on the join screen **(proposal)**.
@@ -781,3 +786,7 @@ Need answers before the step that uses them gets built.
   shot check skips); making them solid would mean reworking those filters, left for later if
   the owner wants it. Catching rockets and jars with the Gravity Gun is left out of this first
   version.
+- 2026-10-29: Ragdoll-ish deaths. A cheap fake rather than a physics ragdoll: the body tips over
+  as one piece about its feet with a procedural limp pose (flailing while thrown), one floor and
+  wall check per corpse per frame and no extra draw calls. The death puff moved from the moment
+  of death to when the body disappears. Bodies that fall out of the world still just vanish.
