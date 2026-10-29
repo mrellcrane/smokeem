@@ -56,6 +56,7 @@ export class Viewmodel {
     this.sprint = 0;
     this.aim = 0;
     this.lower = 0;
+    this.slide = 0;
     this.vy = 0;
   }
 
@@ -113,7 +114,8 @@ export class Viewmodel {
     this.setWeapon(id);
     const pose = GUNS[id].view;
 
-    const run = p.grounded && p.mode === 'move' ? Math.min(1, p.speed() / 7) : 0;
+    // A slide glides: no running bob, the gun dips and cants a little instead.
+    const run = p.grounded && p.mode === 'move' && !p.sliding ? Math.min(1, p.speed() / 7) : 0;
     this.bobPhase += dt * (6 + p.speed() * 1.2) * (run > 0.05 ? 1 : 0);
     const k = damp(10, dt);
     const rate = dt > 0 ? 1 / Math.max(dt, 1 / 240) : 0;
@@ -123,6 +125,7 @@ export class Viewmodel {
     this.aim += ((p.aimZoom > 1.02 ? 1 : 0) - this.aim) * damp(14, dt);
     const lowered = p.mode === 'mantle' ? 1 : p.mode === 'net' || p.mode === 'rope' || p.mode === 'bars' ? 0.35 : 0;
     this.lower += (lowered - this.lower) * damp(10, dt);
+    this.slide += ((p.sliding ? 1 : 0) - this.slide) * damp(10, dt);
     this.vy += (clamp(-p.vel.y * 0.004, -0.035, 0.035) - this.vy) * damp(8, dt);
     this.kick = Math.max(0, this.kick - dt * 12);
 
@@ -146,13 +149,13 @@ export class Viewmodel {
     g.position.set(
       px - 0.08 * a + bobX + this.swayX - 0.05 * this.sprint - 0.04 * bash,
       py + 0.035 * a + bobY + this.swayY + this.vy - 0.12 * reload - 0.05 * this.sprint - 0.2 * this.lower -
-        p.landDip * 0.25 - 0.3 * sw - 0.16 * toss + 0.03 * bash,
+        p.landDip * 0.25 - 0.3 * sw - 0.16 * toss + 0.03 * bash - 0.025 * this.slide,
       pz + 0.012 * this.kick + 0.05 * a - 0.14 * bash + 0.04 * pump,
     );
     g.rotation.set(
       rx + 0.035 * this.kick - 0.45 * reload - 0.25 * this.sprint - 0.5 * this.lower - 0.9 * sw - 0.35 * toss + 0.12 * pump - 0.25 * bash,
       ry + 0.55 * this.sprint + 0.3 * bash,
-      rz + 0.6 * reload + this.swayX * 2 + 0.5 * bash,
+      rz + 0.6 * reload + this.swayX * 2 + 0.5 * bash + 0.12 * this.slide,
     );
 
     // Rotisserie barrels turn with the spin-up.

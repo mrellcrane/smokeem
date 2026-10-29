@@ -15,7 +15,7 @@ import { Viewmodel } from './viewmodel.js';
 // controller drives keyboard/mouse players, gamepad players and (later) bots.
 //
 // Modes:
-//   move    normal walking / jumping / falling
+//   move    normal walking / jumping / falling (a sprint-slide is part of it: `sliding`)
 //   mantle  scripted pull-up onto a ledge
 //   net     climbing a cargo net
 //   rope    climbing a rope
@@ -67,6 +67,8 @@ export class Player {
     this.filter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
     // Mantle probes ignore bodies, so nobody vaults onto someone's head.
     this.notBody = (c) => !game.entities.has(c.handle);
+    // Wall kicks push off fixed level geometry only: no bodies, grenades or sensors.
+    this.wallFilter = RAPIER.QueryFilterFlags.ONLY_FIXED | RAPIER.QueryFilterFlags.EXCLUDE_SENSORS;
 
     this.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
     this.collider = world.createCollider(RAPIER.ColliderDesc.capsule(STAND_HH, BODY.radius), this.body);
@@ -111,6 +113,23 @@ export class Player {
     this.bars = null;
     this.mantle = { from: new THREE.Vector3(), to: new THREE.Vector3(), t: 0, dur: 0.3, exitX: 0, exitZ: 0 };
     this.netLoc = { s: 0, t: 0, d: 0 };
+    // Sprint-slide, and how long until the next one can start.
+    this.sliding = false;
+    this.slideCooldown = 0;
+    this.slideSfx = null;
+    // Wall kicks: the cooldown between kicks, weaker air steering right after one, and the
+    // plane of the last wall kicked off (no second kick off it before touching the ground or
+    // another wall).
+    this.kickCooldown = 0;
+    this.kickSteerT = 0;
+    this.kickWall = { on: false, nx: 0, nz: 0, d: 0 };
+    // Our capsule grown by the kick reach (to find walls), and the nearest wall found.
+    this.reachStand = new RAPIER.Capsule(STAND_HH, BODY.radius + MOVE.wallKickReach);
+    this.reachCrouch = new RAPIER.Capsule(CROUCH_HH, BODY.radius + MOVE.wallKickReach);
+    const v0 = { x: 0, y: 0, z: 0 };
+    this.contact = new RAPIER.ShapeContact(0, { ...v0 }, { ...v0 }, { ...v0 }, { ...v0 });
+    this.wall = { dist: Infinity, nx: 0, nz: 0, x: 0, y: 0, z: 0 };
+    this._onWall = (collider) => this.considerWall(collider);
 
     // Camera state.
     this.camera = new THREE.PerspectiveCamera(70, 16 / 9, CAMERA.near, CAMERA.far);
@@ -118,6 +137,7 @@ export class Player {
     this.eyeOff = EYE_OFF_STAND;
     this.landDip = 0;
     this.fovBoost = 0;
+    this.slideTilt = 0;
     this._fovH = this._fovA = this._fovZ = NaN;
     this.deathRoll = 0;
     this.lastLookX = 0;
@@ -141,12 +161,14 @@ export class Player {
     this.throwT = 0;
     // When our last third-person muzzle flash went off (game time).
     this.flashT = -1;
-    // What the third-person body shows (CharacterModel.update), reused every frame. lands and
-    // airJumps count events, so the body can start a landing squash or a double-jump kick.
+    // What the third-person body shows (CharacterModel.update), reused every frame. lands,
+    // airJumps and wallKicks count events, so the body can start a landing squash, a
+    // double-jump kick or a push off a wall (kickSide: 1 when the wall was on our right). A
+    // slide also reports crouched.
     this.pose = {
       x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 0, fwd: 0, side: 0, velY: 0,
-      grounded: true, crouched: false, climbing: false, sprinting: false, aiming: false,
-      lands: 0, landSpeed: 0, airJumps: 0, shots: 0, fireT: 99, fireHold: 0.6, kick: 1,
+      grounded: true, crouched: false, climbing: false, sprinting: false, aiming: false, sliding: false,
+      lands: 0, landSpeed: 0, airJumps: 0, wallKicks: 0, kickSide: 1, shots: 0, fireT: 99, fireHold: 0.6, kick: 1,
     };
     this.guiding = null;
     this.pickupPrompt = null;
@@ -336,10 +358,14 @@ export class Player {
     this.mode = 'move';
     this.grounded = false;
     this.sprinting = false;
+    this.sliding = false;
+    this.slideCooldown = this.kickCooldown = this.kickSteerT = 0;
+    this.kickWall.on = false;
     this.airJumpsLeft = MOVE.airJumps;
     this.eyeOff = EYE_OFF_STAND;
     this.landDip = 0;
     this.deathRoll = 0;
+    this.slideTilt = 0;
     this.aimZoom = 1;
     this.sprintLock = 0;
     this.input.clear();
@@ -398,6 +424,9 @@ export class Player {
     this.grabCooldown = Math.max(0, this.grabCooldown - dt);
     this.mantleCooldown = Math.max(0, this.mantleCooldown - dt);
     this.sprintLock = Math.max(0, this.sprintLock - dt);
+    this.slideCooldown = Math.max(0, this.slideCooldown - dt);
+    this.kickCooldown = Math.max(0, this.kickCooldown - dt);
+    this.kickSteerT = Math.max(0, this.kickSteerT - dt);
     this.fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
@@ -484,6 +513,7 @@ export class Player {
     const x = this.input.moveX;
     this.pickDir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
     this.stats.deaths++;
+    if (this.sliding) this.endSlide();
     this.vel.set(0, 0, 0);
     this.sprinting = false;
     this.aimZoom = 1;
@@ -525,15 +555,21 @@ export class Player {
     const inp = this.input;
     const v = this.vel;
     const [wx, wz, wishLen] = this.wish();
+    // Movement speed setting scales running, acceleration and air control together.
+    const k = settings.moveSpeed;
 
+    const wasSprinting = this.sprinting;
     if (this.grounded) {
       this.sprinting =
         inp.held.sprint && inp.moveY > 0.3 && !this.crouched && !this.inMud && this.sprintLock <= 0 && !inp.held.fire && !this.weapon.spin;
     } else if (inp.moveY <= 0.3) {
       this.sprinting = false;
     }
-    // Movement speed setting scales running, acceleration and air control together.
-    const k = settings.moveSpeed;
+    // Crouching mid-sprint on the ground starts a slide (a controller's crouch has already
+    // let go of its sprint toggle, so this goes by the last tick's sprint).
+    if (wasSprinting && this.grounded && inp.held.crouch && !this.crouched && this.slideCooldown <= 0 && this.lungeT <= 0) {
+      this.startSlide(k);
+    }
     let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k;
     // Turning Rotisserie barrels slow you down.
     if (this.weapon.spin > 0) speed *= this.weapon.def.spinMoveMul ?? 1;
@@ -541,25 +577,31 @@ export class Player {
 
     this.knockT = Math.max(0, this.knockT - dt);
     if (this.lungeT > 0) {
+      if (this.sliding) this.endSlide();
       this.lungeT -= dt;
       v.x = this.lungeDir.x * this.lungeSpeed;
       v.z = this.lungeDir.z * this.lungeSpeed;
+    } else if (this.sliding) {
+      this.slideVelocity(dt, wx, wz, wishLen, k);
     } else if (this.grounded && this.knockT <= 0) {
       approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel : MOVE.groundDecel) * k * dt);
     } else if (wishLen > 0.01) {
-      // Keep momentum from sprint jumps; steer toward the stick.
+      // Keep momentum from sprint jumps; steer toward the stick (less right after a wall kick).
       const cur = Math.hypot(v.x, v.z);
       const cap = Math.max(speed, Math.min(cur, MOVE.sprintSpeed * k * 1.2));
-      approach2(v, wx * cap, wz * cap, MOVE.airAccel * k * dt);
+      const steer = this.kickSteerT > 0 ? MOVE.wallKickSteer : 1;
+      approach2(v, wx * cap, wz * cap, MOVE.airAccel * k * steer * dt);
     } else {
       const k = Math.max(0, 1 - MOVE.airDrag * dt);
       v.x *= k;
       v.z *= k;
     }
 
-    // Jumping.
+    // Jumping. Out of a slide it keeps the slide's speed (a slide hop); in the air next to a
+    // wall it kicks off the wall.
     if (pressed.jump) {
       if (this.grounded || this.coyote > 0) this.groundJump();
+      else if (this.tryWallKick(wx, wz, wishLen, k)) this.jumpBuffer = 0;
       else if (this.airJumpsLeft > 0) this.doubleJump(wx, wz, wishLen, speed);
       else this.jumpBuffer = MOVE.jumpBuffer;
     } else if (this.jumpBuffer > 0) {
@@ -595,9 +637,17 @@ export class Player {
       if (!wasGrounded) this.land(fallSpeed);
       this.coyote = MOVE.coyoteTime;
       this.airJumpsLeft = MOVE.airJumps;
+      this.kickWall.on = false;
       if (v.y < 0) v.y = 0;
     } else {
       this.coyote = Math.max(0, this.coyote - dt);
+    }
+
+    // A slide ends when crouch is let go, when it's down to crouch speed (running into a wall
+    // gets it there at once), or off a ledge, where it becomes a fall.
+    if (this.sliding) {
+      const slow = Math.hypot(v.x, v.z) < MOVE.crouchSpeed * k;
+      if (!inp.held.crouch || slow || (!this.grounded && this.coyote <= 0)) this.endSlide();
     }
 
     this.updateCrouch(inp.held.crouch);
@@ -608,6 +658,146 @@ export class Player {
     this.grounded = false;
     this.coyote = 0;
     this.jumpBuffer = 0;
+    if (this.sliding) this.endSlide();
+  }
+
+  // ---------------------------------------------------------------- slide
+
+  // In the current move direction, at least at sprint speed plus the boost (no boost in mud).
+  startSlide(k) {
+    const v = this.vel;
+    const cur = Math.hypot(v.x, v.z);
+    const dx = cur > 0.5 ? v.x / cur : this.fwd.x;
+    const dz = cur > 0.5 ? v.z / cur : this.fwd.z;
+    const start = this.inMud ? cur : Math.max(cur, MOVE.sprintSpeed * k * (1 + MOVE.slideBoost));
+    v.x = dx * start;
+    v.z = dz * start;
+    // The crouch itself happens at the end of the tick (updateCrouch), after this tick's move.
+    this.sliding = true;
+    this.sprinting = false;
+    this.slideSfx = this.game.sfx.play('slide', { at: this.center, source: this });
+  }
+
+  endSlide() {
+    this.sliding = false;
+    this.slideCooldown = MOVE.slideCooldown;
+    this.game.sfx.stop(this.slideSfx);
+    this.slideSfx = null;
+  }
+
+  // One tick of sliding: friction, the pull of the slope underfoot, and a little steering.
+  slideVelocity(dt, wx, wz, wishLen, k) {
+    const v = this.vel;
+    let speed = Math.hypot(v.x, v.z);
+    if (speed < 1e-3) return;
+    let dx = v.x / speed;
+    let dz = v.z / speed;
+    speed = Math.max(0, speed - (this.inMud ? MOVE.slideMudFriction : MOVE.slideFriction) * k * dt);
+    if (this.grounded) {
+      // Gravity along the ground, flattened: downhill speeds the slide up, uphill slows it.
+      const hit = this.castDown(this.center.x, this.feetY() + 0.1, this.center.z, 0.5);
+      if (hit && hit.normal.y > 0.5) {
+        const n = hit.normal;
+        const pull = MOVE.gravity * MOVE.slideSlope * k * n.y * dt;
+        const x = dx * speed + n.x * pull;
+        const z = dz * speed + n.z * pull;
+        speed = Math.hypot(x, z);
+        if (speed > 1e-3) {
+          dx = x / speed;
+          dz = z / speed;
+        }
+      }
+    }
+    speed = Math.min(speed, MOVE.sprintSpeed * MOVE.slideMaxSpeed * k);
+    // Only the stick's sideways part (across the slide) turns it, and slowly.
+    if (wishLen > 0.1) {
+      const a = clamp(dx * wz - dz * wx, -1, 1) * MOVE.slideSteer * dt;
+      const c = Math.cos(a);
+      const sn = Math.sin(a);
+      const x = dx * c - dz * sn;
+      dz = dx * sn + dz * c;
+      dx = x;
+    }
+    v.x = dx * speed;
+    v.z = dz * speed;
+  }
+
+  // ---------------------------------------------------------------- wall kick
+
+  // Kick off a steep wall within reach: up like a double jump (which it doesn't use), pushed
+  // away from the wall, keeping most of the speed along it. Not off climbables (they have their
+  // own jump), the same wall twice in a row, or a wall we're already leaving. Pushing into the
+  // wall with the double jump left is a double jump instead, so walls can still be climbed.
+  tryWallKick(wx, wz, wishLen, k) {
+    if (this.kickCooldown > 0) return false;
+    const zones = this.game.zones;
+    if (zones.findNet(this.center) || zones.findRope(this.center)) return false;
+    const w = this.findWall();
+    if (!w) return false;
+    const h = Math.hypot(w.nx, w.nz);
+    const nx = w.nx / h;
+    const nz = w.nz / h;
+    const d = nx * w.x + nz * w.z;
+    if (this.sameWall(nx, nz, d)) return false;
+    const v = this.vel;
+    if (v.x * nx + v.z * nz > MOVE.wallKickAwayMax) return false;
+    if (wishLen > 0.3 && this.airJumpsLeft > 0 && -(wx * nx + wz * nz) / wishLen > MOVE.wallKickInto) return false;
+
+    const along = (v.z * nx - v.x * nz) * MOVE.wallKickKeep;
+    const push = MOVE.wallKickPush * k;
+    v.x = -nz * along + nx * push;
+    v.z = nx * along + nz * push;
+    v.y = Math.max(v.y, MOVE.wallKickUp);
+    const kw = this.kickWall;
+    kw.on = true;
+    kw.nx = nx;
+    kw.nz = nz;
+    kw.d = d;
+    this.kickCooldown = MOVE.wallKickCooldown;
+    this.kickSteerT = MOVE.wallKickSteerTime;
+    this.pose.wallKicks++;
+    this.pose.kickSide = nx * this.right.x + nz * this.right.z < 0 ? 1 : -1;
+    this.game.sfx.play('wallKick', { at: _c.set(w.x, w.y, w.z), source: this });
+    return true;
+  }
+
+  // Whether a wall plane (horizontal normal, offset along it) is the one we last kicked off.
+  sameWall(nx, nz, d) {
+    const kw = this.kickWall;
+    return kw.on && nx * kw.nx + nz * kw.nz > 0.95 && Math.abs(d - kw.d) < 0.3;
+  }
+
+  // The nearest steep wall within kick reach of our capsule, in this.wall, or null.
+  findWall() {
+    this.wall.dist = Infinity;
+    const shape = this.crouched ? this.reachCrouch : this.reachStand;
+    const filter = this.wallFilter;
+    this.world.intersectionsWithShape(this.center, NO_ROTATION, shape, this._onWall, filter, undefined, this.collider, undefined, this.notBody);
+    return this.wall.dist < Infinity ? this.wall : null;
+  }
+
+  // One collider near us (findWall): keep it if its closest point is a steep face beside the
+  // body (not under the feet) and not part of the monkey bars' frame.
+  considerWall(collider) {
+    const shape = this.crouched ? this.crouchShape : this.standShape;
+    // The test shapes are 3 cm thinner than the body.
+    const hit = collider.contactShape(shape, this.center, NO_ROTATION, MOVE.wallKickReach + 0.03, this.contact);
+    const w = this.wall;
+    if (
+      hit &&
+      hit.distance < w.dist &&
+      Math.abs(hit.normal1.y) <= MOVE.wallKickMaxNormalY &&
+      hit.point1.y > this.feetY() + 0.1 &&
+      !this.game.zones.inBarsFrame(hit.point1)
+    ) {
+      w.dist = hit.distance;
+      w.nx = hit.normal1.x;
+      w.nz = hit.normal1.z;
+      w.x = hit.point1.x;
+      w.y = hit.point1.y;
+      w.z = hit.point1.z;
+    }
+    return true;
   }
 
   doubleJump(wx, wz, wishLen, speed) {
@@ -653,6 +843,11 @@ export class Player {
         v.z -= nz * dot;
       }
       if (nx * this.fwd.x + nz * this.fwd.z < -0.5) this.blockedAhead = true;
+      // Touching a wall other than the one we last kicked off makes that one kickable again.
+      if (this.kickWall.on && Math.abs(ny) <= MOVE.wallKickMaxNormalY && c.collider && !this.game.entities.has(c.collider.handle)) {
+        const h = Math.hypot(nx, nz);
+        if (!this.sameWall(nx / h, nz / h, (nx * c.witness1.x + nz * c.witness1.z) / h)) this.kickWall.on = false;
+      }
     }
   }
 
@@ -749,6 +944,7 @@ export class Player {
   }
 
   startMantle(x, y, z, rise, dx, dz) {
+    if (this.sliding) this.endSlide();
     const m = this.mantle;
     m.from.copy(this.center);
     m.to.set(x, y, z);
@@ -778,6 +974,7 @@ export class Player {
       this.mode = 'move';
       this.vel.set(m.exitX, 0, m.exitZ);
       this.airJumpsLeft = MOVE.airJumps;
+      this.kickWall.on = false;
       this.mantleCooldown = 0.2;
       this.grounded = false;
     }
@@ -790,6 +987,7 @@ export class Player {
     this.vel.set(0, 0, 0);
     this.sprinting = false;
     this.airJumpsLeft = MOVE.airJumps;
+    this.kickWall.on = false;
   }
 
   leaveClimb(vx, vy, vz, cooldown) {
@@ -958,10 +1156,13 @@ export class Player {
     }
     cam.layers.disable(1 + this.id);
     cam.position.set(_c.x, _c.y + this.eyeOff - this.landDip, _c.z);
-    cam.rotation.set(this.pitch + sx, this.yaw + sy, this.deathRoll);
+    // A slide rolls the view a little.
+    this.slideTilt += ((this.sliding ? CAMERA.slideRoll : 0) - this.slideTilt) * damp(10, dt);
+    cam.rotation.set(this.pitch + sx, this.yaw + sy, this.deathRoll + this.slideTilt);
 
     const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed * settings.moveSpeed + 0.5;
-    this.fovBoost += ((fast ? CAMERA.sprintFovBoost : 0) - this.fovBoost) * damp(8, dt);
+    const boost = this.sliding ? CAMERA.slideFovBoost : fast ? CAMERA.sprintFovBoost : 0;
+    this.fovBoost += (boost - this.fovBoost) * damp(8, dt);
     this.setFov(settings.fov + this.fovBoost, aspect, this.aimZoom);
   }
 
@@ -986,6 +1187,7 @@ export class Player {
       s.velY = this.vel.y;
       s.grounded = this.grounded;
       s.crouched = this.crouched;
+      s.sliding = this.sliding;
       s.climbing = this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars';
       s.sprinting = this.sprinting;
       s.aiming = this.aimZoom > 1.05;
