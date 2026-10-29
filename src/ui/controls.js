@@ -29,7 +29,7 @@ export const CONTROL_ROWS = {
       ['A', 'jump, again in air'],
       ['LS click', 'sprint'],
       ['B', 'crouch'],
-      ['Menu', 'pause'],
+      ['Menu / D-pad ↓', 'pause'],
     ],
     [
       ['RT', 'fire'],

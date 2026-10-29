@@ -29,6 +29,9 @@ const STORAGE_KEY = 'smokeem.settings.v1';
 const DEFAULTS = {
   quality: 'medium',
   sensitivity: 1.0,
+  // Controller look speed multiplier (right stick).
+  stickSensitivity: 1.0,
+  rumble: true,
   invertY: false,
   fov: 95,
   showFps: false,
@@ -40,6 +43,7 @@ const DEFAULTS = {
 };
 
 export const SENSITIVITY_RANGE = { min: 0.1, max: 4, step: 0.05 };
+export const STICK_SENSITIVITY_RANGE = { min: 0.3, max: 2.5, step: 0.05 };
 export const FOV_RANGE = { min: 70, max: 115, step: 1 };
 export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 };
 export const MAX_BOTS = 7;
@@ -56,6 +60,7 @@ function load() {
   }
   if (!QUALITY_PRESETS[out.quality]) out.quality = DEFAULTS.quality;
   if (!Number.isFinite(out.sensitivity)) out.sensitivity = DEFAULTS.sensitivity;
+  if (!Number.isFinite(out.stickSensitivity)) out.stickSensitivity = DEFAULTS.stickSensitivity;
   if (!Number.isFinite(out.fov)) out.fov = DEFAULTS.fov;
   if (!Number.isFinite(out.volume)) out.volume = DEFAULTS.volume;
   out.bots = Number.isInteger(out.bots) ? Math.max(0, Math.min(MAX_BOTS, out.bots)) : DEFAULTS.bots;

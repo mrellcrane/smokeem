@@ -23,6 +23,8 @@ import { Viewmodel } from './viewmodel.js';
 
 export const RESPAWN_DELAY = 3;
 const FIRE_DPS = 45;
+// Controller aim slows to this fraction while the crosshair is on someone.
+const AIM_FRICTION = 0.6;
 export const PLAYER_COLORS = [0x3d7bd9, 0xd9443d, 0x3dbd5a, 0xe0b53a];
 
 const NO_ROTATION = { x: 0, y: 0, z: 0, w: 1 };
@@ -142,6 +144,7 @@ export class Player {
     // Third-person body for everyone else's views (hidden from our own camera by layer),
     // and the first-person rifle.
     const armor = color ?? PLAYER_COLORS[id % PLAYER_COLORS.length];
+    this.color = armor;
     this.model = new CharacterModel({ armor });
     if (this.isBot) {
       // Everyone sees bots; they have no view of their own.
@@ -279,6 +282,10 @@ export class Player {
     // Slower turning while zoomed so aim feels the same on screen.
     lx /= this.aimZoom;
     ly /= this.aimZoom;
+    if (this.input.assist && this.aimTarget) {
+      lx *= AIM_FRICTION;
+      ly *= AIM_FRICTION;
+    }
     this.yaw -= lx;
     // Keep yaw in [-PI, PI] so long sessions never lose precision.
     if (this.yaw > Math.PI) this.yaw -= Math.PI * 2;

@@ -61,10 +61,20 @@ skeleton (one draw call each), so they can run, crouch, jump and climb without i
 - 1 to 4 local players in one tab, rendered with renderer viewports and scissor.
 - Layouts: 1 player full screen, 2 players stacked top and bottom, 4 players in quadrants.
 - 3 players: three equal quadrants (players 1 and 2 on top, player 3 bottom left). The 4th
-  quadrant is a match info panel: clock, live scoreboard, kill feed and an arena map that
-  shows only the local players. Equal views are fair, and this renders 25% fewer pixels than
-  a wide view on top, which matters on Xbox.
-- Each controller joins from the main menu by pressing A. Player 1 can use keyboard and mouse.
+  quadrant is a match info panel: live scoreboard and an arena map that shows only the local
+  players (the clock and kill feed join it in step 5). Equal views are fair, and this renders
+  25% fewer pixels than a wide view on top, which matters on Xbox.
+- **Joining** happens on the title screen, which shows four seats. A controller joins by
+  pressing A (that press does nothing else) and leaves with B. Keyboard and mouse joins by
+  clicking an empty seat, or by hitting Play with nobody joined (solo on a Mac). Seats fill
+  in join order and carry over to the next match.
+- Each view gets a P1 to P4 tag in its player color, and the name of whoever is under your
+  crosshair shows below it.
+- Any controller pauses for everyone (Menu, or D-pad down). If a controller drops mid-match
+  the game pauses; turning it back on, or pressing A on another controller, takes the seat
+  back.
+- Keyboard and mouse can share a match with controllers. If a controller resumes the match,
+  the mouse isn't captured until the keyboard player clicks.
 
 ## Movement
 
@@ -262,34 +272,49 @@ as combat terrain.
 
 Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
-### Xbox controller (proposal)
+### Xbox controller
 
 | Action | Button |
 | --- | --- |
 | Move / look | Left stick / right stick |
-| Jump | A |
+| Jump / double jump | A |
 | Crouch | B (hold) |
-| Reload / pick up | X (hold to pick up) |
+| Reload | X (tap) |
+| Pick up / swap weapon on the ground | X (hold) |
 | Switch weapon | Y |
 | Fire | RT |
 | Grenade | LT |
 | Melee | RB |
 | Ability (later) | LB |
-| Sprint | Left stick click |
-| Zoom | Right stick click |
-| Pause | Menu |
-| Scoreboard | View |
+| Sprint | Left stick click (stays on until you let off forward or crouch) |
+| Zoom | Right stick click (toggle) |
+| Pause | Menu, or D-pad down |
+| Scoreboard (step 5) | View |
+
+- Menus: D-pad or left stick moves, A selects, B goes back, left/right changes sliders and
+  choices.
+- Sticks have a radial deadzone. Look runs on a curve (fine aim near center) with a turn
+  boost after a moment at full tilt, so you can still spin around. Full tilt is about
+  180 degrees per second before the boost.
+- Light aim friction on controllers only: look slows to 60% while the crosshair is on
+  someone. No magnetism or auto-aim.
+- Rumble when you get hurt, smoked, or shaken by a blast (can be turned off).
+- Edge on Xbox treats B as the browser's Back button, so once a controller shows up the game
+  keeps a spare history entry and B can never leave the page.
 
 ## Settings
 
 - Graphics quality: Low / Medium / High (resolution cap, shadows, anti-aliasing).
 - Movement speed for everyone, players and bots (default 70%).
 - Mouse sensitivity (saved to `localStorage`).
+- Controller look speed and controller vibration.
 - Invert Y, field of view, FPS counter toggle.
+- These are shared by every local player for now; per-player settings can come later.
 
 ## Audio
 
-Placeholder sound effects are fine for v1 (generated with WebAudio).
+Placeholder sound effects are fine for v1 (generated with WebAudio). The owner wants more
+realistic gun sounds; that pass is next after step 6 (CC0 recordings where possible).
 
 ## Roadmap
 
@@ -314,8 +339,8 @@ Placeholder sound effects are fine for v1 (generated with WebAudio).
    title screen, a damage-direction arrow on the HUD.
 5. **Match flow**: free-for-all rules, 5-minute timer, kill feed, respawns, end-of-match
    scoreboard with smoked meat ranks.
-6. **Split-screen + controllers**: 1 to 4 local players, Gamepad API, press A to join, full
-   controller navigation of every menu.
+6. **Split-screen + controllers (done)**: 1 to 4 local players, Gamepad API, press A to
+   join, full controller navigation of every menu, the 3-player info panel.
 7. **Xbox pass**: performance tuning on Edge on Xbox with 3 views, placeholder sounds, polish.
 
 ### Phase 2: More game
@@ -352,3 +377,11 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Next up after bots: step 6 (controllers and split-screen) so the Xbox is
   playable, then the owner's picks: art and animation pass, abilities, the motorcycle, more
   maps. Step 5 (match flow) slots in alongside.
+- 2026-10-29: Controller layout built as proposed, with sprint and zoom as stick-click
+  toggles (holding a stick click while aiming is awkward). Pause is Menu or D-pad down,
+  because Edge on Xbox may keep Menu for itself.
+- 2026-10-29: Controllers get light aim friction (60% look speed with someone under the
+  crosshair) and nothing stronger. Keyboard and mouse get none.
+- 2026-10-29: Seats: A joins and B leaves on the title screen; keyboard and mouse joins by
+  clicking a seat or playing solo. Settings stay shared across local players for now.
+- 2026-10-29: Owner asked for more realistic gun sounds: queued right after step 6.
