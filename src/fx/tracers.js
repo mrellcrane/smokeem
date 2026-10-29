@@ -49,8 +49,10 @@ const vertexShader = /* glsl */ `
     float w = max(mix(aWidth.x, aWidth.y, t), uMinPx * max(-p.z, 0.0) / (projectionMatrix[1][1] * uViewportH));
     p += side * w * aCorner.y;
     gl_Position = projectionMatrix * vec4(p, 1.0);
-    // Dim at the tail, bright at the head.
-    vColor = vec4(aColor * mix(0.3, 1.0, aCorner.x), aSpan.z);
+    // Dim at the tail, bright at the head. In the shooter's own view it fades out over the
+    // first couple of meters (scoped, with no gun in view, the near end would be a wide wedge).
+    float nearFade = aOwner == uViewer ? smoothstep(0.5, 2.0, -p.z) : 1.0;
+    vColor = vec4(aColor * mix(0.3, 1.0, aCorner.x), aSpan.z * nearFade);
     vSide = aCorner.y;
   }
 `;
