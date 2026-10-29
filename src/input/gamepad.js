@@ -114,6 +114,8 @@ export class GamepadInput {
     this.player = null;
     this.enabled = true;
     this.prev = new Array(17).fill(false);
+    // Buttons still down from the menu press that resumed play: ignored until released.
+    this.block = new Array(17).fill(false);
     this.sprintLatch = false;
     this.zoomLatch = false;
     // Seconds X has been held over a swappable weapon, or -1.
@@ -121,6 +123,8 @@ export class GamepadInput {
     this.boostT = 0;
     this.lastHurtT = -99;
     this.lastShake = 0;
+    this.feltPlayer = null;
+    this.rumbleUntil = 0;
   }
 
   get connected() {
@@ -139,12 +143,13 @@ export class GamepadInput {
     this.boostT = 0;
   }
 
-  // Count whatever is down right now as already held, so the A that resumed the match
-  // doesn't also jump.
+  // Whatever is down right now came from the menu (the A or B that resumed play): ignore it,
+  // held or pressed, until it's released. Toggles start fresh.
   prime() {
     this.pads.poll();
     const gp = this.pads.get(this.index);
-    for (let i = 0; i < this.prev.length; i++) this.prev[i] = !!gp && buttonDown(gp, i);
+    for (let i = 0; i < this.prev.length; i++) this.prev[i] = this.block[i] = !!gp && buttonDown(gp, i);
+    this.sprintLatch = this.zoomLatch = false;
     this.xHeld = -1;
   }
 
@@ -159,7 +164,9 @@ export class GamepadInput {
       return;
     }
     const prev = this.prev;
-    const down = (i) => buttonDown(gp, i);
+    const block = this.block;
+    for (let i = 0; i < block.length; i++) if (block[i] && !buttonDown(gp, i)) block[i] = false;
+    const down = (i) => !block[i] && buttonDown(gp, i);
     const edge = (i) => down(i) && !prev[i];
 
     // Movement: left stick, up is forward.
@@ -188,14 +195,21 @@ export class GamepadInput {
 
     const p = this.player;
 
-    // Sprint: click the left stick; it stays on until you let off forward or crouch.
+    // Sprint: click the left stick; it stays on until you let off forward, crouch, zoom or
+    // fight (firing, grenade, melee all end it, like letting go of Shift).
     if (edge(PAD.LS)) this.sprintLatch = !this.sprintLatch;
-    if (s.moveY < 0.3 || down(PAD.B)) this.sprintLatch = false;
-    s.held.sprint = this.sprintLatch;
+    if (s.moveY < 0.3 || down(PAD.B) || down(PAD.RT) || edge(PAD.LT) || edge(PAD.RB)) this.sprintLatch = false;
 
-    // Zoom: click the right stick to toggle; anything that drops zoom also drops the toggle.
-    if (edge(PAD.RS)) this.zoomLatch = !this.zoomLatch;
-    if (p && (!p.alive || p.sprinting || p.weapon.reloading || p.guiding || p.switchT > 0)) this.zoomLatch = false;
+    // Zoom: click the right stick to toggle. Zooming ends sprint; sprinting again, reloading,
+    // switching or dying drops the zoom.
+    if (edge(PAD.RS)) {
+      this.zoomLatch = !this.zoomLatch;
+      if (this.zoomLatch) this.sprintLatch = false;
+    }
+    if (p && (!p.alive || (p.sprinting && this.sprintLatch) || p.weapon.reloading || p.guiding || p.switchT > 0)) {
+      this.zoomLatch = false;
+    }
+    s.held.sprint = this.sprintLatch;
     s.held.aim = this.zoomLatch;
 
     s.held.jump = down(PAD.A);
@@ -229,17 +243,24 @@ export class GamepadInput {
     s.held.grenade = down(PAD.LT);
     s.held.melee = down(PAD.RB);
 
-    for (let i = 0; i < prev.length; i++) prev[i] = down(i);
+    for (let i = 0; i < prev.length; i++) prev[i] = buttonDown(gp, i);
   }
 
   // Rumble when hurt and when a blast shakes the camera. Called once per rendered frame.
   feel(player) {
-    if (!settings.rumble) return;
     const fb = player.feedback;
+    if (player !== this.feltPlayer) {
+      // New match: nothing to report yet.
+      this.feltPlayer = player;
+      this.lastHurtT = fb.hurtT;
+      this.lastShake = 0;
+    }
+    if (!settings.rumble) return;
     if (fb.hurtT !== this.lastHurtT) {
       this.lastHurtT = fb.hurtT;
-      if (player.alive) this.rumble(0.35, 0.55, 110);
-      else this.rumble(0.9, 0.6, 380);
+      // Fire hurts every tick: don't restart the effect before the last one has played out.
+      if (!player.alive) this.rumble(0.9, 0.6, 380);
+      else if (performance.now() > this.rumbleUntil - 30) this.rumble(0.35, 0.55, 110);
     }
     if (player.shake > this.lastShake + 0.25) this.rumble(Math.min(1, player.shake), 0.4, 260);
     this.lastShake = player.shake;
@@ -249,6 +270,7 @@ export class GamepadInput {
     const gp = this.pads.get(this.index);
     const act = gp?.vibrationActuator;
     if (!act?.playEffect) return;
+    this.rumbleUntil = performance.now() + ms;
     try {
       act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
     } catch {

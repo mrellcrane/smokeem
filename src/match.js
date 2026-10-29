@@ -15,7 +15,8 @@ export function rankFor(place, count, kills, deaths) {
   const placeScore = count > 1 ? (count - place) / (count - 1) : 1;
   const kd = Math.min(1, kills / Math.max(1, deaths) / 2);
   const score = 0.6 * placeScore + 0.4 * kd;
-  return { score, rank: RANKS[Math.min(RANKS.length - 1, Math.floor(score * RANKS.length))] };
+  // The epsilon keeps exact band edges (0.5 can come out as 0.49999...) in the upper band.
+  return { score, rank: RANKS[Math.min(RANKS.length - 1, Math.floor(score * RANKS.length + 1e-9))] };
 }
 
 export function ordinal(n) {
@@ -51,12 +52,14 @@ export class Match {
   }
 
   onKill(victim, info) {
+    // Training dummies are targets, not players: no points, no kills, no feed.
+    if (victim.kind !== 'player') return;
     const a = info.attacker;
     const byOther = a && a !== victim && a.kind === 'player';
     if (byOther) {
       a.stats.kills++;
       a.stats.score++;
-    } else if (victim.kind === 'player') {
+    } else {
       victim.stats.score--;
     }
     this.feed.push({

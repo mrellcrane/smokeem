@@ -492,6 +492,8 @@ export class Game {
   dispose() {
     this.disposed = true;
     this.sfx.listeners = [];
+    // Seats outlive the match; don't let them keep it alive.
+    for (const s of this.inputs) s.player = null;
     window.removeEventListener('resize', this._onResize);
     this._offSettings?.();
     for (const h of this.huds) h.dispose();

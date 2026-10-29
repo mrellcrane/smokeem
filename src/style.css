@@ -59,7 +59,9 @@ body {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  /* The panel centers itself with margin: auto, so a tall one scrolls instead of being cut
+     off at the top. */
+  align-items: flex-start;
   justify-content: center;
   padding: 24px;
   background: radial-gradient(circle at 50% 30%, rgba(80, 40, 15, 0.9), rgba(10, 8, 7, 0.97) 75%);
@@ -72,6 +74,7 @@ body {
 
 .panel {
   width: min(560px, 100%);
+  margin: auto;
   text-align: center;
 }
 
@@ -470,7 +473,7 @@ kbd {
 }
 
 .ammo .wname {
-  font-size: calc(13px * var(--hud-scale, 1));
+  font-size: max(10px, calc(13px * var(--hud-scale, 1)));
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-dim);
@@ -495,7 +498,7 @@ kbd {
 }
 
 .ammo .ammo-note {
-  font-size: calc(13px * var(--hud-scale, 1));
+  font-size: max(10px, calc(13px * var(--hud-scale, 1)));
   color: var(--ember-2);
   min-height: 1em;
   text-transform: uppercase;
@@ -579,6 +582,7 @@ kbd {
 
 .hud-debug {
   position: absolute;
+  white-space: pre;
   left: 10px;
   top: calc(8px + 30px * var(--hud-scale, 1));
   font: 12px ui-monospace, Menlo, Consolas, monospace;
@@ -645,7 +649,7 @@ kbd {
 
 .ammo .other,
 .ammo .nades {
-  font-size: calc(12px * var(--hud-scale, 1));
+  font-size: max(10px, calc(12px * var(--hud-scale, 1)));
   color: var(--ink-dim);
   letter-spacing: 0.06em;
 }
@@ -930,7 +934,7 @@ kbd {
   left: 50%;
   top: calc(50% + 34px * var(--hud-scale, 1));
   transform: translateX(-50%);
-  font-size: calc(13px * var(--hud-scale, 1));
+  font-size: max(11px, calc(13px * var(--hud-scale, 1)));
   font-weight: 700;
   color: #ff6b5a;
   letter-spacing: 0.05em;
@@ -1062,7 +1066,7 @@ kbd {
 }
 
 .hud-place {
-  font-size: calc(14px * var(--hud-scale, 1));
+  font-size: max(11px, calc(14px * var(--hud-scale, 1)));
   font-weight: 700;
   color: var(--ember-2);
 }
@@ -1094,6 +1098,8 @@ kbd {
 .hud-scores {
   display: none;
   position: absolute;
+  /* Above the death screen, crosshair and controls strip. */
+  z-index: 5;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -1240,4 +1246,17 @@ kbd {
 .ip-side .ip-score {
   flex: none;
   align-self: stretch;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* During a match the FPS readout moves into player 1's debug line (it covered the clock). */
+body.in-match .fps {
+  /* Beats the inline display the counter sets on itself. */
+  display: none !important;
 }

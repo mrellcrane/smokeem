@@ -24,7 +24,8 @@ export class PadNav {
   read(gp, dt) {
     let st = this.pads.get(gp.index);
     if (!st) {
-      st = { prev: new Array(17).fill(true), dir: null, hold: 0, next: 0 };
+      // Not "held": the press that made a new pad show up should count (that's how you join).
+      st = { prev: new Array(17).fill(false), dir: null, hold: 0, next: 0, blockDir: false };
       this.pads.set(gp.index, st);
     }
     const out = { a: false, b: false, x: false, y: false, menu: false, view: false, down: false, dir: null };
@@ -53,6 +54,11 @@ export class PadNav {
         dir = Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up';
       }
     }
+    if (st.blockDir) {
+      // A direction held since before the menu opened does nothing until it's let go.
+      if (dir === st.dir) return out;
+      st.blockDir = false;
+    }
     if (dir !== st.dir) {
       st.dir = dir;
       st.hold = 0;
@@ -68,10 +74,13 @@ export class PadNav {
     return out;
   }
 
-  // Forget held state, so a button still down from gameplay doesn't count as a fresh press.
-  reset(gp) {
-    const st = this.pads.get(gp.index);
-    if (st) st.prev.fill(true);
+  // A menu just opened over gameplay: whatever is held now (buttons, a stick direction) is
+  // left over from playing and must be released before it counts.
+  holdAll() {
+    for (const st of this.pads.values()) {
+      st.prev.fill(true);
+      st.blockDir = !!st.dir;
+    }
   }
 
   focusables() {

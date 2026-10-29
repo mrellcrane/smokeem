@@ -21,6 +21,7 @@ import { ordinal } from '../match.js';
 
 const LOGO = `<h1 class="logo">SMOKE <span>EM'</span></h1>`;
 export const MAX_LOCAL_PLAYERS = 4;
+const RESULTS_LOCK_MS = 1000;
 const SEAT_COLORS = PLAYER_COLORS.map((c) => `#${c.toString(16).padStart(6, '0')}`);
 const KIND_TITLES = { keyboardMouse: 'Keyboard + mouse', gamepad: 'Controller' };
 
@@ -349,6 +350,7 @@ export class Menu {
         <h2>Mudlark Gauntlet</h2>
         <button data-action="start" class="big">${label}</button>
         ${message ? `<p class="warn">${message}</p>` : ''}
+        ${this.soundHint()}
         ${controlsFor(kinds)}
       </div>`,
       'ready',
@@ -368,6 +370,7 @@ export class Menu {
           <button data-action="quit" class="secondary">Quit to menu</button>
         </div>
         ${message ? `<p class="warn">${message}</p>` : ''}
+        ${this.soundHint()}
         ${controlsFor(this.kinds())}
       </div>`,
       'pause',
@@ -398,13 +401,26 @@ export class Menu {
           <tbody>${rows}</tbody>
         </table>
         <div class="buttons">
-          <button data-action="rematch" data-autofocus>Play again</button>
-          <button data-action="quit" class="secondary">Quit to menu</button>
+          <button data-action="rematch" disabled>Play again</button>
+          <button data-action="quit" class="secondary" disabled>Quit to menu</button>
         </div>
       </div>`,
       'results',
       'dim',
     );
+    // Players are usually mid-jump when the horn goes: give the results a second before a
+    // stray Space or A press can skip them.
+    const buttons = [...this.root.querySelectorAll('.results button')];
+    setTimeout(() => {
+      if (!buttons[0].isConnected) return;
+      for (const b of buttons) b.disabled = false;
+      buttons[0].focus({ preventScroll: true });
+    }, RESULTS_LOCK_MS);
+  }
+
+  // Safari only starts audio from a real click or key press, never from a controller.
+  soundHint() {
+    return this.handlers.audioLocked?.() ? '<p class="hint">Sound is off until someone clicks or presses a key (a browser rule).</p>' : '';
   }
 
   showError(message) {

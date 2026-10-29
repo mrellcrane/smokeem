@@ -38,6 +38,7 @@ export class Hud {
   constructor(root, source, { index = 0, color = '#ffffff' } = {}) {
     const inputKind = source.kind;
     this.source = source;
+    this.index = index;
     this.keys = KEY_LABELS[inputKind] ?? KEY_LABELS.keyboardMouse;
     this.el = document.createElement('div');
     this.el.className = 'hud-view';
@@ -287,6 +288,7 @@ export class Hud {
       } | ${player.speed().toFixed(1)} m/s | ${c.x.toFixed(1)}, ${player.feetY().toFixed(1)}, ${c.z.toFixed(1)} | ${Math.round(
         v.shield,
       )}/${Math.round(v.health)}`;
+      if (this.index === 0 && game.fps.visible) debug = `${game.fps.text}\n${debug}`;
     }
     this.set('debug', debug, (x) => (e.debug.textContent = x));
   }

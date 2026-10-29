@@ -39,7 +39,7 @@ procedurally in code (canvas) or come from CC0 sources. No external art pipeline
 - **Free-for-all** (v1). Timed matches, 5 minutes by default (3, 5, 10 or no limit on the
   title screen). Most points when time runs out wins.
   - Scoring: a kill is +1; smoking yourself (your own blast, the fire, falling out) is -1.
-    Ties on points share a place.
+    Ties on points share a place. Training dummies (no-bot matches) give no points.
   - Each view shows the clock (red in the last 30 seconds, a beep each second for the last
     10), your place and points, and a kill feed. Hold Tab (View on a controller) for the
     scoreboard.
@@ -78,9 +78,10 @@ skeleton (one draw call each), so they can run, crouch, jump and climb without i
   in join order and carry over to the next match.
 - Each view gets a P1 to P4 tag in its player color, and the name of whoever is under your
   crosshair shows below it.
-- Any controller pauses for everyone (Menu, or D-pad down). If a controller drops mid-match
-  the game pauses; turning it back on, or pressing A on another controller, takes the seat
-  back.
+- Any joined controller pauses for everyone (Menu, or D-pad down). For half a second after
+  a pause or the results open, controllers are ignored (the others are still jumping), and
+  the results buttons wait a full second. If a controller drops mid-match the game pauses;
+  turning it back on, or pressing A on another controller, takes the seat back.
 - Keyboard and mouse can share a match with controllers. If a controller resumes the match,
   the mouse isn't captured until the keyboard player clicks.
 
@@ -258,7 +259,7 @@ as combat terrain.
 
 ## Controls
 
-### Keyboard and mouse (player 1)
+### Keyboard and mouse (any seat)
 
 | Action | Key |
 | --- | --- |

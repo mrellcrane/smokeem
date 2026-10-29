@@ -48,7 +48,8 @@ export class InfoPanel {
     s.top = `${totalHeight - rect.y - rect.h}px`;
     s.width = `${rect.w}px`;
     s.height = `${rect.h}px`;
-    s.setProperty('--hud-scale', Math.max(0.6, Math.min(1.2, rect.h / 720)).toFixed(3));
+    // The panel has a whole quadrant to itself, so its text can be bigger than the views' HUDs.
+    s.setProperty('--hud-scale', Math.max(0.9, Math.min(1.4, rect.h / 400)).toFixed(3));
     // Square map filling the panel height under the header.
     const size = Math.max(64, Math.floor(Math.min(rect.h * 0.8, rect.w * 0.5)));
     const dpr = Math.min(2, window.devicePixelRatio || 1);
