@@ -54,6 +54,15 @@ export const WEAPON_SETS = {
     power: 'swarmJar',
     loadoutNames: ['Ice Pick', 'Branding Day'],
   },
+  junkyard: {
+    name: 'Junkyard',
+    heat: 'Hot',
+    primaries: ['hickory', 'stickybomb'],
+    sidearm: 'toothpick',
+    field: 'mesquite',
+    power: 'gravityGun',
+    loadoutNames: ['Pitmaster', 'Sticky Ribs'],
+  },
   hogWild: {
     name: 'Hog Wild',
     heat: 'Extra Hot',

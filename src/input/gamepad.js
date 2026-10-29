@@ -203,6 +203,8 @@ export class GamepadInput {
     // Zoom: click the right stick to toggle. Zooming ends sprint; sprinting again, reloading,
     // switching or dying drops the zoom.
     if (edge(PAD.RS)) {
+      // (A click also counts as a press, for guns whose aim button acts: stickies, the gravity gun.)
+      s.press('aim');
       this.zoomLatch = !this.zoomLatch;
       if (this.zoomLatch) this.sprintLatch = false;
     }

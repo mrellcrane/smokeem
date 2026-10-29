@@ -113,6 +113,12 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.melee && !busy && p.meleeT <= 0) melee(game, p);
   if (pressed.grenade && !busy && p.throwT <= 0 && p.grenades > 0) throwGrenade(game, p);
   if (pressed.reload && w.canReload()) startReload(game, p);
+  // Guns whose aim button acts: the Stickybomb Launcher sets off your stickies, the Gravity Gun
+  // grabs or drops.
+  if (pressed.aim && !busy) {
+    if (d.detonateOnAim) game.grenades.detonateStickies(p);
+    else if (d.kind === 'gravity') game.gravity?.toggle(p);
+  }
 
   // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
   // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
@@ -212,6 +218,7 @@ function fire(game, p) {
   p.sprintLock = d.sprintLock ?? 0.35;
   p.viewmodel?.fired();
   if (d.kind === 'beam') return fireBeam(game, p);
+  if (d.kind === 'gravity') return game.gravity?.fire(p);
   // Fast guns can play their sound every so often instead of on every round.
   if (!d.soundEvery || game.time - w.lastSoundT >= d.soundEvery) {
     game.sfx.play(d.sound, { rate: (d.soundRate ?? 1) * (0.97 + Math.random() * 0.06), at: p.center, source: p });

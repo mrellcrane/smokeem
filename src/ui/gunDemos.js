@@ -157,6 +157,25 @@ const DEMOS = {
       return target(140, [1.5, 1.7, 1.9]) + s;
     },
   },
+  // Sticky bombs lobbed onto the floor by the target, then both set off together.
+  stickybomb: {
+    still: 1.2,
+    draw: () =>
+      target(132, [1.45]) +
+      flyer('M10 20 Q 50 -6 116 35', '#ff3a24', 0.15, { cls: 'dm-coal', head: 5, trail: 'rgba(255,90,60,0.25)' }) +
+      flyer('M10 20 Q 60 -10 146 35', '#ff3a24', 0.6, { cls: 'dm-coal', head: 5, trail: 'rgba(255,90,60,0.25)' }) +
+      blast(116, 34, 12, '#ff5a3a', 1.45) +
+      blast(146, 34, 12, '#ff5a3a', 1.45),
+  },
+  // A crate pulled in to the gun's claws, then flung at the target.
+  gravityGun: {
+    still: 1.0,
+    draw: () =>
+      target(140, [1.25]) +
+      flyer('M70 33 L 24 20', '#c08850', 0.15, { cls: 'dm-jar', head: 9, trail: 'rgba(99,242,255,0.35)' }) +
+      flyer('M24 20 L 136 22', '#c08850', 0.85, { cls: 'dm-jar', head: 9, trail: 'rgba(99,242,255,0.35)' }) +
+      blast(138, 22, 10, '#63f2ff', 1.25),
+  },
 };
 
 // The demo for a gun, as an inline SVG (a generic stream of shots for guns without their own).

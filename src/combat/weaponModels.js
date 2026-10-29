@@ -64,6 +64,23 @@ export function coalGeometry() {
   );
 }
 
+// A sticky bomb: a dark ball (a box with its corners capped) studded with grip spikes and a
+// red glow band, TF2 style.
+export function stickyGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0], [0.1, 0.1, 0.1], 0x2b2d31],
+      [[0, 0, 0], [0.12, 0.06, 0.06], 0x2b2d31],
+      [[0, 0, 0], [0.06, 0.12, 0.06], 0x2b2d31],
+      [[0, 0, 0], [0.06, 0.06, 0.12], 0x2b2d31],
+      [[0, 0, 0], [0.104, 0.018, 0.104], 0xff3a24],
+      [[0, 0.07, 0], [0.02, 0.03, 0.02], 0x8a9099],
+      [[0, -0.07, 0], [0.02, 0.03, 0.02], 0x8a9099],
+    ],
+    0x2b2d31,
+  );
+}
+
 // Smoke Signal rocket: fat body, nose, four fins. Points along -z.
 export function missileGeometry() {
   return partsGeometry(

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp } from '../util/math.js';
 import { GRENADE } from './weapons.js';
 import { explode } from './explosions.js';
-import { briquetteGeometry, coalGeometry, missileGeometry } from './weaponModels.js';
+import { briquetteGeometry, coalGeometry, missileGeometry, stickyGeometry } from './weaponModels.js';
 
 // Smoke Signal missiles and Briquette grenades. Meshes are pooled and created at load.
 
@@ -217,6 +217,7 @@ export class Grenades {
     for (const [look, geom] of [
       ['briquette', briquetteGeometry()],
       ['coal', coalGeometry()],
+      ['sticky', stickyGeometry()],
     ]) {
       const m = new THREE.InstancedMesh(geom, material, MAX_GRENADES);
       m.name = `grenades:${look}`;
@@ -237,6 +238,11 @@ export class Grenades {
   // kind: a projectile block (see BRIQUETTE); weapon: what the kill feed names.
   throw(owner, origin, velocity, kind = BRIQUETTE, weapon = GRENADE) {
     if (this.list.length >= MAX_GRENADES) this.detonate(this.list[0]);
+    // Sticky bombs: at most maxOut each; one more sets off your oldest.
+    if (kind.sticky) {
+      const mine = this.list.filter((g) => g.kind.sticky && g.owner === owner);
+      if (mine.length >= kind.maxOut) this.detonate(mine[0]);
+    }
     const { RAPIER, world } = this.game.physics;
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
@@ -266,12 +272,19 @@ export class Grenades {
       rot: new THREE.Quaternion(),
       prevRot: new THREE.Quaternion(),
       vel: new THREE.Vector3(velocity.x, velocity.y, velocity.z),
+      // Sticky bombs: stuck to the level, and armed (ready to go off).
+      stuck: false,
+      armed: !kind.sticky,
+      // Held by a gravity gun (src/combat/gravity.js).
+      heldBy: null,
     });
   }
 
   tick(dt) {
     for (let i = this.list.length - 1; i >= 0; i--) {
+      // (A blast this tick can smoke someone, which takes their stickies off the list.)
       const g = this.list[i];
+      if (!g) continue;
       g.prev.copy(g.pos);
       g.prevRot.copy(g.rot);
       const t = g.body.translation();
@@ -281,12 +294,71 @@ export class Grenades {
       g.rot.set(r.x, r.y, r.z, r.w);
       // A sharp change in velocity means it bounced off something.
       _v.set(lv.x, lv.y, lv.z);
-      if (_v.distanceTo(g.vel) > 3 && g.vel.length() > 2.5) this.game.sfx.play('clink', { at: g.pos });
-      g.vel.copy(_v);
+      const bounced = _v.distanceTo(g.vel) > 3 && g.vel.length() > 2.5;
+      if (bounced) this.game.sfx.play('clink', { at: g.pos });
       g.age += dt;
       g.fuse -= dt;
+      if (g.kind.sticky) this.tickSticky(g, bounced || (g.age > 0.1 && _v.lengthSq() < 0.25));
+      if (g.gone) continue;
+      g.vel.copy(_v);
       if (g.kind.ember && (this.game.tickCount & 1) === 0) this.game.fx.ember(g.pos);
       if (g.fuse <= 0 || g.pos.y < -20 || this.touching(g)) this.detonate(g);
+    }
+  }
+
+  // A sticky bomb sticks where it first hits the level (not a body), arms after a moment, and a
+  // bot's goes off by itself when someone else steps near it.
+  tickSticky(g, hit) {
+    if (!g.armed && g.age >= g.kind.armTime) g.armed = true;
+    if (!g.stuck && hit && !g.heldBy && !this.nearBody(g.pos, 0.35)) this.stick(g);
+    if (g.armed && g.owner?.isBot && this.nearBody(g.pos, 2.2, g.owner)) this.detonate(g);
+  }
+
+  stick(g) {
+    const { RAPIER } = this.game.physics;
+    g.body.setLinvel({ x: 0, y: 0, z: 0 }, false);
+    g.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
+    g.body.setBodyType(RAPIER.RigidBodyType.Fixed, false);
+    g.stuck = true;
+    this.game.sfx.play('clink', { at: g.pos, rate: 0.7 });
+  }
+
+  // Free a stuck sticky bomb (a gravity gun pulls it off).
+  unstick(g) {
+    if (!g.stuck) return;
+    const { RAPIER } = this.game.physics;
+    g.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+    g.stuck = false;
+  }
+
+  // Any living body (but `except`) within reach of pos.
+  nearBody(pos, reach, except = null) {
+    for (const e of this.game.entities.values()) {
+      if (e.alive && e !== except && e.distanceToBody(pos) < reach) return true;
+    }
+    return false;
+  }
+
+  // The aim button on a Stickybomb Launcher: every armed sticky of owner's goes off.
+  detonateStickies(owner) {
+    let n = 0;
+    for (const g of [...this.list]) {
+      if (g.kind.sticky && g.owner === owner && g.armed && !g.heldBy) {
+        this.detonate(g);
+        n++;
+      }
+    }
+    return n;
+  }
+
+  // Smoked: your sticky bombs fizzle (without a blast).
+  removeStickies(owner) {
+    for (const g of [...this.list]) {
+      if (!g.kind.sticky || g.owner !== owner) continue;
+      this.list.splice(this.list.indexOf(g), 1);
+      g.gone = true;
+      this.handles.delete(g.collider.handle);
+      this.game.physics.world.removeRigidBody(g.body);
     }
   }
 
@@ -305,14 +377,16 @@ export class Grenades {
     const i = this.list.indexOf(g);
     if (i < 0) return;
     this.list.splice(i, 1);
+    g.gone = true;
     this.handles.delete(g.collider.handle);
     this.game.physics.world.removeRigidBody(g.body);
     if (g.pos.y > -20) explode(this.game, g.pos, g.kind.explosion, { attacker: g.owner, weapon: g.weapon });
   }
 
-  // Blasts push live grenades around.
+  // Blasts push live grenades around (stuck stickies stay put).
   shove(pos, cfg) {
     for (const g of this.list) {
+      if (g.stuck) continue;
       _v.subVectors(g.pos, pos);
       const d = _v.length();
       if (d > cfg.radius || d < 1e-3) continue;
