@@ -1029,12 +1029,18 @@ kbd {
   border-radius: 50%;
 }
 
-/* Split-screen views: the controls strip moves bottom-left, clear of the ammo counter. */
+/* Split-screen views: the controls strip moves bottom-left, between the motion tracker (at
+   the bottom corner) and the ammo counter. */
 .hud-view.split .hud-controls {
-  left: 8px;
+  left: calc(max(84px, 124px * var(--hud-scale, 1)) + 14px);
   transform: none;
   align-items: flex-start;
-  max-width: calc(100% - 150px * var(--hud-scale, 1));
+  max-width: calc(100% - 150px * var(--hud-scale, 1) - max(84px, 124px * var(--hud-scale, 1)) - 14px);
+}
+
+.hud-view.split .hud-radar {
+  bottom: 6px;
+  left: 6px;
 }
 
 .hud-view.split .ctl-row {
@@ -1065,10 +1071,65 @@ kbd {
   color: #ff5a3c;
 }
 
-.hud-place {
-  font-size: max(11px, calc(14px * var(--hud-scale, 1)));
+/* Everyone's place and score, best first; your row stands out. */
+.hud-standings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  min-width: calc(132px * var(--hud-scale, 1));
+  font-size: max(10px, calc(13px * var(--hud-scale, 1)));
+  line-height: 1.2;
+}
+
+.hud-standings div {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: rgba(10, 8, 7, 0.4);
+  color: var(--ink-dim);
+}
+
+.hud-standings div.me {
+  background: rgba(255, 122, 26, 0.32);
+  color: var(--ink);
   font-weight: 700;
-  color: var(--ember-2);
+}
+
+.hud-standings span {
+  width: 1.4em;
+  opacity: 0.7;
+}
+
+.hud-standings i {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  flex: none;
+}
+
+.hud-standings em {
+  flex: 1;
+  font-style: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 9em;
+}
+
+.hud-standings b {
+  min-width: 1.6em;
+  text-align: right;
+}
+
+/* The motion tracker (radar.js), bottom left above the controls strip. */
+.hud-radar {
+  position: absolute;
+  left: calc(10px * var(--hud-scale, 1));
+  bottom: calc(12px + 48px * var(--hud-scale, 1));
+  pointer-events: none;
 }
 
 .hud-feed,

@@ -51,8 +51,13 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
   - Scoring: a kill is +1; smoking yourself (your own blast, the fire, falling out) is -1.
     Ties on points share a place. Training dummies (no-bot matches) give no points.
   - Each view shows the clock (red in the last 30 seconds, a beep each second for the last
-    10), your place and points, and a kill feed. Hold Tab (View on a controller) for the
-    scoreboard.
+    10), everyone's place and points best first (your row highlighted), and a kill feed. Hold
+    Tab (View on a controller) for the full scoreboard with kills and deaths.
+  - Motion tracker (owner request, Halo's): a round radar in the bottom-left corner of each
+    view. Enemies within 25 m show as red dots around you (the way you face is up) while they
+    move faster than a sneak or for a second after they fire, then fade; standing still or
+    crouch-walking keeps you off it. A dot more than 3 m above or below you is drawn as a
+    ring.
   - When time runs out a horn sounds, play freezes and the results screen shows everyone's
     place, points, kills, deaths and smoked meat rank, with Play again and Quit. The pause
     menu can also end a match early (the only way to see results with no time limit).
@@ -699,3 +704,6 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Owner ideas queued: Rocky Mountain Oysters mode (right after movement), the
   Stickybomb Launcher and Gravity Gun (a new set after it), a Halo motion tracker and everyone's
   scores on every view (being built now).
+- 2026-10-29: Owner asked for a Halo motion tracker and everyone's scores on every view. The
+  tracker follows Halo's rules (25 m, moving or firing shows you, sneaking doesn't); the
+  standings list replaced the "1st · 3" line under the clock.
