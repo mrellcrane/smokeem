@@ -31,7 +31,7 @@ export function poseViewer(game, { distance = 6, time = null, turn = 0 } = {}) {
     m.setWeapon(gun);
     const at = p.center.clone().addScaledVector(fwd, distance).addScaledVector(right, (i - (STATES.length - 1) / 2) * 1.1);
     game.scene.add(m.group);
-    return { m, st, at, t: 0, state: { x: at.x, y: p.feetY(), z: at.z, yaw: p.yaw + Math.PI + turn, pitch: 0, speed: 0, lands: 0, airJumps: 0, shotT: -1, fireT: 99 } };
+    return { m, st, at, t: 0, state: { x: at.x, y: p.feetY(), z: at.z, yaw: p.yaw + Math.PI + turn, pitch: 0, speed: 0, lands: 0, airJumps: 0, shots: 0, fireT: 99 } };
   });
   const step = (dt) => {
     for (const b of bodies) {
@@ -51,7 +51,7 @@ export function poseViewer(game, { distance = 6, time = null, turn = 0 } = {}) {
         // A shot every `fire` seconds.
         if (b.t - (b.lastShot ?? -1) >= st.fire) {
           b.lastShot = b.t;
-          s.shotT = b.t;
+          s.shots++;
         }
         s.fireT = b.t - b.lastShot;
       }

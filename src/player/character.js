@@ -96,6 +96,10 @@ const STRIDE_MAX = 1.6;
 // turns back, so the torso and gun stay on the aim.
 const HIP_TURN = 70 * (Math.PI / 180);
 const LEAN_MAX = 8 * (Math.PI / 180);
+// Backpedaling starts past this move angle and stops under the second, so a stick held near a
+// pure strafe doesn't swing the hips across.
+const BACK_ENTER = 115 * (Math.PI / 180);
+const BACK_LEAVE = 85 * (Math.PI / 180);
 
 const ARM_BONES = [['UR', 'armUR'], ['LR', 'armLR'], ['UL', 'armUL'], ['LL', 'armLL']];
 const _qa = new THREE.Quaternion();
@@ -283,8 +287,11 @@ export class CharacterModel {
       }
     }
 
-    // The spine turns (against the hips) before it pitches with the aim.
+    // The spine turns (against the hips) before it pitches with the aim. The hips roll about the
+    // aim's forward axis (roll after turn), so the spine's counter-turn cancels the turn exactly
+    // and the stride roll never becomes a torso nod while strafing.
     this.bones.spine.rotation.order = 'YXZ';
+    this.bones.hips.rotation.order = 'ZYX';
 
     this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r), bodyMaterial());
     this.mesh.add(this.bones.root);
@@ -317,29 +324,43 @@ export class CharacterModel {
     for (const [id, bone] of Object.entries(r.gunBones)) this.gunRest[id] = this.bones[bone].position.clone();
     this.setWeapon(guns[0]);
 
-    this.shieldFlash = 0;
     this.phase = 0;
-    this.crouch = 0;
-    this.air = 0;
-    this.climb = 0;
-    this.hipYaw = 0;
-    this.back = 0;
-    this.lean = 0;
-    this.prevSide = 0;
-    this.sideAcc = 0;
-    this.airT = 0;
-    this.lands = 0;
-    this.landT = 9;
-    this.landHard = 0;
-    this.airJumps = 0;
-    this.kickT = 9;
-    this.kickAmount = 0;
-    this.shotT = -1;
-    this.aimW = 0;
-    this.sprintW = 0;
-    this.djT = 9;
+    this.lands = this.airJumps = this.shots = 0;
+    this.reset();
+  }
+
+  // Back to a standing rest (a new body, or a respawn): nothing smoothed or counted carries
+  // over from the last life.
+  reset() {
+    this.crouch = this.air = this.climb = this.airT = 0;
+    this.hipYaw = this.back = this.lean = 0;
+    this.backOn = false;
+    this.prevSide = this.sideAcc = 0;
+    this.landT = this.kickT = this.djT = 9;
+    this.landHard = this.kickAmount = 0;
+    this.aimW = this.sprintW = 0;
+    this.shieldFlash = 0;
+    this.shell.visible = false;
     // Event counters start from the first state seen.
     this.seen = false;
+  }
+
+  // A shot fired out of a sprint: drop the sprint hold now and move the gun bone, so this very
+  // shot's third-person flash and tracer already leave the gun at the hold (the arms follow on
+  // the next update).
+  endSprint() {
+    if (this.sprintW === 0) return;
+    this.sprintW = 0;
+    const bone = this.rig.gunBones[this.weaponId];
+    if (!bone) return;
+    const gb = this.bones[bone];
+    const rest = this.gunRest[this.weaponId];
+    const a = this.aimW * (1 - this.climb);
+    const A = GUN_POSE.aim;
+    gb.position.set(rest.x + A.pos[0] * a, rest.y + A.pos[1] * a, rest.z + A.pos[2] * a);
+    gb.rotation.set(A.rot[0] * a, A.rot[1] * a, A.rot[2] * a);
+    // (The spine's world matrix is current from the last render.)
+    gb.updateWorldMatrix(false, false);
   }
 
   setWeapon(id) {
@@ -368,9 +389,10 @@ export class CharacterModel {
   }
 
   // state: { x, y, z (feet), yaw, pitch, speed, grounded, crouched, climbing } plus optional
-  // fwd and side (velocity along the facing and to the right), velY, sprinting, aiming, lands
-  // and airJumps (event counters), landSpeed, shotT (game time of the last shot), fireT (time
-  // since it) and kick (the gun's recoil). Training dummies pass only the basics.
+  // fwd and side (velocity along the facing and to the right), velY, sprinting, aiming, lands,
+  // airJumps and shots (event counters), landSpeed, fireT (time since the last shot), fireHold
+  // (how long after a shot the gun stays at the shoulder) and kick (the gun's recoil).
+  // Training dummies pass only the basics plus fwd and side.
   update(dt, s) {
     const g = this.group;
     g.position.set(s.x, s.y, s.z);
@@ -386,7 +408,7 @@ export class CharacterModel {
       this.seen = true;
       this.lands = s.lands ?? 0;
       this.airJumps = s.airJumps ?? 0;
-      this.shotT = s.shotT ?? -1;
+      this.shots = s.shots ?? 0;
     }
     if ((s.lands ?? 0) !== this.lands) {
       this.lands = s.lands;
@@ -398,8 +420,8 @@ export class CharacterModel {
       this.airJumps = s.airJumps;
       kicked = true;
     }
-    if ((s.shotT ?? -1) !== this.shotT) {
-      this.shotT = s.shotT;
+    if ((s.shots ?? 0) !== this.shots) {
+      this.shots = s.shots;
       this.kickT = 0;
       this.kickAmount = s.kick ?? 1;
     }
@@ -416,7 +438,8 @@ export class CharacterModel {
     // Which way the legs run: the move direction off the facing (0 ahead, + to the right);
     // backpedaling runs the legs backward, facing the aim.
     let ang = Math.atan2(side, fwd);
-    const back = speed > 0.5 && Math.abs(ang) > 1.75;
+    this.backOn = speed > 0.5 && Math.abs(ang) > (this.backOn ? BACK_LEAVE : BACK_ENTER);
+    const back = this.backOn;
     if (back) ang -= Math.sign(ang) * Math.PI;
     const turn = speed > 0.5 ? -clamp(ang, -HIP_TURN, HIP_TURN) : 0;
     this.hipYaw += (turn * ground - this.hipYaw) * damp(9, dt);
@@ -466,7 +489,7 @@ export class CharacterModel {
 
     // The gun: at the shoulder while firing or zoomed, across the chest while sprinting,
     // otherwise at the hip; the arms reach up instead while climbing.
-    const aiming = s.aiming || (s.fireT ?? 99) < 0.6;
+    const aiming = s.aiming || (s.fireT ?? 99) < (s.fireHold ?? 0.6);
     this.aimW += ((aiming ? 1 : 0) - this.aimW) * damp(14, dt);
     this.sprintW += ((s.sprinting && !aiming && speed > 1 ? 1 : 0) - this.sprintW) * damp(8, dt);
     const k = this.climb;

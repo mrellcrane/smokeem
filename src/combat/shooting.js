@@ -200,7 +200,9 @@ function fire(game, p) {
   w.mag--;
   w.shots++;
   w.lastShotT = game.time;
+  p.pose.shots++;
   p.sprinting = false;
+  p.model.endSprint();
   p.sprintLock = d.sprintLock ?? 0.35;
   p.viewmodel?.fired();
   if (d.kind === 'beam') return fireBeam(game, p);

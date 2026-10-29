@@ -139,7 +139,7 @@ export class Player {
     this.pose = {
       x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 0, fwd: 0, side: 0, velY: 0,
       grounded: true, crouched: false, climbing: false, sprinting: false, aiming: false,
-      lands: 0, landSpeed: 0, airJumps: 0, shotT: -1, fireT: 99, kick: 1,
+      lands: 0, landSpeed: 0, airJumps: 0, shots: 0, fireT: 99, fireHold: 0.6, kick: 1,
     };
     this.guiding = null;
     this.pickupPrompt = null;
@@ -322,6 +322,7 @@ export class Player {
     this.pickupPrompt = null;
     this.deathInfo = null;
     this.collider.setEnabled(true);
+    this.model.reset();
     this.model.group.visible = true;
   }
 
@@ -954,8 +955,9 @@ export class Player {
       s.climbing = this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars';
       s.sprinting = this.sprinting;
       s.aiming = this.aimZoom > 1.05;
-      s.shotT = w.lastShotT;
       s.fireT = this.game.time - w.lastShotT;
+      // Slow guns stay at the shoulder until the next shot.
+      s.fireHold = Math.max(0.6, 1.25 / w.def.fireRate);
       s.kick = GUNS[w.def.id].view.kick;
       this.model.update(dt, s);
     }
