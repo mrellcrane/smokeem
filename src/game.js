@@ -60,7 +60,16 @@ export class Game {
     const id = WEAPON_SETS[weaponSet] ? weaponSet : DEFAULT_SET;
     const set = WEAPON_SETS[id];
     const loadouts = setLoadouts(set);
-    game.arsenal = { id, set, guns: setGuns(set), loadouts, labels: loadouts.map((_, i) => loadoutLabel(set, i)) };
+    const guns = setGuns(set);
+    game.arsenal = {
+      id,
+      set,
+      guns,
+      loadouts,
+      labels: loadouts.map((_, i) => loadoutLabel(set, i)),
+      // Whether the controls lists mention flying the Smoke Signal.
+      missile: guns.some((g) => WEAPONS[g].kind === 'missile'),
+    };
     game.match = new Match(game, timeLimit);
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
@@ -147,7 +156,7 @@ export class Game {
       this.players.push(p);
       this.humans.push(p);
       this.inputs.push(def.source);
-      const missile = this.arsenal.guns.some((g) => WEAPONS[g].kind === 'missile');
+      const { missile } = this.arsenal;
       this.huds.push(new Hud(this.hudRoot, def.source, { index: i, color: `#${p.color.toString(16).padStart(6, '0')}`, missile }));
       scene.add(p.model.group);
       this.vmScene.add(p.viewmodel.root);

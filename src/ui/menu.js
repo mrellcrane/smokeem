@@ -47,10 +47,10 @@ const RESULTS_LOCK_MS = 1000;
 const SEAT_COLORS = PLAYER_COLORS.map((c) => `#${c.toString(16).padStart(6, '0')}`);
 const KIND_TITLES = { keyboardMouse: 'Keyboard + mouse', gamepad: 'Controller' };
 
-function controlsFor(kinds) {
+function controlsFor(kinds, missile = true) {
   const list = [...new Set(kinds.length ? kinds : ['keyboardMouse'])];
   return list
-    .map((k) => `<div class="controls-list">${list.length > 1 ? `<h4>${KIND_TITLES[k]}</h4>` : ''}${controlsHtml(k)}</div>`)
+    .map((k) => `<div class="controls-list">${list.length > 1 ? `<h4>${KIND_TITLES[k]}</h4>` : ''}${controlsHtml(k, { missile })}</div>`)
     .join('');
 }
 
@@ -411,7 +411,7 @@ export class Menu {
         <button data-action="start" class="big" data-autofocus>${label}</button>
         ${message ? `<p class="warn">${message}</p>` : ''}
         ${this.soundHint()}
-        ${controlsFor(kinds)}
+        ${controlsFor(kinds, this.handlers.hasMissile?.() ?? true)}
       </div>`,
       'ready',
       'dim',
@@ -458,7 +458,7 @@ export class Menu {
         </div>
         ${message ? `<p class="warn">${message}</p>` : ''}
         ${this.soundHint()}
-        ${controlsFor(this.kinds())}
+        ${controlsFor(this.kinds(), this.handlers.hasMissile?.() ?? true)}
       </div>`,
       'pause',
       'dim',

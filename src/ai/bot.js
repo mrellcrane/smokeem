@@ -274,18 +274,32 @@ export class BotBrain {
     return Math.hypot(wrap(p.yaw - this.wantYaw) * Math.cos(p.pitch), p.pitch - this.wantPitch);
   }
 
-  // Extra pitch for a lob that lands on `point` (low arc), or null if it's out of reach.
-  lobArc(point, speed) {
+  // Extra pitch for a lob from launcher `def` that lands on `point` (low arc), or null if it
+  // can't get there before the fuse. Solves the drag-free arc, then corrects a few times for
+  // the launch's extra lift and the projectile's damping (both depend on the flight time).
+  lobArc(point, def) {
     const p = this.player;
     p.eyePosition(_e);
     const dx = Math.hypot(point.x - _e.x, point.z - _e.z);
-    const dy = point.y - _e.y;
+    if (dx < 0.5) return null;
     const g = LOB_GRAVITY;
-    const disc = speed ** 4 - g * (g * dx * dx + 2 * dy * speed * speed);
-    if (disc < 0 || dx < 0.5) return null;
-    const theta = Math.atan((speed * speed - Math.sqrt(disc)) / (g * dx));
-    this.lobTime = dx / (speed * Math.cos(theta));
-    return theta - Math.atan2(dy, dx);
+    const k = def.projectile.damping ?? 0;
+    const up = def.launchUp ?? 0;
+    let t = dx / def.launchSpeed;
+    let theta = 0;
+    for (let i = 0; i < 3; i++) {
+      // Average share of the launch speed kept over the flight.
+      const slow = k > 0 ? (1 - Math.exp(-k * t)) / (k * t) : 1;
+      const s = def.launchSpeed * slow;
+      const dy = point.y - _e.y - up * slow * t;
+      const disc = s ** 4 - g * (g * dx * dx + 2 * dy * s * s);
+      if (disc < 0) return null;
+      theta = Math.atan((s * s - Math.sqrt(disc)) / (g * dx));
+      t = dx / (s * Math.cos(theta));
+    }
+    if (t > def.projectile.fuse * 0.95) return null;
+    this.lobTime = t;
+    return theta - Math.atan2(point.y - _e.y, dx);
   }
 
   // Angle between where we look and the true direction to a point.
@@ -323,21 +337,27 @@ export class BotBrain {
     const w = p.weapon.def;
     let arc = 0;
     let lobOk = true;
-    if (w.bot.lob) {
-      // At their feet, leading a moving target by the flight time.
+    if (this.throwT > 0) {
+      // Winding up a grenade: its arc is tuned for the chest, whatever gun is in hand.
+      _t.y += 0.35;
+      arc = 0.16 + dist * 0.008;
+    } else if (w.bot.lob) {
+      // At their feet (or their chest if low cover hides the feet), leading a moving target by
+      // the flight time, minus the half of our own velocity the launch adds.
       _t.y -= 0.8;
-      if (tg.vel) {
-        this.lobArc(_t, w.launchSpeed);
-        _t.addScaledVector(tg.vel, (this.lobTime ?? 0) * sk.lead);
+      p.eyePosition(_e);
+      if (this.game.lineBlocked(_e, _t)) _t.y += 1.15;
+      if (this.lobArc(_t, w) !== null) {
+        if (tg.vel) _t.addScaledVector(tg.vel, this.lobTime * sk.lead);
+        _t.addScaledVector(p.vel, -0.5 * this.lobTime);
       }
-      const a = this.lobArc(_t, w.launchSpeed);
+      const a = this.lobArc(_t, w);
       lobOk = a !== null;
       arc = a ?? 0;
     } else {
       // Chest height, or the head for Hard bots with a precision gun.
       _t.y = w.bot.headshots && this.skillName === 'hard' ? tg.headLineY() + 0.12 : _t.y + 0.35;
     }
-    if (this.throwT > 0) arc = 0.16 + dist * 0.008;
     this.aimAt(_t, dt, arc);
     if (w.bot.zoomAt && dist > w.bot.zoomAt) s.held.aim = true;
 

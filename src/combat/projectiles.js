@@ -205,6 +205,7 @@ export class Grenades {
     this.handles = new Set();
     // One instanced mesh per look, so every grenade in flight is one draw call per look.
     this.meshes = {};
+    this.meshList = [];
     for (const [look, geom] of [
       ['briquette', briquetteGeometry()],
       ['coal', coalGeometry()],
@@ -216,6 +217,7 @@ export class Grenades {
       m.count = 0;
       game.scene.add(m);
       this.meshes[look] = m;
+      this.meshList.push(m);
     }
   }
 
@@ -311,18 +313,18 @@ export class Grenades {
   }
 
   updateVisuals(alpha) {
-    for (const m of Object.values(this.meshes)) m.count = 0;
+    for (const m of this.meshList) m.count = 0;
     for (const g of this.list) {
       const m = this.meshes[g.kind.look];
       _c.lerpVectors(g.prev, g.pos, alpha);
       _q.slerpQuaternions(g.prevRot, g.rot, alpha);
       m.setMatrixAt(m.count++, _m.compose(_c, _q, _s));
     }
-    for (const m of Object.values(this.meshes)) if (m.count) m.instanceMatrix.needsUpdate = true;
+    for (const m of this.meshList) if (m.count) m.instanceMatrix.needsUpdate = true;
   }
 
   warmup(on, at) {
-    for (const m of Object.values(this.meshes)) {
+    for (const m of this.meshList) {
       if (on) {
         m.setMatrixAt(0, _m.compose(at, _q.identity(), _s));
         m.instanceMatrix.needsUpdate = true;
@@ -338,10 +340,10 @@ export class Grenades {
       this.game.physics.world.removeRigidBody(g.body);
     }
     this.list.length = 0;
-    for (const m of Object.values(this.meshes)) m.count = 0;
+    for (const m of this.meshList) m.count = 0;
   }
 
   dispose() {
-    for (const m of Object.values(this.meshes)) m.geometry.dispose();
+    for (const m of this.meshList) m.geometry.dispose();
   }
 }

@@ -70,8 +70,11 @@ export function updateShooting(game, p, dt, pressed) {
   if (want >= 0) {
     cancelReload(game, p.weapon);
     // Putting a spin-up gun away lets its barrels stop.
-    p.weapon.spin = 0;
-    game.sfx.stop(p.weapon.spinSfx);
+    if (p.weapon.def.spinUp) {
+      p.weapon.spin = 0;
+      game.sfx.stop(p.weapon.spinSfx);
+      p.weapon.spinSfx = null;
+    }
     p.slot = want;
     p.switchT = p.weapon.def.switchTime ?? SWITCH_TIME;
     game.sfx.play('swap', { at: p.center, source: p });
@@ -93,7 +96,10 @@ export function updateShooting(game, p, dt, pressed) {
   // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
   // held through an auto-swap never launches it by surprise.
   let trigger = d.kind === 'missile' ? pressed.fire : inp.held.fire || pressed.fire;
-  if (d.spinUp) trigger = spinBarrels(game, p, w, dt, trigger && !busy && !w.reloading && w.mag > 0) && trigger;
+  // Spin-up guns only fire once the barrels turn. An empty one just winds down, so a pull still
+  // reloads it like any other gun.
+  if (d.spinUp && w.mag > 0) trigger = spinBarrels(game, p, w, dt, trigger && !busy && !w.reloading) && trigger;
+  else if (d.spinUp) spinBarrels(game, p, w, dt, false);
   // Shotguns fire straight out of a shell-by-shell reload.
   if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
   if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {

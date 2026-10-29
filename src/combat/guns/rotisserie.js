@@ -37,9 +37,10 @@ export default {
     switchTime: 0.7,
     tracerEvery: 3,
     tracerColor: 0xffc070,
-    // One slice of a burst recording every 0.22 s instead of a sample per round.
+    // One slice of a burst recording every 0.15 s instead of a sample per round (each slice
+    // plays about 0.22 s, so they overlap whichever tick the next round lands on).
     sound: 'rotisserie',
-    soundEvery: 0.22,
+    soundEvery: 0.15,
     soundRate: 1.2,
     reloadRate: 0.8,
     bot: { min: 0, max: 45, pref: 15, power: true, noAdvance: true, hold: true },

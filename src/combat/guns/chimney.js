@@ -43,7 +43,8 @@ export default {
     sound: 'chimney',
     soundRate: 0.7,
     padRespawn: 40,
-    bot: { min: 6, max: 30, pref: 14, lob: true },
+    // max: coals burst on the fuse at about 24 m, so bots only lob inside that.
+    bot: { min: 6, max: 20, pref: 12, lob: true },
   },
   parts: [
     [[0, 0.03, -0.18], [0.11, 0.11, 0.42], METAL_LIGHT],
