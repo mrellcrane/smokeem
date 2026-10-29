@@ -28,7 +28,18 @@ export const BOT_SKILL = {
 };
 
 export const BOT_NAMES = ['Gristle', 'Dry Rub', 'Rib Tip', 'Pit Boss', 'Low n Slow', 'Charcoal', 'Flare-Up', 'Mop Sauce'];
-export const BOT_COLORS = [0xe0702a, 0x9b59d0, 0x2fb8a8, 0xe06aa8, 0xd8d8d8, 0x6a8f3a, 0x8a5a3a, 0x4a6ad0];
+// Bot armor and trim. The arena owns orange, hazard yellow, cyan, brown and grey, and the local
+// players own blue, red, green and gold, so bots wear violets, pinks, lime and white.
+export const BOT_COLORS = [
+  { armor: 0x9b59d0, trim: 0xf2f2f6 },
+  { armor: 0xe06aa8, trim: 0x30333a },
+  { armor: 0xa6e22e, trim: 0x30333a },
+  { armor: 0xf2f2f6, trim: 0x9b59d0 },
+  { armor: 0xc43ad8, trim: 0xa6e22e },
+  { armor: 0x6b2d8f, trim: 0xff9ad5 },
+  { armor: 0xf2f2f6, trim: 0xe06aa8 },
+  { armor: 0xa6e22e, trim: 0x9b59d0 },
+];
 
 const SIGHT_RANGE = 75;
 // Gravity on launched projectiles (Rapier world gravity).

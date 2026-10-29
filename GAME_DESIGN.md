@@ -60,9 +60,17 @@ procedurally in code (canvas) or come from CC0 sources. No external art pipeline
 
 ## Characters
 
-Contestants wear chunky armor with a wide amber visor and a smoker canister on the back. Each
-local player has a color: blue, red, green, gold. Bodies are procedural boxes on a small
-skeleton (one draw call each), so they can run, crouch, jump and climb without imported assets.
+Contestants wear chunky armor (big shoulder pads, a layered chest plate, thigh and knee
+plates, a crested helmet) with a wide glowing amber visor and a smoker canister on the back
+with a glowing ember ring. Light strips on the chest and shoulders glow in the body's own
+color, and a rim of that color lights the silhouette, stronger with distance, so a far player
+reads as a colored person even in shade. Each local player has a color: blue, red, green,
+gold. Bodies are procedural boxes on a small skeleton (one draw call each), so they can run,
+crouch, jump and climb without imported assets.
+
+Palette rule: the arena owns orange, hazard yellow, cyan, brown and grey, and the local
+players own blue, red, green and gold, so bots wear violets, pinks, lime and white (armor
+plus a contrasting trim). The undersuit is mid charcoal so armor color and shape read.
 
 ## Players and split-screen
 
@@ -445,7 +453,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   two go together. A design workflow (three competing plans, two judges) turned this into 15
   PRs, biggest visible win per frame cost first: (1) groundwork: `?bench`, draw-call savings,
   sharper shadows (done); (2) readable contestants: team-color rim light, glowing visors, a
-  bot palette that avoids arena colors, chunkier armor; (3) world light: baked ground shading
+  bot palette that avoids arena colors, chunkier armor (done); (3) world light: baked ground shading
   and glow pools, contact shading on walls and props, a light grade per map; (4) shots you
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues;
   (5) painted sky and skyline; (6) textures 2.0; (7) body language: real locomotion, aiming
