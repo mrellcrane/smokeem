@@ -881,17 +881,17 @@ function splat(ctx, R) {
   }
 }
 
-// A bullet mark: a near-black hole in a lighter scuffed rim with a few hairline cracks. The
-// color is multiplied by the surface's tint, so the hole stays dark and the rim takes the tint.
+// A bullet mark: a dark hole in a fainter scuffed ring with a few hairline cracks. Black with
+// alpha only: marks darken whatever they lie on, so they keep its light and shade.
 function hole(ctx, R) {
   const rand = mulberry32(64);
   const rim = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.95);
-  rim.addColorStop(0, 'rgba(255,255,255,0.9)');
-  rim.addColorStop(0.55, 'rgba(255,255,255,0.45)');
-  rim.addColorStop(1, 'rgba(255,255,255,0)');
+  rim.addColorStop(0, 'rgba(0,0,0,0.45)');
+  rim.addColorStop(0.55, 'rgba(0,0,0,0.2)');
+  rim.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = rim;
   ctx.fillRect(-R, -R, R * 2, R * 2);
-  ctx.strokeStyle = 'rgba(20,20,20,0.8)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
   ctx.lineWidth = 2;
   for (let i = 0; i < 5; i++) {
     const a = rand() * Math.PI * 2;
@@ -901,9 +901,9 @@ function hole(ctx, R) {
     ctx.stroke();
   }
   const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.38);
-  core.addColorStop(0, 'rgba(8,8,8,1)');
-  core.addColorStop(0.7, 'rgba(15,15,15,1)');
-  core.addColorStop(1, 'rgba(40,40,40,0)');
+  core.addColorStop(0, 'rgba(0,0,0,1)');
+  core.addColorStop(0.7, 'rgba(0,0,0,0.95)');
+  core.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = core;
   ctx.fillRect(-R, -R, R * 2, R * 2);
 }

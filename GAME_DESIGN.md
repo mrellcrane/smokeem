@@ -208,6 +208,15 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Swarm Jar** | wacky | Jar of homing bugs that chase the nearest enemy. | yes |
 | **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
+| **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | planned, after maps |
+
+**Shrink Wrap** (owner request, 2026-10-29: one gun for both, built after the new maps). A power
+gun for a wacky set, never in a loadout. Its hitbox change is the point: a shrunk player really
+is harder to hit.
+- Fire shrinks for 6 s: 40% size, slower, shots do half damage, the view drops to ankle height,
+  and anyone who lands on you smokes you with a stomp.
+- The aim button grows for 6 s (the gun has no scope): 160% size, slower, takes 1.5x damage, and
+  a second grow while still big pops you.
 
 **Shooting rules for every gun**
 - Hold the trigger to repeat at the gun's own rate (semi-autos too, so nobody has to mash).
@@ -587,4 +596,5 @@ Need answers before the step that uses them gets built.
   dirt and concrete, splinters off wood and splats in mud, and leave small marks that fade after
   15 s (none on mud, nets or ropes). Marks and scorches are off on Low. Shots now stop at the
   mud's surface instead of going through it to the pit floor (missiles and jars too), since
-  the mud is what you see. No new draw calls or shader programs.
+  the mud is what you see. No new meshes or shader programs; the trough embers keep the
+  existing sparks and smoke draws on between fights.

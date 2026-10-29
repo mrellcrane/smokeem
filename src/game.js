@@ -346,6 +346,20 @@ export class Game {
     ray.dir.y = dir.y;
     ray.dir.z = dir.z;
     const hit = this.physics.world.castRayAndGetNormal(ray, range, true, this.shotFilter, undefined, exclude);
+    const entity = hit ? this.entities.get(hit.collider.handle) ?? null : null;
+    // The mud has no collider (you wade through it), so a shot, projectile or bug flying into it
+    // stops at its surface. (A body under it can still be hit, as before.)
+    const mud = entity ? null : this.zones.mudAlong(origin, dir, hit ? hit.timeOfImpact : range);
+    if (mud !== null) {
+      r.hit = true;
+      r.distance = mud;
+      r.point.copy(origin).addScaledVector(dir, mud);
+      r.normal.set(0, 1, 0);
+      r.entity = null;
+      r.headshot = false;
+      r.surface = 'mud';
+      return r;
+    }
     if (!hit) {
       r.hit = false;
       r.entity = null;
@@ -358,25 +372,16 @@ export class Game {
     r.distance = hit.timeOfImpact;
     r.point.copy(origin).addScaledVector(dir, hit.timeOfImpact);
     r.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
-    r.entity = this.entities.get(hit.collider.handle) ?? null;
+    r.entity = entity;
     r.headshot = !!r.entity && r.point.y >= r.entity.headLineY();
     r.surface = r.entity ? null : this.arena.surfaces.get(hit.collider.handle) ?? null;
-    // The mud has no collider (you wade through it), so a shot into it stops at its surface.
-    if (!r.entity) {
-      const t = this.zones.mudAlong(origin, dir, r.distance);
-      if (t !== null) {
-        r.distance = t;
-        r.point.copy(origin).addScaledVector(dir, t);
-        r.normal.set(0, 1, 0);
-        r.surface = 'mud';
-      }
-    }
     return r;
   }
 
-  // The level surface within maxDist of pos along dir (a unit vector), as a reused
-  // { point, normal, surface }, or null. Bodies and grenades don't count.
-  surfaceNear(pos, dir, maxDist) {
+  // The level surface within maxDist of pos along dir (a unit vector), as { point, normal,
+  // surface } written into out (a reused object by default), or null. Bodies and grenades
+  // don't count.
+  surfaceNear(pos, dir, maxDist, out = this._surface) {
     const ray = this.ray;
     ray.origin.x = pos.x;
     ray.origin.y = pos.y;
@@ -387,11 +392,42 @@ export class Game {
     const hit = this.physics.world.castRayAndGetNormal(ray, maxDist, true, this.shotFilter, undefined, undefined, undefined, this.notBody);
     // (Starting inside a solid gives no usable normal.)
     if (!hit || hit.timeOfImpact <= 0) return null;
-    const s = this._surface;
+    const s = out;
     s.point.copy(pos).addScaledVector(dir, hit.timeOfImpact);
     s.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
     s.surface = this.arena.surfaces.get(hit.collider.handle) ?? null;
     return s;
+  }
+
+  // A shot stops at a collider, but a thin trim with no collider of its own (hazard bands, glow
+  // strips, pickup pads) can stand a few cm proud of it. Moves a hit on an axis-aligned face out
+  // to the face of a trim covering it, so marks and debris sit on what you see, and returns the
+  // surface there (null on glow strips, which take no marks).
+  trimFace(point, normal, surface) {
+    const k = Math.abs(normal.x) > 0.99 ? 0 : Math.abs(normal.y) > 0.99 ? 1 : Math.abs(normal.z) > 0.99 ? 2 : -1;
+    if (k < 0) return surface;
+    const up = normal.getComponent(k) > 0;
+    const i = (k + 1) % 3;
+    const j = (k + 2) % 3;
+    for (const t of this.arena.trims) {
+      const pk = point.getComponent(k);
+      if (t.cyl) {
+        if (k !== 1 || !up || pk < t.y0 - 0.01 || pk >= t.y1) continue;
+        const dx = point.x - t.x;
+        const dz = point.z - t.z;
+        if (dx * dx + dz * dz > t.r * t.r) continue;
+        point.y = t.y1;
+        surface = t.surface;
+        continue;
+      }
+      const pi = point.getComponent(i);
+      const pj = point.getComponent(j);
+      if (pi < t.min[i] - 1e-3 || pi > t.max[i] + 1e-3 || pj < t.min[j] - 1e-3 || pj > t.max[j] + 1e-3) continue;
+      if (up ? pk < t.min[k] - 0.01 || pk >= t.max[k] : pk <= t.min[k] || pk > t.max[k] + 0.01) continue;
+      point.setComponent(k, up ? t.max[k] : t.min[k]);
+      surface = t.surface;
+    }
+    return surface;
   }
 
   // How wide a mark centered on a surface (from surfaceNear) can be, up to width, and still lie

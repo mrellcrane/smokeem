@@ -8,6 +8,7 @@ import { setView } from './viewUniforms.js';
 
 const _t = new THREE.Vector3();
 const _b = new THREE.Vector3();
+const _o = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
 // Cells of the effect atlases (textures.js).
@@ -24,14 +25,14 @@ const SPLAT = 6;
 const HOLE = 7;
 const SCORCH = 8;
 
-// What a bullet kicks up from each surface (materials.js), and the tint of the mark it leaves
-// (none on mud, nets and ropes). Marks multiply the tint into a near-black hole and its rim.
+// What a bullet kicks up from each surface (materials.js), and how dark a mark it leaves (none
+// on mud, nets and ropes). Marks only darken what's under them, so they take its light and shade.
 const HITS = {
-  metal: { sparks: 8, spark: 0xffc070, dust: 0x9a9690, mark: 0xb8bcc0, markAlpha: 0.9 },
-  dirt: { chips: 4, chip: 0x5a3e2a, dust: 0xa88462, dustSize: 0.3, mark: 0x5a3a26, markAlpha: 0.8 },
-  wood: { splinters: 4, chip: 0xd8b07a, dust: 0xc0a07c, mark: 0x9a7650, markAlpha: 0.9 },
-  concrete: { sparks: 2, spark: 0xffd090, chips: 4, chip: 0xa8a6a2, dust: 0xc4c0ba, mark: 0x8e8c88, markAlpha: 0.9 },
-  mud: { splats: 5, chip: 0x3a2a1c },
+  metal: { sparks: 8, spark: 0xffc070, dust: 0x9a9690, mark: 0.9 },
+  dirt: { chips: 4, chip: 0x5a3e2a, dust: 0xa88462, dustSize: 0.3, mark: 0.75 },
+  wood: { splinters: 4, chip: 0xd8b07a, dust: 0xc0a07c, mark: 0.9 },
+  concrete: { sparks: 2, spark: 0xffd090, chips: 4, chip: 0xa8a6a2, dust: 0xc4c0ba, mark: 0.85 },
+  mud: { splats: 5, chip: 0x7a5c40 },
   cloth: { dust: 0xb8a888 },
   // Anything else (invisible blockers).
   other: { sparks: 6, spark: 0xffb060, dust: 0xb89a80 },
@@ -182,7 +183,7 @@ export class Effects {
   mark(point, normal, surface) {
     const h = HITS[surface];
     if (!h?.mark) return;
-    this.smoke.decal(point, normal, h.mark, 0.08 + Math.random() * 0.03, MARK_LIFE, MARK_FADE, { cell: HOLE, alpha: h.markAlpha });
+    this.smoke.decal(point, normal, 0x000000, 0.08 + Math.random() * 0.03, MARK_LIFE, MARK_FADE, { cell: HOLE, alpha: h.mark });
   }
 
   impactBody(point, normal, shield) {
@@ -229,21 +230,26 @@ export class Effects {
 
   // A blast, scaled to its radius: one white frame, rolling fire that cools from white-hot
   // through orange and red, a shock ring out to the real damage radius (so you learn how close
-  // is too close), ember streaks, smoke and a scorch. opts: tint (the ring and embers, per
-  // explosive), surface ({ point, normal, surface }: what it went off against, from
-  // Game.surfaceNear; the ring lies flat on it), scorch (the scorch's width on that surface,
-  // 0 for none: Game.fitDecal keeps it from hanging over an edge).
-  explosion(pos, radius, { tint = 0xffb050, surface = null, scorch = 0 } = {}) {
+  // is too close), ember streaks, smoke and a scorch. opts (from explode()):
+  // - tint: the ring and embers, per explosive
+  // - ring: the floor ({ point, normal }) the ring lies flat on, or null to face the camera
+  // - scorch, scorchWidth: the surface to scorch and the scorch's width there (0 for none)
+  // - wall, push: against a wall, its normal (fire and smoke billow out from it instead of up)
+  //   and how far to move them off it
+  explosion(pos, radius, { tint = 0xffb050, ring = null, scorch = null, scorchWidth = 0, wall = null, push = 0 } = {}) {
     const r = radius / 5;
     const k = this.fxScale;
-    this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, 0xffffff, radius * 1.2, 0.06, { cell: STAR + 1, minPx: 16 });
+    const axis = wall ?? UP;
+    _o.copy(pos);
+    if (wall) _o.addScaledVector(wall, push);
+    this.sparks.spawn(_o.x, _o.y, _o.z, 0, 0, 0, 0xffffff, radius * 1.2, 0.06, { cell: STAR + 1, minPx: 16 });
     const billows = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < billows; i++) {
-      randomInHemisphere(UP, _t);
+      randomInHemisphere(axis, _t);
       this.sparks.spawn(
-        pos.x + _t.x * 0.5 * r,
-        pos.y + _t.y * 0.4 * r,
-        pos.z + _t.z * 0.5 * r,
+        _o.x + _t.x * 0.5 * r,
+        _o.y + _t.y * 0.4 * r,
+        _o.z + _t.z * 0.5 * r,
         _t.x * 2.5 * r,
         _t.y * 2.5 * r + 1,
         _t.z * 2.5 * r,
@@ -255,9 +261,9 @@ export class Effects {
     }
     // The ring cell's bright line sits at 0.84 of its half width.
     const ringSize = (radius * 2) / 0.84;
-    if (surface) {
-      const p = surface.point;
-      const n = surface.normal;
+    if (ring) {
+      const p = ring.point;
+      const n = ring.normal;
       this.sparks.spawn(p.x + n.x * 0.05, p.y + n.y * 0.05, p.z + n.z * 0.05, 0, 0, 0, tint, 0.6, 0.35, {
         cell: RING,
         flat: n,
@@ -270,10 +276,10 @@ export class Effects {
     }
     const embers = Math.round((20 + Math.random() * 8) * k);
     for (let i = 0; i < embers; i++) {
-      randomInHemisphere(UP, _t);
+      randomInHemisphere(axis, _t);
       const s = (8 + Math.random() * 10) * r;
       _b.copy(_t).multiplyScalar(0.35 * r);
-      this.sparks.spawn(pos.x, pos.y + 0.1, pos.z, _t.x * s, _t.y * s, _t.z * s, tint, 0.05, 0.4 + Math.random() * 0.4, {
+      this.sparks.spawn(_o.x, _o.y + 0.1, _o.z, _t.x * s, _t.y * s, _t.z * s, tint, 0.05, 0.4 + Math.random() * 0.4, {
         gravity: 9,
         drag: 1.5,
         axis: _b,
@@ -282,9 +288,9 @@ export class Effects {
     }
     const puffs = Math.round((8 + Math.random() * 4) * k);
     for (let i = 0; i < puffs; i++) {
-      randomInHemisphere(UP, _t);
+      randomInHemisphere(axis, _t);
       const s = (1.5 + Math.random() * 2.5) * r;
-      this.smoke.spawn(pos.x + _t.x * r, pos.y + _t.y * r * 0.6, pos.z + _t.z * r, _t.x * s, _t.y * s + 0.8, _t.z * s,
+      this.smoke.spawn(_o.x + _t.x * r, _o.y + _t.y * r * 0.6, _o.z + _t.z * r, _t.x * s, _t.y * s + 0.8, _t.z * s,
         i % 3 === 0 ? 0x2e2a28 : i % 3 === 1 ? 0x4a4440 : 0x6e6862, (1.2 + Math.random()) * r, 1.4 + Math.random() * 0.9, {
           cell: PUFF + (i % 4),
           grow: 2.4,
@@ -293,8 +299,8 @@ export class Effects {
           rotVel: (Math.random() - 0.5) * 1.5,
         });
     }
-    if (surface && scorch > 0) {
-      this.smoke.decal(surface.point, surface.normal, 0x0c0a08, scorch, SCORCH_LIFE, MARK_FADE, { cell: SCORCH, alpha: 0.85 });
+    if (scorch && scorchWidth > 0) {
+      this.smoke.decal(scorch.point, scorch.normal, 0x000000, scorchWidth, SCORCH_LIFE, MARK_FADE, { cell: SCORCH, alpha: 0.85 });
     }
   }
 

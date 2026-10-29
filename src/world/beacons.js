@@ -234,6 +234,8 @@ export class Beacons {
     // spheres, which flips with the camera's pitch. Halos and rings sit on surfaces, so smoke
     // over them is always in front. A column stands in the open, so smoke behind one dims it;
     // drawing columns after smoke would take a mesh (and a draw call per view) of their own.
+    // Bullet marks are in smoke's draw too, so one behind a column or halo shows over its light
+    // (a little too dark; they're small and fade in 15 s).
     this.mesh.renderOrder = 3;
     this.mesh.visible = index.length > 0;
   }

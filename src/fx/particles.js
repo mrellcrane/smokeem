@@ -15,6 +15,9 @@ import { viewUniforms } from './viewUniforms.js';
 // right in front of the camera instead of filling the screen.
 // A system can keep marks (decals) in reserved slots at the front of its pool: they stay put for
 // a long life and fade out at the end, and the per-frame loop does nothing for them until then.
+// Colors: tints are hex like everywhere else and are converted to linear, but the shader writes
+// them out unencoded, so they show darker and richer than the hex. Pick them by eye. (RAMP_KEYS
+// are written as is.)
 
 const vertexShader = /* glsl */ `
   uniform float uViewer;
@@ -48,8 +51,8 @@ const vertexShader = /* glsl */ `
       vec3 b = cross(n, t);
       vec2 r = vec2(corner.x * c - corner.y * sn, corner.x * sn + corner.y * c) * s;
       mv = modelViewMatrix * vec4(iPos + t * r.x + b * r.y, 1.0);
-      // Same spot on screen, a little nearer in depth.
-      mv.xyz *= 0.998;
+      // Same spot on screen, a little nearer in depth (on top of the lift off the surface).
+      mv.xyz *= 0.9995;
     } else if (mode > 0.5) {
       // Along the axis as seen on screen, as long as its foreshortened length.
       vec3 ax = (modelViewMatrix * vec4(iAxis, 0.0)).xyz;
@@ -206,6 +209,10 @@ export class Particles {
     if (this.decals === 0) return;
     const i = this.decalNext;
     this.decalNext = (this.decalNext + 1) % this.decals;
+    // The slot this ring reaches a third of a lap from now starts its fade, so under heavy fire
+    // old marks fade out instead of popping when their slot is reused.
+    const j = (i + Math.ceil(this.decals / 3)) % this.decals;
+    if (this.life[j] > this.maxLife[j]) this.life[j] = this.maxLife[j];
     const i3 = i * 3;
     this.p[i3] = point.x + normal.x * DECAL_LIFT;
     this.p[i3 + 1] = point.y + normal.y * DECAL_LIFT;

@@ -69,6 +69,8 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   const EMBERS = 3;
   const WISPS = 1;
   const troughFx = fireTroughs.map(() => ({ embers: Math.random(), wisps: Math.random() }));
+  const troughX = (tr) => tr.x + (Math.random() - 0.5) * 0.7;
+  const troughZ = (tr) => tr.z0 + Math.random() * (tr.z1 - tr.z0);
 
   return {
     meshes,
@@ -77,21 +79,21 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     spawnPoints,
     halos: B.halos,
     surfaces: B.surfaces,
+    trims: B.trims,
     // fx: the match's Effects (embers and wisps off the fire troughs).
     update(dt, time, fx) {
       fire.update(time);
       // Slow drift so the mud looks a little alive.
       mudMap.offset.x = Math.sin(time * 0.05) * 0.2;
       mudMap.offset.y = time * 0.004;
-      fireTroughs.forEach((tr, i) => {
+      for (let i = 0; i < fireTroughs.length; i++) {
+        const tr = fireTroughs[i];
         const acc = troughFx[i];
         acc.embers += dt * EMBERS * fx.fxScale;
         acc.wisps += dt * WISPS * fx.fxScale;
-        const x = () => tr.x + (Math.random() - 0.5) * 0.7;
-        const z = () => tr.z0 + Math.random() * (tr.z1 - tr.z0);
-        for (; acc.embers >= 1; acc.embers--) fx.fireEmber(x(), tr.y + 0.3 + Math.random() * 0.6, z());
-        for (; acc.wisps >= 1; acc.wisps--) fx.fireWisp(x(), tr.y + tr.height * 0.8, z());
-      });
+        for (; acc.embers >= 1; acc.embers--) fx.fireEmber(troughX(tr), tr.y + 0.3 + Math.random() * 0.6, troughZ(tr));
+        for (; acc.wisps >= 1; acc.wisps--) fx.fireWisp(troughX(tr), tr.y + tr.height * 0.8, troughZ(tr));
+      }
     },
   };
 }

@@ -113,6 +113,16 @@ export class Zones {
     return best;
   }
 
+  // The height of the mud's surface when p is in the mud or less than reach above it, else null.
+  mudTop(p, reach) {
+    for (const z of this.mud) {
+      if (p.x > z.min[0] && p.x < z.max[0] && p.z > z.min[2] && p.z < z.max[2] && p.y > z.min[1] && p.y < z.surface + reach) {
+        return z.surface;
+      }
+    }
+    return null;
+  }
+
   inMud(feet) {
     for (const z of this.mud) {
       if (
