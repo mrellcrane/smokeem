@@ -215,6 +215,7 @@ export class Grenades {
       m.castShadow = true;
       m.frustumCulled = false;
       m.count = 0;
+      m.visible = false;
       game.scene.add(m);
       this.meshes[look] = m;
       this.meshList.push(m);
@@ -320,7 +321,11 @@ export class Grenades {
       _q.slerpQuaternions(g.prevRot, g.rot, alpha);
       m.setMatrixAt(m.count++, _m.compose(_c, _q, _s));
     }
-    for (const m of this.meshList) if (m.count) m.instanceMatrix.needsUpdate = true;
+    // Nothing in flight: no draw call (three still draws a zero-count instanced mesh).
+    for (const m of this.meshList) {
+      m.visible = m.count > 0;
+      if (m.count) m.instanceMatrix.needsUpdate = true;
+    }
   }
 
   warmup(on, at) {
@@ -330,6 +335,7 @@ export class Grenades {
         m.instanceMatrix.needsUpdate = true;
       }
       m.count = on ? 1 : 0;
+      m.visible = on;
     }
     if (!on) this.updateVisuals(1);
   }
@@ -340,7 +346,10 @@ export class Grenades {
       this.game.physics.world.removeRigidBody(g.body);
     }
     this.list.length = 0;
-    for (const m of this.meshList) m.count = 0;
+    for (const m of this.meshList) {
+      m.count = 0;
+      m.visible = false;
+    }
   }
 
   dispose() {

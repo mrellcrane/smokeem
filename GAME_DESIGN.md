@@ -442,7 +442,17 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   arena, fog and a better sky, more detailed character bodies with real walk, run, jump and
   climb animation, first-person gun animations, better muzzle flashes, explosions and impacts.
   Every change is measured against the Xbox budget (60 fps with 3 views) from step 7, so the
-  two go together.
+  two go together. A design workflow (three competing plans, two judges) turned this into 15
+  PRs, biggest visible win per frame cost first: (1) groundwork: `?bench`, draw-call savings,
+  sharper shadows (done); (2) readable contestants: team-color rim light, glowing visors, a
+  bot palette that avoids arena colors, chunkier armor; (3) world light: baked ground shading
+  and glow pools, contact shading on walls and props, a light grade per map; (4) shots you
+  can read: third-person muzzle flashes, tracers that stay visible far away, combat cues;
+  (5) painted sky and skyline; (6) textures 2.0; (7) body language: real locomotion, aiming
+  separate from legs, jumps and landings; (8) pickup beacons; (9) explosions, impacts and
+  decals; (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
+  flinch and death animation; (13) animated reloads in first person; (14) normal maps on
+  high only; (15) a shadowless low tier only if the Xbox bench needs it.
 - **More maps** (owner wants this): Map 2 and beyond. Each map needs its own layout, bot
   links (`src/ai/mapLinks.js`), pickup pads and a default weapon set, plus a map choice on
   the title screen.
@@ -520,3 +530,9 @@ Need answers before the step that uses them gets built.
   bots swat bugs on them, Easy bots run. The swarm's bugs were made bigger than the spec's
   "tiny" so a swarm reads from across a fight, and the beam tapers toward the gun so it
   doesn't fill the shooter's own screen.
+- 2026-10-29: Graphics pass planned (see Roadmap, Phase 2). Groundwork first: a `?bench` page
+  for real numbers on the Xbox, then savings that pay for the new look: the sky draws after
+  the arena, empty effect pools and pickups cost no draw calls, all glow strips share one
+  material, the shadow map is fitted 1.7x tighter (sharper shadows everywhere). Solo views
+  went from 50 to about 38 draw calls. Waiting on the owner: the bot color palette, a warmer
+  light grade and a facility skyline beyond the walls.

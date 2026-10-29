@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp, clamp } from '../util/math.js';
 import { partsGeometry } from '../combat/weaponModels.js';
 import { GUNS } from '../combat/guns/index.js';
@@ -32,14 +33,12 @@ export class Viewmodel {
       side: THREE.DoubleSide,
     });
     this.flashMaterial.name = 'muzzleFlash';
-    this.flash = new THREE.Group();
-    const flashGeom = new THREE.PlaneGeometry(0.2, 0.2);
-    for (const ry of [0, Math.PI / 2]) {
-      // Front-facing star plus a side-on streak.
-      const q = new THREE.Mesh(flashGeom, this.flashMaterial);
-      q.rotation.y = ry;
-      this.flash.add(q);
-    }
+    // A front-facing star plus a side-on streak, as one mesh (one draw call).
+    const star = new THREE.PlaneGeometry(0.2, 0.2);
+    const streak = new THREE.PlaneGeometry(0.2, 0.2).rotateY(Math.PI / 2);
+    this.flash = new THREE.Mesh(mergeGeometries([star, streak], false), this.flashMaterial);
+    star.dispose();
+    streak.dispose();
     this.flash.visible = false;
 
     this.current = null;
@@ -175,7 +174,7 @@ export class Viewmodel {
 
   dispose() {
     for (const m of Object.values(this.guns)) m.geometry.dispose();
-    this.flash.children[0].geometry.dispose();
+    this.flash.geometry.dispose();
     this.flashMaterial.dispose();
   }
 }

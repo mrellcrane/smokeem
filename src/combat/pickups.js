@@ -23,70 +23,68 @@ export const PICKUP_SPOTS = [
 
 const REACH = 1.4;
 const DROP_LIFETIME = 25;
+// At most this many dropped guns of one type lie around at once (the oldest goes first).
 const DROP_POOL = 4;
+
+const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _e = new THREE.Euler();
+const _p = new THREE.Vector3();
+const _s = new THREE.Vector3(1, 1, 1);
 
 export class Pickups {
   constructor(game, material) {
     this.game = game;
     this.material = material;
     const { set, guns } = game.arsenal;
-    this.geoms = {};
-    for (const id of guns) this.geoms[id] = partsGeometry(allParts(id), 0x888888, { scale: 1.3 });
-    // Two briquettes side by side, merged so each grenade pickup is one draw call.
-    const a = briquetteGeometry().rotateY(-0.4).translate(-0.11, 0, 0);
-    const b = briquetteGeometry().rotateY(0.4).translate(0.11, 0, 0);
-    this.briquettePair = mergeGeometries([a, b], false);
-    a.dispose();
-    b.dispose();
     this.items = [];
-    this.dropPool = {};
 
     for (const spot of PICKUP_SPOTS) {
       let gun = null;
       if (spot.type === 'weapon') {
         gun = spot.pad === 'power' ? set.power : set.field;
       }
-      const pos = new THREE.Vector3(...spot.pos);
       const item = {
         type: spot.type,
         def: gun ? WEAPONS[gun] : null,
         count: spot.count ?? 0,
-        pos,
+        pos: new THREE.Vector3(...spot.pos),
         // A gun can set its own pad time (the Chimney comes back slower).
         respawn: (gun && WEAPONS[gun].padRespawn) || spot.respawn,
         spawner: true,
         active: true,
         timer: 0,
-        mesh: gun ? this.weaponMesh(gun) : this.grenadeMesh(),
+        look: gun ?? 'grenades',
       };
       this.resetAmmo(item);
-      item.mesh.position.copy(pos);
       this.items.push(item);
     }
+
+    // One instanced mesh per look (each gun in the set, and briquette pairs), so all pickups
+    // of a kind are one draw call; nothing draws while none is out.
+    this.meshes = {};
+    this.meshList = [];
+    const add = (look, geom, capacity) => {
+      const m = new THREE.InstancedMesh(geom, material, capacity);
+      m.name = `pickups:${look}`;
+      m.castShadow = true;
+      m.frustumCulled = false;
+      m.count = 0;
+      m.visible = false;
+      game.scene.add(m);
+      this.meshes[look] = m;
+      this.meshList.push(m);
+    };
     for (const id of guns) {
-      this.dropPool[id] = [];
-      for (let i = 0; i < DROP_POOL; i++) {
-        const m = this.weaponMesh(id);
-        m.visible = false;
-        this.dropPool[id].push(m);
-      }
+      const pads = this.items.filter((i) => i.look === id).length;
+      add(id, partsGeometry(allParts(id), 0x888888, { scale: 1.3 }), pads + DROP_POOL);
     }
-  }
-
-  weaponMesh(id) {
-    const m = new THREE.Mesh(this.geoms[id], this.material);
-    m.name = `pickup:${id}`;
-    m.castShadow = true;
-    this.game.scene.add(m);
-    return m;
-  }
-
-  grenadeMesh() {
-    const m = new THREE.Mesh(this.briquettePair, this.material);
-    m.name = 'pickup:grenades';
-    m.castShadow = true;
-    this.game.scene.add(m);
-    return m;
+    // Two briquettes side by side.
+    const a = briquetteGeometry().rotateY(-0.4).translate(-0.11, 0, 0);
+    const b = briquetteGeometry().rotateY(0.4).translate(0.11, 0, 0);
+    add('grenades', mergeGeometries([a, b], false), Math.max(1, this.items.filter((i) => i.look === 'grenades').length));
+    a.dispose();
+    b.dispose();
   }
 
   resetAmmo(item) {
@@ -100,34 +98,23 @@ export class Pickups {
     if (item.spawner) {
       item.active = false;
       item.timer = item.respawn;
-      item.mesh.visible = false;
     } else {
       this.removeDrop(item);
     }
   }
 
   removeDrop(item) {
-    item.mesh.visible = false;
-    this.dropPool[item.def.id].push(item.mesh);
     this.items.splice(this.items.indexOf(item), 1);
   }
 
   drop(def, mag, reserve, x, y, z) {
-    const pool = this.dropPool[def.id];
     // Empty guns, and guns outside the match's set (debug only), aren't dropped.
-    if (mag + reserve <= 0 || !pool) return;
-    // Reuse the oldest drop of this type if the pool is empty.
-    let mesh = pool.pop();
-    if (!mesh) {
-      const oldest = this.items.find((i) => !i.spawner && i.def === def);
-      if (!oldest) return;
-      this.removeDrop(oldest);
-      mesh = pool.pop();
-    }
-    mesh.visible = true;
+    if (mag + reserve <= 0 || !this.meshes[def.id]) return;
+    // Too many of this gun lying around already: the oldest one goes.
+    const drops = this.items.filter((i) => !i.spawner && i.def === def);
+    if (drops.length >= DROP_POOL) this.removeDrop(drops[0]);
     const pos = new THREE.Vector3(x, y, z);
-    mesh.position.copy(pos);
-    this.items.push({ type: 'weapon', def, mag, reserve, pos, spawner: false, active: true, life: DROP_LIFETIME, mesh });
+    this.items.push({ type: 'weapon', def, mag, reserve, pos, spawner: false, active: true, life: DROP_LIFETIME, look: def.id });
   }
 
   // A smoked player drops whatever they picked up (their loadout guns go with them).
@@ -145,7 +132,6 @@ export class Pickups {
         item.timer -= dt;
         if (item.timer <= 0) {
           item.active = true;
-          item.mesh.visible = true;
           this.resetAmmo(item);
         }
       } else if (!item.spawner) {
@@ -215,19 +201,36 @@ export class Pickups {
     if (!p.isBot) this.game.sfx.play('pickup');
   }
 
+  // Spin and bob every live pickup, packed into its look's instanced mesh.
   updateVisuals(time) {
+    for (const m of this.meshList) m.count = 0;
     for (const item of this.items) {
       if (!item.active) continue;
-      const m = item.mesh;
-      const spin = time * 1.4 + item.pos.x;
-      m.rotation.y = spin;
-      m.position.y = item.pos.y + 0.75 + Math.sin(time * 2 + item.pos.z) * 0.08;
-      if (item.type === 'weapon') m.rotation.z = 0.15;
+      const m = this.meshes[item.look];
+      _p.set(item.pos.x, item.pos.y + 0.75 + Math.sin(time * 2 + item.pos.z) * 0.08, item.pos.z);
+      _q.setFromEuler(_e.set(0, time * 1.4 + item.pos.x, item.type === 'weapon' ? 0.15 : 0));
+      m.setMatrixAt(m.count++, _m.compose(_p, _q, _s));
+    }
+    for (const m of this.meshList) {
+      m.visible = m.count > 0;
+      if (m.count) m.instanceMatrix.needsUpdate = true;
     }
   }
 
+  // Show one of every look for the shader warm-up (drops can appear later).
+  warmup(on, at) {
+    for (const m of this.meshList) {
+      if (on) {
+        m.setMatrixAt(0, _m.compose(at, _q.identity(), _s));
+        m.instanceMatrix.needsUpdate = true;
+        m.count = 1;
+        m.visible = true;
+      }
+    }
+    if (!on) this.updateVisuals(this.game.time);
+  }
+
   dispose() {
-    for (const g of Object.values(this.geoms)) g.dispose();
-    this.briquettePair.dispose();
+    for (const m of this.meshList) m.geometry.dispose();
   }
 }

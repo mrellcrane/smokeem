@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { PHYSICS_DT, MAX_STEPS_PER_FRAME } from './config.js';
+import { DEG } from './util/math.js';
 import { qualityPreset, onSettingsChange } from './settings.js';
 import { createRenderer, pixelRatioFor } from './render/renderer.js';
 import { viewportRects } from './render/splitscreen.js';
@@ -103,12 +104,23 @@ export class Game {
     this.showDebug = false;
     this._frame = (now) => this.frame(now);
     this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false };
+    // Per-frame render numbers for the FPS readout and ?bench.
+    this.stats = { renderMs: 0, shadowCalls: 0, views: 1, viewCalls: [0, 0, 0, 0] };
   }
 
   async build(playerDefs, { bots, botSkill, practiceTargets }, onProgress) {
     const preset = qualityPreset();
     this.renderer = createRenderer(this.stage, preset);
     this.renderer.autoClear = false;
+    // Count the shared shadow pass's draw calls (it only runs once a frame, inside view 1).
+    const shadowMap = this.renderer.shadowMap;
+    const renderShadows = shadowMap.render.bind(shadowMap);
+    shadowMap.render = (...args) => {
+      const before = this.renderer.info.render.calls;
+      renderShadows(...args);
+      const n = this.renderer.info.render.calls - before;
+      if (n) this.stats.shadowCalls = n;
+    };
     // Gravity only moves dynamic bodies (grenades); players run their own floaty gravity.
     this.physics = { RAPIER, world: new RAPIER.World({ x: 0, y: -16, z: 0 }) };
     this.shotFilter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
@@ -211,11 +223,7 @@ export class Game {
     sun.target.position.set(0, 0, 0);
     sun.castShadow = true;
     const c = sun.shadow.camera;
-    const r = ARENA_HALF + 14;
-    c.left = -r;
-    c.right = r;
-    c.top = r;
-    c.bottom = -r;
+    fitShadowCamera(sun, ARENA_HALF + 1, 12.5);
     c.near = 10;
     c.far = 170;
     // Player bodies live on their own layers (hidden from their own camera) but still cast shadows.
@@ -254,6 +262,7 @@ export class Game {
     this.grenades.warmup(true, fwd);
     this.bolts.warmup(true, fwd);
     this.swarms.warmup(true, fwd);
+    this.pickups.warmup(true, fwd);
     this.fx.explosion(fwd, 5);
     this.fx.tracer(cam.position, fwd, 0xffffff);
     this.fx.beam(cam.position, fwd, 0xffffff, 0.03);
@@ -277,6 +286,7 @@ export class Game {
     this.grenades.warmup(false);
     this.bolts.warmup(false);
     this.swarms.warmup(false);
+    this.pickups.warmup(false);
     this.fx.update(10);
     this.needsRender = true;
   }
@@ -439,7 +449,9 @@ export class Game {
       for (let i = 0; i < this.humans.length; i++) this.inputs[i].feel?.(this.humans[i]);
       this.infoPanel?.update(dt);
       this.updateVisuals(dt, this.acc / PHYSICS_DT);
+      const t0 = performance.now();
       this.render(this.acc / PHYSICS_DT, dt);
+      this.stats.renderMs = performance.now() - t0;
     } else if (this.needsRender) {
       // Paused or waiting: the canvas keeps showing the last frame, so only redraw on change.
       this.updateVisuals(0, 1);
@@ -447,7 +459,7 @@ export class Game {
       this.needsRender = false;
     }
 
-    this.fps.frame(dt, this.renderer.info.render.calls);
+    this.fps.frame(dt, this.renderer.info.render.calls, this.stats);
   }
 
   tick(dt) {
@@ -491,6 +503,9 @@ export class Game {
     r.info.reset();
     r.shadowMap.needsUpdate = true;
     r.setScissorTest(rects.length > 1);
+    const st = this.stats;
+    st.views = rects.length;
+    let before = 0;
     _sunDir.copy(this.sun.position).sub(this.sun.target.position).normalize();
     for (let i = 0; i < this.humans.length; i++) {
       const p = this.humans[i];
@@ -514,6 +529,10 @@ export class Game {
         r.clearDepth();
         r.render(this.vmScene, vc);
       }
+
+      // Draw calls this view cost (the first view also pays for the shared shadow pass).
+      st.viewCalls[i] = r.info.render.calls - before - (i === 0 ? st.shadowCalls : 0);
+      before = r.info.render.calls;
 
       this.huds[i].layout(rect, H);
       this.huds[i].update(p, this, this.showDebug);
@@ -545,7 +564,8 @@ export class Game {
     this.scene.traverse((o) => {
       if (!o.isSkinnedMesh) o.geometry?.dispose();
     });
-    for (const m of Object.values(this.materials)) m.dispose();
+    // (Glow tints aren't materials of their own.)
+    for (const m of Object.values(this.materials)) if (!m.tintOf) m.dispose();
     for (const t of Object.values(this.textures)) t.dispose();
     disposeCharacterMaterial();
     disposeViewmodelMaterial();
@@ -554,4 +574,54 @@ export class Game {
     this.renderer.domElement.remove();
     this.physics.world.free();
   }
+}
+
+// One shadow map serves every view, so its square should hug the arena (x and z within
+// +-half, y from 0 to top) as tightly as possible. Rolling the shadow camera about the sun's
+// axis changes how big that square has to be; try every half degree and keep the smallest.
+// Today's sun: about 67 m instead of 88 m, so 1.7x the texel density for free.
+function fitShadowCamera(sun, half, top) {
+  const L = new THREE.Vector3().subVectors(sun.position, sun.target.position).normalize();
+  const u0 = new THREE.Vector3(0, 1, 0).addScaledVector(L, -L.y).normalize();
+  const r0 = new THREE.Vector3().crossVectors(u0, L).normalize();
+  const corners = [];
+  for (const x of [-half, half]) {
+    for (const y of [0, top]) {
+      for (const z of [-half, half]) corners.push(new THREE.Vector3(x, y, z).sub(sun.target.position));
+    }
+  }
+  const up = new THREE.Vector3();
+  const ax = new THREE.Vector3();
+  const ay = new THREE.Vector3();
+  let best = null;
+  for (let deg = 0; deg < 180; deg += 0.5) {
+    const a = deg * DEG;
+    up.copy(u0).multiplyScalar(Math.cos(a)).addScaledVector(r0, Math.sin(a));
+    // The camera's own axes, as lookAt builds them.
+    ax.crossVectors(up, L).normalize();
+    ay.crossVectors(L, ax);
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (const p of corners) {
+      const px = p.dot(ax);
+      const py = p.dot(ay);
+      x0 = Math.min(x0, px);
+      x1 = Math.max(x1, px);
+      y0 = Math.min(y0, py);
+      y1 = Math.max(y1, py);
+    }
+    const size = Math.max(x1 - x0, y1 - y0);
+    if (!best || size < best.size) best = { size, up: up.clone(), cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+  const c = sun.shadow.camera;
+  const h = best.size / 2 + 0.5;
+  c.up.copy(best.up);
+  c.left = best.cx - h;
+  c.right = best.cx + h;
+  c.bottom = best.cy - h;
+  c.top = best.cy + h;
+  c.updateProjectionMatrix();
+  return best.size;
 }

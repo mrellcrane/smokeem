@@ -7,7 +7,8 @@ function canvas(w, h) {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  return [c, c.getContext('2d')];
+  // Painting reads pixels back (grain), which is much faster from a CPU-side canvas.
+  return [c, c.getContext('2d', { willReadFrequently: true })];
 }
 
 function toTexture(c, { srgb = true, repeat = true } = {}) {
@@ -437,23 +438,34 @@ function flash() {
   return toTexture(c, { repeat: false });
 }
 
+// Painting takes a while, so each texture is painted once per page load. Later matches get
+// clones (same canvas, new texture), since every match has its own renderer.
+const painted = new Map();
+function keep(name, paint) {
+  const t = painted.get(name);
+  if (t) return t.clone();
+  const fresh = paint();
+  painted.set(name, fresh);
+  return fresh;
+}
+
 export function createTextures() {
   return {
-    ground: ground(),
-    metal: panels('#727d86', '#3e454b', '#a2adb6', 81),
-    metalDark: panels('#41484f', '#24282c', '#626b73', 82),
-    hazard: hazard(),
-    plank: planks(),
-    concrete: concrete(),
-    crate: crate(),
-    mud: mud(),
-    net: net(),
-    rope: rope(),
-    flame: flame(),
-    planet: planet(),
-    spark: spark(),
-    smoke: smoke(),
-    flash: flash(),
+    ground: keep('ground', ground),
+    metal: keep('metal', () => panels('#727d86', '#3e454b', '#a2adb6', 81)),
+    metalDark: keep('metalDark', () => panels('#41484f', '#24282c', '#626b73', 82)),
+    hazard: keep('hazard', hazard),
+    plank: keep('plank', planks),
+    concrete: keep('concrete', concrete),
+    crate: keep('crate', crate),
+    mud: keep('mud', mud),
+    net: keep('net', net),
+    rope: keep('rope', rope),
+    flame: keep('flame', flame),
+    planet: keep('planet', planet),
+    spark: keep('spark', spark),
+    smoke: keep('smoke', smoke),
+    flash: keep('flash', flash),
   };
 }
 

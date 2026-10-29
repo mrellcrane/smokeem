@@ -1399,3 +1399,38 @@ body.in-match .fps {
   color: var(--ink-dim);
   font-size: 13px;
 }
+
+/* ---------- ?bench results */
+
+.panel.bench {
+  width: min(760px, 100%);
+  text-align: left;
+}
+
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font: 14px ui-monospace, Menlo, Consolas, monospace;
+}
+
+.bench-table td,
+.bench-table th {
+  padding: 4px 8px;
+  text-align: right;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bench-table td:first-child {
+  text-align: left;
+}
+
+.bench-json {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  font: 11px ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  user-select: text;
+}

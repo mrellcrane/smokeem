@@ -16,9 +16,9 @@ export function createMaterials(tex) {
     rope: new THREE.MeshLambertMaterial({ map: tex.rope }),
     steel: new THREE.MeshPhongMaterial({ color: 0x9aa4ad, specular: 0x6a6f73, shininess: 60 }),
     rubber: new THREE.MeshLambertMaterial({ color: 0x2a2a2c }),
-    glowCyan: new THREE.MeshBasicMaterial({ color: 0x63f2ff }),
-    glowOrange: new THREE.MeshBasicMaterial({ color: 0xff8a2a }),
-    ember: new THREE.MeshBasicMaterial({ color: 0xff4e12 }),
+    // Every glowing strip, ring and trough shares one vertex-colored material (one draw call);
+    // StaticBuilder writes the tint below as each box's vertex color.
+    glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
     mesa: new THREE.MeshLambertMaterial({ color: 0x9c7a64, flatShading: true }),
     // Vertex-colored props in the world: pickups, missiles, grenades.
     props: new THREE.MeshLambertMaterial({ vertexColors: true }),
@@ -38,5 +38,9 @@ export function createMaterials(tex) {
     mat.name = name;
     mat.userData.tile = tiles[name] ?? 0;
   }
+  // Glow tints: pass these to StaticBuilder like materials.
+  m.glowCyan = { tintOf: m.glow, tint: 0x63f2ff };
+  m.glowOrange = { tintOf: m.glow, tint: 0xff8a2a };
+  m.ember = { tintOf: m.glow, tint: 0xff4e12 };
   return m;
 }
