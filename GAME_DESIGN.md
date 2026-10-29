@@ -32,7 +32,9 @@ hardware (metal panels, glowing strips, a gas giant in the sky) mixed with obsta
 
 Roughly early-2000s console shooter era: real-time lighting and shadows, simple textures,
 low-to-mid poly geometry, saturated colors, big readable shapes. All textures are generated
-procedurally in code (canvas) or come from CC0 sources. No external art pipeline for v1.
+procedurally in code (canvas) or come from CC0 sources. No external art pipeline for v1: the
+one imported model (the contestant body, CC0) is converted by a script in `tools/` into a data
+module that ships with the code.
 
 Light: warm sun, cool sky fill, so the lit and shaded sides of every box separate. The floor is
 "lightmapped" at load like a level of that era: soft contact shadows around everything standing
@@ -66,18 +68,26 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
 
 ## Characters
 
-Contestants wear chunky armor (big shoulder pads, a layered chest plate, thigh and knee
-plates, a crested helmet) with a wide glowing amber visor and a smoker canister on the back
-with a glowing ember ring. Light strips on the chest and shoulders glow in the body's own
-color, and a rim of that color lights the silhouette, stronger with distance, so a far player
-reads as a colored person even in shade. Each local player has a color: blue, red, green,
-gold. Bodies are procedural boxes on a small skeleton (one draw call each), so they can run,
-crouch, jump and climb without imported assets.
+Contestants are armored soldiers with human proportions: rounded plates over a charcoal
+undersuit (big shoulder pads, a sculpted chest and back plate, forearm guards, thigh, knee and
+shin plates, heavy boots), dark gloves, and a helmet with a swept-back crest and a wraparound
+glowing amber visor band. A smoker canister rides on the back with a glowing ember ring. The
+plates take the body's color; side panels down the torso and upper arms and the crest take the
+trim color (a bot's second color, a darker shade for local players). Thin light strips on the
+chest and shoulder pads glow in the body's own color, and a rim of that color lights the
+silhouette, stronger with distance, so a far player reads as a colored person even in shade.
+Each local player has a color: blue, red, green, gold. The body is a CC0 model ("Futuristic 3D
+Soldier" by rickomax, credits in `src/player/body/CREDITS.md`), re-weighted onto the game's
+skeleton with smooth joints and one draw call each. The visor, strips and canister are our
+own.
 
 Body language says what someone is doing: feet plant, legs run toward where the body is going
 while the torso and gun stay on the aim (strafing and backpedaling show), the gun rides at the
-hip, comes up to the shoulder when firing or zoomed and crosses the chest when sprinting, jumps
-tuck, the double jump kicks a knee up, and hard landings squash.
+hip, comes up to the shoulder when firing or zoomed and crosses the chest when sprinting, both
+hands hold the gun (the support hand slides back along it when the handguard is out of reach),
+the head and gun follow the aim up and down, jumps tuck, the double jump kicks a knee up, hard
+landings squash, and crouching is a deep squat so the visible head stays inside the crouched
+hitbox.
 
 Palette rule: the arena owns orange, hazard yellow, cyan, brown and grey, and the local
 players own blue, red, green and gold, so bots wear violets, pinks, lime and white (armor
