@@ -1277,11 +1277,11 @@ body.in-match .fps {
 /* ---------- loadout picker on the ready screen */
 
 .loadouts {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 8px;
   margin: 0 auto 22px;
-  width: min(520px, 100%);
+  width: min(820px, 100%);
 }
 
 .loadout-row {
@@ -1307,6 +1307,7 @@ body.in-match .fps {
 }
 
 .loadout-row .step {
+  flex: none;
   min-width: 0;
   width: 38px;
   padding: 4px 0;
@@ -1364,7 +1365,7 @@ body.in-match .fps {
 
 .gun-list {
   margin: -8px auto 18px;
-  width: min(560px, 100%);
+  width: min(680px, 100%);
   text-align: left;
   font-size: 14px;
 }
@@ -1400,6 +1401,366 @@ body.in-match .fps {
   font-size: 13px;
 }
 
+/* ---------- gun pictures and demos (gunIcons.js, gunDemos.js, loadoutCard.js) */
+
+.gun-list li {
+  display: grid;
+  grid-template-columns: 96px 140px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.gun-list li img {
+  width: 96px;
+  height: 48px;
+}
+
+.gun-list li .demo {
+  width: 140px;
+  height: 35px;
+}
+
+/* Gun pictures: a soft light behind and a thin outline, so dark guns read on dark panels. */
+.gun-list li img,
+.loadout-card img {
+  background: radial-gradient(closest-side, rgba(244, 234, 216, 0.16), transparent);
+  filter: drop-shadow(0 0 1px rgba(244, 234, 216, 0.6)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+
+.loadout-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.loadout-card > b {
+  font-family: var(--display);
+  letter-spacing: 0.04em;
+}
+
+.loadout-card .guns {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+.loadout-card figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.loadout-card img {
+  width: 128px;
+  height: 64px;
+}
+
+.loadout-card .demo {
+  width: 140px;
+  height: 35px;
+}
+
+.loadout-card figcaption {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.loadout-card em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ember-2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* On the death screen, inside a player's view. */
+.death .loadout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.death .loadout .arrow {
+  opacity: 0.7;
+}
+
+.death .loadout small {
+  align-self: flex-end;
+  opacity: 0.7;
+  font-size: max(10px, calc(12px * var(--hud-scale, 1)));
+}
+
+.death .loadout-card img {
+  width: calc(96px * var(--hud-scale, 1));
+  height: calc(48px * var(--hud-scale, 1));
+}
+
+.death .loadout-card > b {
+  font-size: max(11px, calc(16px * var(--hud-scale, 1)));
+}
+
+.death .loadout-card figcaption {
+  font-size: max(10px, calc(12px * var(--hud-scale, 1)));
+}
+
+/* The demos: every element loops on the same 2.4 s cycle (gunDemos.js CYCLE), placed in it
+   by its animation-delay plus --seek (0 unless reduced motion stops the demo on its still). */
+.demo {
+  display: block;
+  overflow: visible;
+}
+
+.demo * {
+  animation-duration: 2.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  animation-delay: var(--seek, 0s);
+}
+
+.demo .dm-target {
+  fill: #5d626b;
+}
+
+.demo .dm-hit {
+  fill: #fff;
+  opacity: 0;
+  animation-name: dm-hit;
+}
+
+.demo .dm-hit.dm-big {
+  animation-name: dm-hit-big;
+}
+
+.demo .dm-shot,
+.demo .dm-fizzle {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 14 200;
+  stroke-dashoffset: 14;
+  opacity: 0;
+  animation-name: dm-shot;
+}
+
+.demo .dm-fizzle {
+  animation-name: dm-fizzle;
+}
+
+.demo .dm-down {
+  animation-name: dm-down;
+}
+
+.demo .dm-blast {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: dm-blast;
+}
+
+.demo .dm-rocket,
+.demo .dm-coal,
+.demo .dm-jar {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 0.5 200;
+  stroke-dashoffset: 0.5;
+  opacity: 0;
+}
+
+.demo .dm-trail {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+}
+
+.demo .dm-rocket {
+  animation-name: dm-rocket;
+}
+
+.demo .dm-rocket-trail {
+  animation-name: dm-rocket-trail;
+}
+
+.demo .dm-coal {
+  animation-name: dm-coal;
+}
+
+.demo .dm-coal-trail {
+  animation-name: dm-coal-trail;
+}
+
+.demo .dm-jar {
+  animation-name: dm-jar;
+}
+
+.demo .dm-jar-trail {
+  animation-name: dm-jar-trail;
+}
+
+.demo .dm-spin {
+  fill: none;
+  stroke: #c9ced6;
+  stroke-width: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: dm-spin;
+}
+
+.demo .dm-scope {
+  fill: none;
+  stroke: #9fe8ff;
+  stroke-width: 0.8;
+  opacity: 0;
+  animation-name: dm-scope;
+}
+
+.demo .dm-beam {
+  stroke-linecap: round;
+  stroke-width: 0;
+  animation-name: dm-beam;
+}
+
+.demo .dm-heat {
+  fill: #ff7a30;
+  opacity: 0;
+  animation-name: dm-heat;
+}
+
+.demo .dm-bug {
+  fill: #d9ff7a;
+  opacity: 0;
+  animation-name: dm-bug;
+}
+
+@keyframes dm-hit {
+  0% { opacity: 0.85; }
+  6%, 100% { opacity: 0; }
+}
+
+@keyframes dm-hit-big {
+  0% { opacity: 1; }
+  18%, 100% { opacity: 0; }
+}
+
+@keyframes dm-shot {
+  0% { stroke-dashoffset: 14; opacity: 1; }
+  8% { stroke-dashoffset: -100; opacity: 1; }
+  8.1%, 100% { stroke-dashoffset: -100; opacity: 0; }
+}
+
+/* Out of range: the streak dies out about two thirds of the way along its line. */
+@keyframes dm-fizzle {
+  0% { stroke-dashoffset: 14; opacity: 1; }
+  4.6% { stroke-dashoffset: -51; opacity: 0.8; }
+  6% { stroke-dashoffset: -60; opacity: 0; }
+  100% { stroke-dashoffset: -60; opacity: 0; }
+}
+
+/* Smoked: the target drops as the burst finishes it, and is back for the next loop. */
+@keyframes dm-down {
+  0%, 33% { opacity: 1; }
+  37%, 92% { opacity: 0; }
+  98%, 100% { opacity: 1; }
+}
+
+@keyframes dm-blast {
+  0% { opacity: 1; transform: scale(0.2); }
+  14% { opacity: 0; transform: scale(1.25); }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+
+@keyframes dm-rocket {
+  0% { stroke-dashoffset: 0.5; opacity: 1; }
+  42% { stroke-dashoffset: -99.5; opacity: 1; }
+  42.1%, 100% { opacity: 0; }
+}
+
+@keyframes dm-rocket-trail {
+  0% { stroke-dashoffset: 100; opacity: 0.8; }
+  42% { stroke-dashoffset: 0; opacity: 0.8; }
+  62%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes dm-coal {
+  0% { stroke-dashoffset: 0.5; opacity: 1; }
+  31% { stroke-dashoffset: -99.5; opacity: 1; }
+  31.1%, 100% { opacity: 0; }
+}
+
+@keyframes dm-coal-trail {
+  0% { stroke-dashoffset: 100; opacity: 0.8; }
+  31% { stroke-dashoffset: 0; opacity: 0.8; }
+  45%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes dm-jar {
+  0% { stroke-dashoffset: 0.5; opacity: 1; }
+  24% { stroke-dashoffset: -99.5; opacity: 1; }
+  24.1%, 100% { opacity: 0; }
+}
+
+@keyframes dm-jar-trail {
+  0% { stroke-dashoffset: 100; opacity: 0.8; }
+  24% { stroke-dashoffset: 0; opacity: 0.8; }
+  38%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes dm-spin {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(90deg); }
+  21% { transform: rotate(360deg); }
+  70% { transform: rotate(2160deg); }
+  85% { transform: rotate(2430deg); }
+  100% { transform: rotate(2520deg); }
+}
+
+@keyframes dm-scope {
+  0%, 8% { opacity: 0; }
+  20%, 45% { opacity: 0.9; }
+  55%, 100% { opacity: 0; }
+}
+
+@keyframes dm-beam {
+  0%, 8% { stroke: #ff6030; stroke-width: 0; opacity: 0; }
+  10% { stroke: #ff6030; stroke-width: 1.5; opacity: 1; }
+  55% { stroke: #ffc890; stroke-width: 2.8; opacity: 1; }
+  70% { stroke: #ffffff; stroke-width: 4; opacity: 1; }
+  72%, 100% { stroke-width: 0; opacity: 0; }
+}
+
+@keyframes dm-heat {
+  0%, 10% { opacity: 0; }
+  70% { opacity: 0.9; }
+  76%, 100% { opacity: 0; }
+}
+
+@keyframes dm-bug {
+  0% { opacity: 1; transform: translate(0, 0); }
+  30% { transform: translate(var(--bx), var(--by)); }
+  38% { transform: translate(calc(var(--bx) + 3px), calc(var(--by) - 2px)); }
+  46% { transform: translate(calc(var(--bx) - 2px), calc(var(--by) + 3px)); }
+  54% { opacity: 1; transform: translate(calc(var(--bx) + 2px), calc(var(--by) + 1px)); }
+  56%, 100% { opacity: 0; transform: translate(var(--bx), var(--by)); }
+}
+
+/* Reduced motion: each demo stops on its still (gunDemos.js), a paused moment of the loop. */
+@media (prefers-reduced-motion: reduce) {
+  .demo {
+    --seek: var(--still, 0s);
+  }
+
+  .demo * {
+    animation-play-state: paused;
+  }
+}
+
 /* ---------- ?bench results */
 
 .panel.bench {
@@ -1433,4 +1794,67 @@ body.in-match .fps {
   font: 11px ui-monospace, Menlo, Consolas, monospace;
   white-space: pre-wrap;
   user-select: text;
+}
+
+/* The ready and pause screens hold every local player's loadout card (two across for 3 or 4). */
+.panel.ready,
+.panel.pause {
+  width: min(840px, 100%);
+}
+
+/* 2 to 4 local players (Menu.crowded): smaller cards, so two fit side by side. */
+.panel.pair .loadout-card img,
+.panel.many .loadout-card img {
+  width: 96px;
+  height: 48px;
+}
+
+.panel.pair .loadout-card .demo,
+.panel.many .loadout-card .demo {
+  width: 112px;
+  height: 28px;
+}
+
+.panel.pair .loadout-card .guns,
+.panel.many .loadout-card .guns {
+  gap: 12px;
+}
+
+/* 3 or 4 local players (Menu.crowded). */
+.panel.many .gun-list ul {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+
+.panel.many .gun-list li {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.panel.many .gun-list li span {
+  display: none;
+}
+
+.panel.many .gun-list li em {
+  display: block;
+  margin: 0;
+}
+
+.panel.many .gun-list li .demo {
+  width: 110px;
+  height: 27px;
+}
+
+.panel.many .loadouts {
+  margin-bottom: 12px;
+}
+
+/* With the cards in, the pause screen's controls lists don't fit a short window; each view's
+   HUD strip already shows its player's controls. */
+@media (max-height: 959px) {
+  .panel.pause.pair .controls-list,
+  .panel.pause.many .controls-list {
+    display: none;
+  }
 }

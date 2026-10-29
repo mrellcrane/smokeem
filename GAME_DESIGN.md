@@ -9,7 +9,9 @@ Smoke Em' is an original sci-fi first-person arena shooter that runs in a web br
 for 3 friends playing couch split-screen on an Xbox Series X in Microsoft Edge with Xbox
 controllers, and it also has to be fully playable solo on a MacBook with keyboard and mouse.
 
-Everything is original: no assets, names, characters or maps from existing games.
+It's a private game for the owner and two friends, never sold or distributed, so characters,
+guns and ideas from other games are welcome, built as close to the source as we can get them
+(owner, 2026-10-29). The art and sound themselves are made in code or come from CC0 sources.
 
 ## Pillars
 
@@ -78,6 +80,10 @@ Body language says what someone is doing: feet plant, legs run toward where the 
 while the torso and gun stay on the aim (strafing and backpedaling show), the gun rides at the
 hip, comes up to the shoulder when firing or zoomed and crosses the chest when sprinting, jumps
 tuck, the double jump kicks a knee up, and hard landings squash.
+
+Character options (owner request, planned after the new bodies): Crash Bandicoot, Link and
+James Bond, each as close to the source as we can make them, with the shared skeleton so they
+animate like everyone else. You pick one on the join screen **(proposal)**.
 
 Palette rule: the arena owns orange, hazard yellow, cyan, brown and grey, and the local
 players own blue, red, green and gold, so bots wear violets, pinks, lime and white (armor
@@ -164,9 +170,18 @@ rosters and three judges.
   60 s; the pads under the Summit and in the southwest barrier field are field pads, cyan
   rim, 30 s). Power guns never go in loadouts.
 - A loadout is one primary plus the set's sidearm, so every set has two. You pick on the
-  drop-in screen (arrows, or left/right on your controller) and on every respawn screen
-  (A / D or the left stick); the pick sticks between lives and matches. Bots roll a loadout
-  every life (Hard bots lean toward the longer-range primary).
+  drop-in screen and the pause menu (arrows, or left/right on your controller) and on every
+  respawn screen (A / D or the left stick); the pick sticks between lives and matches. A
+  change mid-match takes effect at your next spawn, or at once if you spawned less than 3 s
+  ago and haven't fired or picked anything up (an instant swap any time would be a free
+  reload). Bots roll a loadout every life (Hard bots lean toward the longer-range primary).
+  On the pause screen a controller's left stick changes loadouts only once you've let go of
+  that controller for a moment after the pause opens (the others may still be moving, aiming
+  or firing); the D-pad counts at once. Holding
+  a direction changes it one step, never a flip through them.
+- Loadouts show as cards: each gun's picture and a little looping demo of how it works (the
+  Mesquite's pellet cone, the Smoke Signal swerving to its target, the Swarm Jar's bugs
+  hunting). The ready screen's gun list shows the same pictures and demos.
 - Loadout guns stay with you when you're smoked and vanish if you swap one for a pickup;
   picked-up guns drop when you're smoked (gone after 25 s).
 - Heat labels say how much a set asks you to learn: Mild (the default), Medium (no wacky
@@ -209,6 +224,7 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | planned, after maps |
+| **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | planned, rules need sign-off |
 
 **Shrink Wrap** (owner request, 2026-10-29: one gun for both, built after the new maps). A power
 gun for a wacky set, never in a loadout. Its hitbox change is the point: a shrunk player really
@@ -217,6 +233,24 @@ is harder to hit.
   and anyone who lands on you smokes you with a stomp.
 - The aim button grows for 6 s (the gun has no scope): 160% size, slower, takes 1.5x damage, and
   a second grow while still big pops you.
+
+**Portal Gun** (owner request, 2026-10-29: "a portal gun like from the game Portal", as close to
+the source as we can get). Proposed, to be signed off:
+- It looks and sounds like Portal's handheld portal device: white casing, black core, a claw at
+  the front that glows the color of the last portal shot.
+- Fire shoots the blue portal and the aim button the orange one: Portal's oval portals with
+  their glowing rims, on any flat wall, floor or ceiling with room for a body (not on mud,
+  nets, ropes or glow strips). Shooting one again moves it.
+- Every player's pair is blue and orange, with a thin outer ring in the owner's armor color so
+  you can tell whose they are. Your own portals only link to each other.
+- Anyone walks through anyone's portals, and speedy thing goes in, speedy thing comes out:
+  drop into a floor portal and fly out of a wall portal. Bullets, rockets, grenades and bugs go
+  through too.
+- Portals close when you're smoked.
+- The first version shows a swirling portal surface rather than a live view through it (a view
+  through costs a whole extra render per portal per split-screen view); a see-through version
+  on High only if the Xbox bench has room.
+- A field or power gun in a wacky set, like the Shrink Wrap.
 
 **Shooting rules for every gun**
 - Hold the trigger to repeat at the gun's own rate (semi-autos too, so nobody has to mash).
@@ -506,6 +540,8 @@ Need answers before the step that uses them gets built.
 
 1. **How abilities are earned.** Needed for phase 2.
 2. **Names.** Weapon, map and vehicle names above are proposals.
+3. **Zelda.** The character option assumes Link (the hero); the owner may have meant Princess
+   Zelda.
 
 ## Decision log
 
@@ -599,3 +635,16 @@ Need answers before the step that uses them gets built.
   mud's surface instead of going through it to the pit floor (missiles and jars too), since
   the mud is what you see. No new meshes or shader programs; the trough embers keep the
   existing sparks and smoke draws on between fights.
+- 2026-10-29: Loadout cards (owner request): gun pictures and little demos of how each gun works,
+  on the drop-in, pause and respawn screens; the loadout can be changed any time (next spawn,
+  or at once right after spawning). Queued after it: movement (sprint-slide, wall kick), the new
+  bodies, ragdoll-ish deaths, a death replay from the killer's view, the game-show arena, maps,
+  then the Shrink Wrap and the Portal Gun.
+- 2026-10-29: Owner: "i'm not going to make any money on this or distribute it so in general
+  stick as close to the source material as possible". The portal gun is now Portal's (blue and
+  orange, the device's look), and the character options are Crash Bandicoot, Link and James Bond
+  rather than lookalikes.
+- 2026-10-29: Loadout cards review. The death card shows only the gun pictures (its live demos
+  cost 1 to 2 ms a frame across 3 views), and with reduced motion each demo stops on a telling
+  moment. A teammate still strafing when someone pauses no longer changes their loadout with
+  the stick (see Weapon sets and loadouts).

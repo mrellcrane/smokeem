@@ -43,6 +43,8 @@ const HAND_ABOVE_TOP = BODY.handReach - BODY.standHeight;
 const _c = new THREE.Vector3();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 // While flying a missile the body gets no movement input.
+// How long after spawning a loadout change still swaps your guns on the spot (s).
+const LOADOUT_GRACE = 3;
 const NEUTRAL_INPUT = new InputState();
 const NO_PRESSES = NEUTRAL_INPUT.consumePressed();
 
@@ -126,8 +128,13 @@ export class Player {
     this.slots = [null, null];
     this.slot = 0;
     this.loadout = loadout;
+    // The loadout last armed, and when this life began (cycleLoadout).
+    this.armedLoadout = loadout;
+    this.spawnedAt = -Infinity;
+    this.spawnShots = 0;
     // Last left/right direction on the respawn screen, for picking the next loadout.
     this.pickDir = 0;
+    this.pickHold = false;
     this.grenades = GRENADE.start;
     this.switchT = 0;
     this.meleeT = 0;
@@ -178,6 +185,7 @@ export class Player {
   armLoadout() {
     const loadouts = this.game.arsenal.loadouts;
     this.loadout = ((this.loadout % loadouts.length) + loadouts.length) % loadouts.length;
+    this.armedLoadout = this.loadout;
     loadouts[this.loadout].guns.forEach((id, i) => {
       const w = new WeaponState(WEAPONS[id]);
       w.spawnGun = true;
@@ -186,11 +194,34 @@ export class Player {
     this.slot = 0;
   }
 
+  // Picks the next or previous loadout (dir 1 or -1). It's armed now when `now` (before the
+  // first drop-in) or when this life has only just started and is still untouched (no shot, no
+  // pickup, not flying a missile); otherwise it waits for the next spawn.
+  cycleLoadout(dir, now = false) {
+    const n = this.game.arsenal.loadouts.length;
+    this.loadout = (((this.loadout + dir) % n) + n) % n;
+    const fresh =
+      this.alive &&
+      !this.guiding &&
+      this.game.time - this.spawnedAt < LOADOUT_GRACE &&
+      this.pose.shots === this.spawnShots &&
+      this.slots.every((w) => !w || w.spawnGun);
+    if (now || fresh) {
+      this.armLoadout();
+      this.slot = 0;
+      this.switchT = 0;
+    }
+  }
+
   // On the respawn screen, left/right picks the loadout for the next life.
   pickLoadout() {
     const x = this.input.moveX;
     const dir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
-    if (dir && dir !== this.pickDir) {
+    // A direction still held from the pause menu (where it may have changed the loadout
+    // already) waits to be let go.
+    if (this.pickHold) {
+      if (!dir) this.pickHold = false;
+    } else if (dir && dir !== this.pickDir) {
       const n = this.game.arsenal.loadouts.length;
       this.loadout = (this.loadout + dir + n) % n;
     }
@@ -316,6 +347,9 @@ export class Player {
     if (this.isBot) this.loadout = this.brain.pickLoadout();
     this.armLoadout();
     this.slot = 0;
+    // For a loadout change right after spawning (cycleLoadout).
+    this.spawnedAt = this.game.time;
+    this.spawnShots = this.pose.shots;
     this.grenades = GRENADE.start;
     this.switchT = this.meleeT = this.throwT = this.lungeT = this.knockT = 0;
     this.guiding = null;

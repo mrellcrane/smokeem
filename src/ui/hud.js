@@ -1,3 +1,4 @@
+import { loadoutCard } from './loadoutCard.js';
 import { DEG } from '../util/math.js';
 import { currentSpread } from '../combat/shooting.js';
 import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
@@ -147,6 +148,8 @@ export class Hud {
 
   hintFor(player, zones, game) {
     const k = this.keys;
+    // The death card has the screen (it says how to pick, click included).
+    if (player.mode === 'dead') return '';
     // Resumed from a controller: the mouse isn't captured until the keyboard player clicks.
     if (this.source.kind === 'keyboardMouse' && !this.source.enabled && game.state === 'playing') {
       return 'Click to aim with the mouse';
@@ -283,9 +286,14 @@ export class Hud {
       this.set('cause', deathText(player.deathInfo, player), (x) => (e.cause.textContent = x));
       const left = Math.max(0, Math.ceil(RESPAWN_DELAY - player.deathT));
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
-      // Pick the loadout for the next life (labels are built once per match).
-      const labels = game.arsenal.labels;
-      this.set('loadout', player.loadout, (i) => (e.loadout.textContent = labels.length > 1 ? `◀ ${labels[i]} ▶  (${this.keys.pick})` : ''));
+      // Pick the loadout for the next life.
+      const loadouts = game.arsenal.loadouts;
+      const i = player.loadout;
+      // Resumed from a controller, the keyboard does nothing until a click captures the mouse.
+      const pick = this.source.kind === 'keyboardMouse' && !this.source.enabled ? `Click, then ${this.keys.pick}` : this.keys.pick;
+      this.set('loadout', `${i} ${pick}`, () => {
+        e.loadout.innerHTML = loadouts.length > 1 ? `<span class="arrow">◀</span>${loadoutCard(loadouts[i], { demos: false })}<span class="arrow">▶</span><small>${pick}</small>` : '';
+      });
     }
 
     this.updateMatch(player, game);

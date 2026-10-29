@@ -15,6 +15,7 @@ import { MUDLARK_LOOK } from './world/looks.js';
 import { Dummy, DUMMY_POSTS } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
 import { Beacons } from './world/beacons.js';
+import { renderGunIcons } from './ui/gunIcons.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -226,6 +227,8 @@ export class Game {
 
     onProgress('Compiling shaders', 0.7);
     await nextFrame();
+    // Pictures of the set's guns for the loadout cards (once per page; menus show them).
+    renderGunIcons(this.renderer, this.arsenal.guns);
     await this.warmUp();
 
     this._onResize = () => {
@@ -548,6 +551,7 @@ export class Game {
       s.state.clear();
       s.prime?.();
     }
+    for (const p of this.humans) p.pickHold = true;
     this.state = 'playing';
     this.acc = 0;
   }

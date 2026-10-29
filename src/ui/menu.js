@@ -16,6 +16,9 @@ import { PLAYER_COLORS } from '../player/player.js';
 import { ordinal } from '../match.js';
 import { WEAPON_SETS, DEFAULT_SET, availableSets, setGuns } from '../combat/arsenal.js';
 import { WEAPONS } from '../combat/weapons.js';
+import { gunIcon } from './gunIcons.js';
+import { loadoutCard } from './loadoutCard.js';
+import { gunDemo } from './gunDemos.js';
 
 // The Guns choices on the title screen: the map's default, each set that exists, Mystery Meat.
 function setChoices() {
@@ -404,7 +407,7 @@ export class Menu {
     const label = kbm && pad ? 'Click or press A to drop in' : pad ? 'Press A to drop in' : 'Click to drop in';
     this.set(
       `
-      <div class="panel ready">
+      <div class="panel ready${this.crowded()}">
         <h2>Mudlark Gauntlet</h2>
         ${this.gunList()}
         <div class="loadouts"></div>
@@ -419,17 +422,30 @@ export class Menu {
     this.renderLoadouts();
   }
 
+  // With 3 or 4 local players the ready and pause screens go compact, so every loadout card
+  // fits: the gun list becomes one row of pictures and demos and the cards shrink. With 2, only
+  // the cards shrink (they share a row). Either way a short window's pause screen leaves the
+  // controls to each view's strip.
+  crowded() {
+    const n = (this.handlers.loadoutRows?.() ?? []).length;
+    return n > 2 ? ' many' : n === 2 ? ' pair' : '';
+  }
+
   // The match's weapon set: every gun in it, with a line on what it does.
   gunList() {
     const info = this.handlers.setInfo?.();
     if (!info) return '';
     const rows = info.guns
-      .map((g) => `<li><b>${g.name}</b> <em>${g.where}</em><span>${g.blurb}</span></li>`)
+      .map((g) => {
+        const src = gunIcon(g.id);
+        return `<li>${src ? `<img src="${src}" alt="">` : ''}${gunDemo(g.id)}<div><b>${g.name}</b> <em>${g.where}</em><span>${g.blurb}</span></div></li>`;
+      })
       .join('');
     return `<div class="gun-list"><h4>${info.name} <em>${info.heat}</em></h4><ul>${rows}</ul></div>`;
   }
 
-  // Each local player's spawn loadout, changed with the arrows (or left/right on their pad).
+  // Each local player's loadout as a card, changed with the arrows (or left/right on their pad).
+  // Mid-match a change waits for that player's next spawn, unless they've only just spawned.
   renderLoadouts() {
     const el = this.root.querySelector('.loadouts');
     if (!el) return;
@@ -439,7 +455,7 @@ export class Menu {
       rows
         .map(
           (r, i) =>
-            `<div class="loadout-row" style="--seat:${SEAT_COLORS[i]}"><b>P${i + 1}</b><button class="step" data-action="loadout-prev" data-seat="${i}" tabindex="-1">◀</button><span>${r}</span><button class="step" data-action="loadout-next" data-seat="${i}" tabindex="-1">▶</button></div>`,
+            `<div class="loadout-row" style="--seat:${SEAT_COLORS[i]}"><b>P${i + 1}</b><button class="step" data-action="loadout-prev" data-seat="${i}" tabindex="-1">◀</button>${loadoutCard(r.loadout, { note: r.pending ? 'from your next spawn' : '' })}<button class="step" data-action="loadout-next" data-seat="${i}" tabindex="-1">▶</button></div>`,
         )
         .join(''),
     );
@@ -448,7 +464,7 @@ export class Menu {
   showPause(message) {
     this.set(
       `
-      <div class="panel pause">
+      <div class="panel pause${this.crowded()}">
         <h2>Paused</h2>
         <div class="buttons">
           <button data-action="resume">Resume</button>
@@ -456,6 +472,7 @@ export class Menu {
           <button data-action="end-match" class="secondary">End match</button>
           <button data-action="quit" class="secondary">Quit to menu</button>
         </div>
+        <div class="loadouts"></div>
         ${message ? `<p class="warn">${message}</p>` : ''}
         ${this.soundHint()}
         ${controlsFor(this.kinds(), this.handlers.hasMissile?.() ?? true)}
@@ -463,6 +480,7 @@ export class Menu {
       'pause',
       'dim',
     );
+    this.renderLoadouts();
   }
 
   // End of match: who won, everyone's place, score and smoked meat rank.
