@@ -25,7 +25,8 @@ export const MUDLARK_LINKS = [
   { type: 'net', a: [0, 0, -9], b: [0, 6, -3] },
   { type: 'net', a: [0, 0, 9], b: [0, 6, 3] },
   { type: 'net', a: [21, 0, -19], b: [21, 5, -23.5] },
-  ...[-7, 0, 7].map((x) => ({ type: 'rope', a: [x, 0, 23], b: [x, 5.5, 27.5] })),
+  // `mid` is where the rope hangs, so bots walk right into it.
+  ...[-7, 0, 7].map((x) => ({ type: 'rope', a: [x, 0, 23], b: [x, 5.5, 27.5], mid: [x, 0, 25.6] })),
   // `mid` gives the bars' centerline so bots line up under them.
   { type: 'bars', a: [9, 2.4, 0], b: [23, 2.4, 0], mid: [16, 2.4, 0], twoWay: true },
 ];

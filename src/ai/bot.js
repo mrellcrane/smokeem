@@ -425,6 +425,8 @@ export class BotBrain {
     } else {
       // Monkey bars: stay on the bars' centerline the whole way across.
       if (type === 'bars' && st.edge.mid) this.faceToward(n.x, st.edge.mid[2], dt);
+      // Ropes: walk straight into the rope before climbing it.
+      else if (type === 'rope' && st.edge.mid && p.mode === 'move') this.faceToward(st.edge.mid[0], st.edge.mid[2], dt);
       else this.faceToward(n.x, n.z, dt);
       s.moveY = 1;
       if (type === 'bars' && st.edge.mid) {

@@ -427,7 +427,9 @@ export class Player {
     } else if (inp.moveY <= 0.3) {
       this.sprinting = false;
     }
-    let speed = this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed;
+    // Movement speed setting scales running, acceleration and air control together.
+    const k = settings.moveSpeed;
+    let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k;
     if (this.inMud) speed *= MOVE.mudSpeedMul;
 
     this.knockT = Math.max(0, this.knockT - dt);
@@ -436,12 +438,12 @@ export class Player {
       v.x = this.lungeDir.x * this.lungeSpeed;
       v.z = this.lungeDir.z * this.lungeSpeed;
     } else if (this.grounded && this.knockT <= 0) {
-      approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel : MOVE.groundDecel) * dt);
+      approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel : MOVE.groundDecel) * k * dt);
     } else if (wishLen > 0.01) {
       // Keep momentum from sprint jumps; steer toward the stick.
       const cur = Math.hypot(v.x, v.z);
-      const cap = Math.max(speed, Math.min(cur, MOVE.sprintSpeed * 1.2));
-      approach2(v, wx * cap, wz * cap, MOVE.airAccel * dt);
+      const cap = Math.max(speed, Math.min(cur, MOVE.sprintSpeed * k * 1.2));
+      approach2(v, wx * cap, wz * cap, MOVE.airAccel * k * dt);
     } else {
       const k = Math.max(0, 1 - MOVE.airDrag * dt);
       v.x *= k;
@@ -642,7 +644,7 @@ export class Player {
     m.to.set(x, y, z);
     m.t = 0;
     m.dur = 0.14 + 0.1 * Math.max(0, rise);
-    const exit = Math.max(MOVE.mantleExitSpeed, Math.hypot(this.vel.x, this.vel.z) * 0.6);
+    const exit = Math.max(MOVE.mantleExitSpeed * settings.moveSpeed, Math.hypot(this.vel.x, this.vel.z) * 0.6);
     m.exitX = dx * exit;
     m.exitZ = dz * exit;
     this.mode = 'mantle';
@@ -709,7 +711,7 @@ export class Player {
 
     if (pressed.jump) {
       // Leap away from the net, a bit toward where you're looking.
-      const s = MOVE.leapOffSpeed;
+      const s = MOVE.leapOffSpeed * settings.moveSpeed;
       this.leaveClimb(n.x * s + this.fwd.x * 2, MOVE.leapOffUp, n.z * s + this.fwd.z * 2, MOVE.regrabDelay);
       return;
     }
@@ -724,10 +726,11 @@ export class Player {
 
     // Strafe along the net relative to the camera.
     const sideSign = this.right.x * net.lateral.x + this.right.z * net.lateral.z >= 0 ? 1 : -1;
-    let side = inp.moveX * sideSign * MOVE.netClimbSpeed * 0.75 * dt;
+    const climb = MOVE.netClimbSpeed * settings.moveSpeed;
+    let side = inp.moveX * sideSign * climb * 0.75 * dt;
     const halfW = net.width / 2 - 0.3;
     side = clamp(loc.t + side, -halfW, halfW) - loc.t;
-    let along = up * MOVE.netClimbSpeed * dt;
+    let along = up * climb * dt;
     along = Math.min(along, net.length + 0.1 - loc.s);
     const pull = (0.45 - loc.d) * Math.min(1, 10 * dt);
     const U = net.up;
@@ -777,7 +780,7 @@ export class Player {
     const maxFeet = rope.y1 - 0.35 - BODY.handReach;
     if (inp.moveY > 0.3 && feetY > maxFeet - 0.35 && this.tryMantle(true, this.fwd.x, this.fwd.z)) return;
 
-    let dy = inp.moveY * MOVE.ropeClimbSpeed * dt;
+    let dy = inp.moveY * MOVE.ropeClimbSpeed * settings.moveSpeed * dt;
     if (feetY + dy > maxFeet) dy = Math.min(0, maxFeet - feetY);
     // Hold the rope in front and slightly to the right so it doesn't block the crosshair.
     const tx = rope.x - this.fwd.x * 0.4 - this.right.x * 0.22;
@@ -811,7 +814,7 @@ export class Player {
     }
     const handY = this.topY() + HAND_ABOVE_TOP;
     const dy = (bars.y - handY) * Math.min(1, 15 * dt);
-    const s = MOVE.hangSpeed;
+    const s = MOVE.hangSpeed * settings.moveSpeed;
     this.moveBy(wx * s * dt, dy, wz * s * dt);
     const c = this.center;
     if (c.x < bars.minX || c.x > bars.maxX || c.z < bars.minZ - 0.05 || c.z > bars.maxZ + 0.05) {
@@ -847,7 +850,7 @@ export class Player {
     cam.position.set(_c.x, _c.y + this.eyeOff - this.landDip, _c.z);
     cam.rotation.set(this.pitch + sx, this.yaw + sy, this.deathRoll);
 
-    const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed + 0.5;
+    const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed * settings.moveSpeed + 0.5;
     this.fovBoost += ((fast ? CAMERA.sprintFovBoost : 0) - this.fovBoost) * damp(8, dt);
     this.setFov((settings.fov + this.fovBoost) / this.aimZoom, aspect);
   }

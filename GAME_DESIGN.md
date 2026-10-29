@@ -68,7 +68,10 @@ skeleton (one draw call each), so they can run, crouch, jump and climb without i
 
 ## Movement
 
-Fast, floaty, generous. Current tuning lives in `src/config.js`.
+Fast, floaty, generous. Current tuning lives in `src/config.js`. The speeds below are at 100%;
+a **Movement speed** setting (40% to 130%, default 70%) scales running, acceleration, air
+control and climbing for everyone, bots included. Jump heights never change, so every
+obstacle works at any setting.
 
 | Thing | Value (v1 starting point) |
 | --- | --- |
@@ -280,6 +283,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 ## Settings
 
 - Graphics quality: Low / Medium / High (resolution cap, shadows, anti-aliasing).
+- Movement speed for everyone, players and bots (default 70%).
 - Mouse sensitivity (saved to `localStorage`).
 - Invert Y, field of view, FPS counter toggle.
 
@@ -341,6 +345,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Two weapon slots; auto pick up into an empty slot, E to swap when full; you drop
   picked-up guns when smoked. Grenades: start 2, max 4.
 - 2026-10-29: Explosions hurt their owner, and a direct Smoke Signal hit always kills.
+- 2026-10-29: Owner found 100% movement way too fast: added a Movement speed setting,
+  default 70%.
 - 2026-10-29: Bots get three skill levels (not in the original brief; cheap and useful for
   solo testing). Training dummies only appear with 0 bots.
 - 2026-10-29: Next up after bots: step 6 (controllers and split-screen) so the Xbox is

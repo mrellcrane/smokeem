@@ -7,6 +7,7 @@ import {
   VOLUME_RANGE,
   MAX_BOTS,
   BOT_SKILLS,
+  MOVE_SPEED_RANGE,
 } from '../settings.js';
 import { controlsHtml } from './controls.js';
 
@@ -167,6 +168,10 @@ export class Menu {
         </div>
         <p class="hint quality-hint"></p>
         <div class="row">
+          <label for="mspeed">Movement speed (you and bots) <span class="val" data-val="moveSpeed"></span></label>
+          <input id="mspeed" type="range" data-setting="moveSpeed" min="${MOVE_SPEED_RANGE.min}" max="${MOVE_SPEED_RANGE.max}" step="${MOVE_SPEED_RANGE.step}" />
+        </div>
+        <div class="row">
           <label for="sens">Mouse sensitivity <span class="val" data-val="sensitivity"></span></label>
           <input id="sens" type="range" data-setting="sensitivity" min="${s.min}" max="${s.max}" step="${s.step}" />
         </div>
@@ -214,6 +219,8 @@ export class Menu {
     if (sv) sv.textContent = `${settings.sensitivity.toFixed(2)}x`;
     const fv = r.querySelector('[data-val="fov"]');
     if (fv) fv.textContent = `${Math.round(settings.fov)}°`;
+    const mv = r.querySelector('[data-val="moveSpeed"]');
+    if (mv) mv.textContent = `${Math.round(settings.moveSpeed * 100)}%`;
     const vv = r.querySelector('[data-val="volume"]');
     if (vv) vv.textContent = `${Math.round(settings.volume * 100)}%`;
   }
