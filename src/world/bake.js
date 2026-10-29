@@ -10,7 +10,8 @@ import { mulberry32 } from '../util/rng.js';
 // - colored light pools under glowing strips and fires.
 // It all goes into one small RGBA texture that the ground and mud materials read (RGB is glow / 2,
 // A is light * tone / 1.25). It's computed once per map and size: later matches reuse it.
-// The arrays stay around for the per-vertex shading of static geometry (StaticBuilder.build).
+// The floor heights, the contact light and the solids stay around for the per-vertex shading
+// of static geometry (StaticBuilder.build); the other working arrays are dropped.
 
 // Contact shadow: blur radii (meters) of the height field, and the darkest the floor gets.
 const NEAR_R = 0.5;
@@ -67,6 +68,8 @@ class ArenaBake {
     this.glowPools(B.lights);
     this.texture = this.pack();
     this.rect = new THREE.Vector3(-half, -half, 1 / (half * 2));
+    // The cache keeps this for the whole page: drop what nothing reads again.
+    this.S = this.O = this.tone = this.glow = null;
   }
 
   // Texel index of a world point, or -1 outside the grid.
@@ -83,16 +86,23 @@ class ArenaBake {
     return t < 0 ? 1 : this.light[t];
   }
 
-  // Height of the highest solid top at or below y under (x, z); y itself when the point is
-  // inside a solid; -Infinity over nothing.
+  // Floor height (the floor boxes' top) at a world point, 0 outside the grid.
+  groundAt(x, z) {
+    const t = this.texel(x, z);
+    return t < 0 ? 0 : this.G[t];
+  }
+
+  // Height of the highest solid top at or below y under (x, z); Infinity when the point is
+  // inside a solid; -Infinity over nothing. A point exactly on the side of a solid isn't
+  // inside it or above it (where walls abut), except for floor boxes, which count to their edge.
   floorBelow(x, y, z) {
     const list = this.index.get(this.cellKey(x, z));
     if (!list) return -Infinity;
     let best = -Infinity;
     for (const s of list) {
-      if (!columnHit(s, x, z, _hit)) continue;
+      if (!columnHit(s, x, z, _hit, s.floor ? 0 : 1e-3)) continue;
       if (_hit.hi <= y + 1e-3) best = Math.max(best, _hit.hi);
-      else if (_hit.lo < y) return y;
+      else if (_hit.lo < y) return Infinity;
     }
     return best;
   }
@@ -198,8 +208,14 @@ class ArenaBake {
       _col.set(L.color);
       const reach = 4 * L.radius;
       const r2 = L.radius * L.radius;
+      // A source resting on a raised solid (a pad on a platform) can't light the floor well
+      // below that solid's top.
+      const qy = L.min[1] + 0.01;
+      const under = this.floorBelow((L.min[0] + L.max[0]) / 2, qy, (L.min[2] + L.max[2]) / 2);
+      const minY = under < qy ? under - OVERHANG : -Infinity;
       this.forTexels(L.min[0] - reach, L.max[0] + reach, L.min[2] - reach, L.max[2] + reach, (t, x, z) => {
         const y = G[t];
+        if (y < minY) return;
         const dx = Math.max(L.min[0] - x, 0, x - L.max[0]);
         const dy = Math.max(L.min[1] - y, 0, y - L.max[1]);
         const dz = Math.max(L.min[2] - z, 0, z - L.max[2]);
@@ -311,18 +327,19 @@ function prepSolid(r) {
 }
 
 // Where the vertical line through (x, z) passes through solid s: sets out.lo and out.hi (world y)
-// and returns true, or returns false when it misses.
-function columnHit(s, x, z, out) {
+// and returns true, or returns false when it misses. inset shrinks the footprint.
+function columnHit(s, x, z, out, inset = 0) {
   if (s.cyl) {
     const dx = x - s.x;
     const dz = z - s.z;
-    if (dx * dx + dz * dz > s.r * s.r) return false;
+    const r = s.r - inset;
+    if (dx * dx + dz * dz > r * r) return false;
     out.lo = s.y - s.hy;
     out.hi = s.y + s.hy;
     return true;
   }
   if (!s.ax) {
-    if (Math.abs(x - s.x) > s.hx || Math.abs(z - s.z) > s.hz) return false;
+    if (Math.abs(x - s.x) > s.hx - inset || Math.abs(z - s.z) > s.hz - inset) return false;
     out.lo = s.y - s.hy;
     out.hi = s.y + s.hy;
     return true;
@@ -333,7 +350,7 @@ function columnHit(s, x, z, out) {
   const pz = z - s.z;
   let lo = -Infinity;
   let hi = Infinity;
-  for (const [a, h] of [[s.ax, s.hx], [s.ay, s.hy], [s.az, s.hz]]) {
+  for (const [a, h] of [[s.ax, s.hx - inset], [s.ay, s.hy], [s.az, s.hz - inset]]) {
     const p = px * a[0] + py * a[1] + pz * a[2];
     const d = a[1];
     if (Math.abs(d) < 1e-6) {

@@ -167,7 +167,8 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   preset), so rematches skip it; `game.bake` keeps the arrays (`lightAt`, `floorBelow`).
 - Static materials use `vertexColors`: `StaticBuilder.build()` writes each vertex's light
   (darker toward what it stands on, into corners, grime on metal and concrete, undersides).
-  Upright boxes and cylinders get extra side rows for it. Any static geometry needs a `color`
+  Upright boxes and cylinders get extra side rows for it, and long box sides a column every
+  2 m (`sideBox`: only the sides are split, tops and bottoms stay one quad). Any static geometry needs a `color`
   attribute, so add it through `StaticBuilder`, not as a separate mesh with these materials.
 - Lights, fog and sky colors come from the map's look (`src/world/looks.js`).
 - Pooled systems hide themselves while empty (particles, tracers, beams, grenades, bolts, swarms, pickups): three still issues a draw for a zero-count instanced mesh. Pickups are one instanced mesh per gun type plus one for grenade pairs.

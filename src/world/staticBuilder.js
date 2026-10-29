@@ -16,6 +16,7 @@ const _s = new THREE.Vector3(1, 1, 1);
 const UP = new THREE.Vector3(0, 1, 0);
 const _col = new THREE.Color();
 const _n = new THREE.Vector3();
+const _center = new THREE.Vector3();
 const _box = new THREE.Box3();
 
 // Glow pools on the floor (bake.js): falloff radius (m) and strength of a glowing strip.
@@ -27,16 +28,66 @@ function resolve(mat) {
   return mat?.tintOf ? [mat.tintOf, mat.tint] : [mat, null];
 }
 
-// BoxGeometry face order: +x, -x, +y, -y, +z, -z. With one width and depth segment and hs
-// height segments the side faces have 2 * (hs + 1) vertices and the top and bottom 4. Each
-// face's UVs run 0 to 1; scale them to meters.
-function worldUvBox(geom, w, h, d, tile, hs) {
+// A box like BoxGeometry (same face order, vertex layout, normals and 0 to 1 UVs per face),
+// but only the side faces are split: ws and ds columns along x and z, hs rows up. The top and
+// bottom stay one quad each.
+function sideBox(w, h, d, ws, hs, ds) {
+  const pos = [];
+  const nor = [];
+  const uvs = [];
+  const idx = [];
+  const v = new THREE.Vector3();
+  const plane = (u, vv, wAxis, udir, vdir, width, height, depth, gridX, gridY) => {
+    const start = pos.length / 3;
+    for (let iy = 0; iy <= gridY; iy++) {
+      const y = (iy * height) / gridY - height / 2;
+      for (let ix = 0; ix <= gridX; ix++) {
+        const x = (ix * width) / gridX - width / 2;
+        v[u] = x * udir;
+        v[vv] = y * vdir;
+        v[wAxis] = depth / 2;
+        pos.push(v.x, v.y, v.z);
+        v[u] = 0;
+        v[vv] = 0;
+        v[wAxis] = depth > 0 ? 1 : -1;
+        nor.push(v.x, v.y, v.z);
+        uvs.push(ix / gridX, 1 - iy / gridY);
+      }
+    }
+    for (let iy = 0; iy < gridY; iy++) {
+      for (let ix = 0; ix < gridX; ix++) {
+        const a = start + ix + (gridX + 1) * iy;
+        const b = start + ix + (gridX + 1) * (iy + 1);
+        const c = start + ix + 1 + (gridX + 1) * (iy + 1);
+        const e = start + ix + 1 + (gridX + 1) * iy;
+        idx.push(a, b, e, b, c, e);
+      }
+    }
+  };
+  plane('z', 'y', 'x', -1, -1, d, h, w, ds, hs);
+  plane('z', 'y', 'x', 1, -1, d, h, -w, ds, hs);
+  plane('x', 'z', 'y', 1, 1, w, d, h, 1, 1);
+  plane('x', 'z', 'y', 1, -1, w, d, -h, 1, 1);
+  plane('x', 'y', 'z', 1, -1, w, h, d, ws, hs);
+  plane('x', 'y', 'z', -1, -1, w, h, -d, ws, hs);
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geom.setIndex(idx);
+  return geom;
+}
+
+// sideBox face order: +x, -x, +y, -y, +z, -z. Each face's UVs run 0 to 1; scale them to meters.
+function worldUvBox(geom, w, h, d, tile, ws, hs, ds) {
   const uv = geom.attributes.uv;
-  const side = 2 * (hs + 1);
+  const x = (ds + 1) * (hs + 1);
+  const y = 4;
+  const z = (ws + 1) * (hs + 1);
   const faces = [
-    [d, h, side], [d, h, side],
-    [w, d, 4], [w, d, 4],
-    [w, h, side], [w, h, side],
+    [d, h, x], [d, h, x],
+    [w, d, y], [w, d, y],
+    [w, h, z], [w, h, z],
   ];
   let idx = 0;
   for (const [su, sv, count] of faces) {
@@ -135,12 +186,15 @@ export class StaticBuilder {
     const q = quat ? _q.copy(quat) : _q.setFromAxisAngle(UP, rotY);
     _p.set(center[0], center[1], center[2]);
     if (visible && mat) {
-      // Upright boxes get extra side rows for the per-vertex shading.
+      // For the per-vertex shading: upright boxes get extra side rows, and long faces a
+      // column every 2 m (so a face whose ends touch other solids still shades along its length).
       const rows = quat ? [0, h] : sideRows(h);
       const hs = rows.length - 1;
-      const geom = new THREE.BoxGeometry(w, h, d, 1, hs, 1);
+      const ws = Math.min(64, Math.max(1, Math.ceil(w / 2)));
+      const ds = Math.min(64, Math.max(1, Math.ceil(d / 2)));
+      const geom = sideBox(w, h, d, ws, hs, ds);
       placeRows(geom, h, rows);
-      if (uv === 'world' && mat.userData.tile > 0) worldUvBox(geom, w, h, d, mat.userData.tile, hs);
+      if (uv === 'world' && mat.userData.tile > 0) worldUvBox(geom, w, h, d, mat.userData.tile, ws, hs, ds);
       geom.applyMatrix4(_m.compose(_p, q, _s));
       this._add(mat, geom, castShadow, tint);
       if (collide) {
@@ -273,11 +327,18 @@ export class StaticBuilder {
 // Per-vertex light as a vertex color (1 = untouched). Side faces darken toward whatever they
 // stand on (to 0.6 at the base), more in inside corners (the floor bake's contact light), and
 // metal and concrete get a little grime low down. Undersides are a bit darker; tops untouched.
+// Each side vertex looks just in front of its face, a little in from the face's edge; where
+// that spot is inside another solid (a face end tucked into a wall or a platform), or a top
+// vertex finds a neighbor's top flush with it (walls meeting at a corner), it measures from
+// the floor instead.
 function shadeVertices(geom, bake, grime) {
   const pos = geom.attributes.position;
   const nor = geom.attributes.normal;
   const col = new Float32Array(pos.count * 3).fill(1);
   if (bake) {
+    geom.computeBoundingBox();
+    geom.boundingBox.getCenter(_center);
+    const top = geom.boundingBox.max.y - 1e-3;
     for (let i = 0; i < pos.count; i++) {
       _n.fromBufferAttribute(nor, i);
       let c = 1;
@@ -286,10 +347,20 @@ function shadeVertices(geom, bake, grime) {
       else {
         _n.y = 0;
         _n.normalize();
-        const x = pos.getX(i) + _n.x * 0.2;
         const y = pos.getY(i);
-        const z = pos.getZ(i) + _n.z * 0.2;
-        const h = y - bake.floorBelow(x, y, z);
+        // In from the edge: toward the middle, along the face, up to 0.3 m.
+        let tx = _center.x - pos.getX(i);
+        let tz = _center.z - pos.getZ(i);
+        const across = tx * _n.x + tz * _n.z;
+        tx -= across * _n.x;
+        tz -= across * _n.z;
+        const tl = Math.hypot(tx, tz);
+        const pull = tl > 1e-6 ? Math.min(0.3, tl) / tl : 0;
+        const x = pos.getX(i) + _n.x * 0.2 + tx * pull;
+        const z = pos.getZ(i) + _n.z * 0.2 + tz * pull;
+        let floor = bake.floorBelow(x, y, z);
+        if (floor === Infinity || (y >= top && floor >= y - 1e-3)) floor = Math.min(y, bake.groundAt(x, z));
+        const h = y - floor;
         if (h < Infinity) {
           c = mix(0.6, 1, smooth(0, 0.6, h));
           c *= mix(mix(1, bake.lightAt(x, z), 0.5), 1, smooth(0, 1.5, h));
