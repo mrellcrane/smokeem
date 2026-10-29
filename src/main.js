@@ -4,6 +4,7 @@ import { Menu } from './ui/menu.js';
 import { FpsCounter } from './ui/fps.js';
 import { PointerLock } from './input/pointerLock.js';
 import { KeyboardMouseInput } from './input/keyboardMouse.js';
+import { Sfx } from './audio/sfx.js';
 import { settings, updateSettings, onSettingsChange } from './settings.js';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
@@ -17,13 +18,17 @@ fps.setVisible(settings.showFps);
 
 const lock = new PointerLock(stage);
 const kbm = new KeyboardMouseInput(lock);
+const sfx = new Sfx();
 let game = null;
 let loading = false;
 
 const menu = new Menu(uiRoot, {
   onPlay: startMatch,
   onResume: () => {
-    if (game) lock.request();
+    if (!game) return;
+    // Both need this click: browsers only allow pointer lock and audio from a user gesture.
+    sfx.unlock();
+    lock.request();
   },
   onQuit: quitMatch,
   inMatch: () => !!game,
@@ -65,6 +70,7 @@ async function startMatch() {
       stage,
       hudRoot,
       fps,
+      sfx,
       players: [{ source: kbm, name: 'Player 1' }],
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
@@ -107,6 +113,7 @@ if (DEBUG) {
     lock,
     menu,
     settings,
+    sfx,
     // For automated tests in browsers without pointer lock.
     playWithoutLock() {
       if (!game) return;

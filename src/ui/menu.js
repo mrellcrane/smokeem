@@ -4,6 +4,7 @@ import {
   QUALITY_PRESETS,
   SENSITIVITY_RANGE,
   FOV_RANGE,
+  VOLUME_RANGE,
 } from '../settings.js';
 
 // All full-screen UI: title, settings, loading, ready, pause, error.
@@ -18,6 +19,8 @@ const CONTROLS = `
     <div><kbd>Space</kbd> jump, again for double jump</div>
     <div><kbd>Shift</kbd> sprint (hold)</div>
     <div><kbd>C</kbd> crouch (hold, also mid-air)</div>
+    <div><kbd>Click</kbd> fire, <kbd>Right click</kbd> zoom</div>
+    <div><kbd>R</kbd> reload</div>
     <div>Push forward into ledges, nets and ropes to climb</div>
     <div>Jump into the monkey bars to hang</div>
     <div><kbd>Esc</kbd> pause, <kbd>\`</kbd> FPS counter</div>
@@ -113,7 +116,7 @@ export class Menu {
           <button data-action="play">Play</button>
           <button data-action="settings" class="secondary">Settings</button>
         </div>
-        <p class="note">Step 1 build: the arena and movement. Weapons, bots and split-screen come next.</p>
+        <p class="note">Step 2 build: the arena, movement and the Hickory rifle vs training dummies. More weapons, bots and split-screen come next.</p>
       </div>`,
       'title',
     );
@@ -142,6 +145,10 @@ export class Menu {
         <div class="row">
           <label for="fov">Field of view <span class="val" data-val="fov"></span></label>
           <input id="fov" type="range" data-setting="fov" min="${f.min}" max="${f.max}" step="${f.step}" />
+        </div>
+        <div class="row">
+          <label for="vol">Volume <span class="val" data-val="volume"></span></label>
+          <input id="vol" type="range" data-setting="volume" min="${VOLUME_RANGE.min}" max="${VOLUME_RANGE.max}" step="${VOLUME_RANGE.step}" />
         </div>
         <div class="row check">
           <label><input type="checkbox" data-setting="invertY" /> Invert look up/down</label>
@@ -179,6 +186,8 @@ export class Menu {
     if (sv) sv.textContent = `${settings.sensitivity.toFixed(2)}x`;
     const fv = r.querySelector('[data-val="fov"]');
     if (fv) fv.textContent = `${Math.round(settings.fov)}°`;
+    const vv = r.querySelector('[data-val="volume"]');
+    if (vv) vv.textContent = `${Math.round(settings.volume * 100)}%`;
   }
 
   showLoading(text = 'Loading', progress = 0) {

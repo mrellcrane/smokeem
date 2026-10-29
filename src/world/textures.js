@@ -370,6 +370,73 @@ function planet() {
   return toTexture(c, { repeat: false });
 }
 
+// Soft round dot for sparks and glows.
+function spark() {
+  const S = 64;
+  const [c, ctx] = canvas(S, S);
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.8)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  return toTexture(c, { repeat: false });
+}
+
+// Lumpy grey puff for death smoke and dust.
+function smoke() {
+  const S = 128;
+  const [c, ctx] = canvas(S, S);
+  const rand = mulberry32(91);
+  ctx.clearRect(0, 0, S, S);
+  for (let i = 0; i < 14; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = rand() * S * 0.18;
+    const x = S / 2 + Math.cos(a) * r;
+    const y = S / 2 + Math.sin(a) * r;
+    const rad = S * (0.18 + rand() * 0.14);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    const v = 200 + Math.floor(rand() * 55);
+    g.addColorStop(0, `rgba(${v},${v},${v},0.55)`);
+    g.addColorStop(1, `rgba(${v},${v},${v},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return toTexture(c, { repeat: false });
+}
+
+// Four-point muzzle flash star.
+function flash() {
+  const S = 128;
+  const [c, ctx] = canvas(S, S);
+  ctx.clearRect(0, 0, S, S);
+  ctx.translate(S / 2, S / 2);
+  for (let i = 0; i < 4; i++) {
+    ctx.rotate(Math.PI / 2);
+    const g = ctx.createLinearGradient(0, 0, S / 2, 0);
+    g.addColorStop(0, 'rgba(255,240,200,1)');
+    g.addColorStop(0.4, 'rgba(255,180,80,0.8)');
+    g.addColorStop(1, 'rgba(255,120,20,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(S / 2, 0);
+    ctx.lineTo(0, 7);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, S * 0.22);
+  core.addColorStop(0, 'rgba(255,255,240,1)');
+  core.addColorStop(1, 'rgba(255,170,60,0)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(0, 0, S * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+  return toTexture(c, { repeat: false });
+}
+
 export function createTextures() {
   return {
     ground: ground(),
@@ -384,6 +451,9 @@ export function createTextures() {
     rope: rope(),
     flame: flame(),
     planet: planet(),
+    spark: spark(),
+    smoke: smoke(),
+    flash: flash(),
   };
 }
 

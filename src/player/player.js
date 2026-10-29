@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import { BODY, MOVE, CAMERA } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
+import { Vitals } from '../combat/vitals.js';
+import { WEAPONS, WeaponState } from '../combat/weapons.js';
+import { updateShooting } from '../combat/shooting.js';
+import { dealDamage } from '../combat/damage.js';
+import { CharacterModel } from './character.js';
+import { Viewmodel } from './viewmodel.js';
 
 // One player's body, movement and first-person camera. Reads an InputState, so the same
 // controller drives keyboard/mouse players, gamepad players and (later) bots.
@@ -12,6 +18,11 @@ import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 //   net     climbing a cargo net
 //   rope    climbing a rope
 //   bars    hanging from monkey bars
+//   dead    smoked, waiting to respawn
+
+export const RESPAWN_DELAY = 3;
+const FIRE_DPS = 45;
+export const PLAYER_COLORS = [0x3d7bd9, 0xd9443d, 0x3dbd5a, 0xe0b53a];
 
 const NO_ROTATION = { x: 0, y: 0, z: 0, w: 1 };
 const STAND_HH = BODY.standHeight / 2 - BODY.radius;
@@ -28,6 +39,7 @@ const _c = new THREE.Vector3();
 export class Player {
   constructor(game, { id, input, name }) {
     this.game = game;
+    this.kind = 'player';
     this.id = id;
     this.name = name;
     this.input = input;
@@ -36,6 +48,8 @@ export class Player {
     this.RAPIER = RAPIER;
     this.world = world;
     this.filter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS;
+    // Mantle probes ignore bodies, so nobody vaults onto someone's head.
+    this.notBody = (c) => !game.entities.has(c.handle);
 
     this.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
     this.collider = world.createCollider(RAPIER.ColliderDesc.capsule(STAND_HH, BODY.radius), this.body);
@@ -88,6 +102,42 @@ export class Player {
     this.landDip = 0;
     this.fovBoost = 0;
     this._fovKey = '';
+    this.deathRoll = 0;
+    this.lastLookX = 0;
+    this.lastLookY = 0;
+
+    // Combat.
+    this.vitals = new Vitals();
+    this.weapon = new WeaponState(WEAPONS.hickory);
+    this.stats = { kills: 0, deaths: 0 };
+    this.aimZoom = 1;
+    this.aimTarget = null;
+    this.sprintLock = 0;
+    this.deathT = 0;
+    this.deathInfo = null;
+    this.feedback = { hitT: -99, hitKind: '', hurtT: -99, killT: -99, killText: '' };
+    game.registerEntity(this.collider, this);
+
+    // Third-person body for everyone else's views (hidden from our own camera by layer),
+    // and the first-person rifle.
+    const color = PLAYER_COLORS[id % PLAYER_COLORS.length];
+    this.model = new CharacterModel({ armor: color });
+    this.model.setLayer(1 + id);
+    this.camera.layers.enableAll();
+    this.camera.layers.disable(1 + id);
+    this.viewmodel = new Viewmodel(game.textures, color);
+  }
+
+  get alive() {
+    return this.vitals.alive;
+  }
+
+  headLineY() {
+    return this.topY() - 0.32;
+  }
+
+  eyePosition(out) {
+    return out.set(this.center.x, this.center.y + (this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND), this.center.z);
   }
 
   get halfHeight() {
@@ -125,14 +175,27 @@ export class Player {
     this.airJumpsLeft = MOVE.airJumps;
     this.eyeOff = EYE_OFF_STAND;
     this.landDip = 0;
+    this.deathRoll = 0;
+    this.aimZoom = 1;
+    this.sprintLock = 0;
     this.input.clear();
+    this.vitals.reset();
+    this.weapon.reset();
+    this.deathInfo = null;
+    this.collider.setEnabled(true);
+    this.model.group.visible = true;
   }
 
   // Called every rendered frame, so aiming stays responsive at any display rate.
   applyLook() {
-    const [lx, ly] = this.input.takeLook();
+    let [lx, ly] = this.input.takeLook();
+    // Slower turning while zoomed so aim feels the same on screen.
+    lx /= this.aimZoom;
+    ly /= this.aimZoom;
     this.yaw -= lx;
     this.pitch = clamp(this.pitch - ly, -CAMERA.maxPitch, CAMERA.maxPitch);
+    this.lastLookX = lx;
+    this.lastLookY = ly;
   }
 
   // ---------------------------------------------------------------- fixed tick
@@ -140,8 +203,14 @@ export class Player {
   tick(dt) {
     const pressed = this.input.consumePressed();
     this.prevCenter.copy(this.center);
+    if (this.mode === 'dead') {
+      this.deathT += dt;
+      if (this.deathT >= RESPAWN_DELAY) this.game.respawn(this);
+      return;
+    }
     this.grabCooldown = Math.max(0, this.grabCooldown - dt);
     this.mantleCooldown = Math.max(0, this.mantleCooldown - dt);
+    this.sprintLock = Math.max(0, this.sprintLock - dt);
     this.fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
@@ -168,7 +237,48 @@ export class Player {
         break;
     }
 
+    if (this.inFire) {
+      dealDamage(this.game, this, FIRE_DPS * dt, { cause: 'fire' });
+      this.game.sfx.play('burn');
+    }
+    if (!this.alive) return;
+    if (this.vitals.update(dt)) this.game.sfx.play('shieldCharge');
+
+    const w = this.weapon;
+    const wantZoom = this.input.held.aim && !this.sprinting && !w.reloading && this.mode !== 'mantle';
+    this.aimZoom += ((wantZoom ? w.def.zoom : 1) - this.aimZoom) * damp(14, dt);
+    updateShooting(this.game, this, dt, pressed);
+
     this.body.setNextKinematicTranslation(this.center);
+  }
+
+  onDamaged(res, info) {
+    this.feedback.hurtT = this.game.time;
+    if (res.broke) this.game.sfx.play('shieldBreak');
+    else if (res.healthDamage > 0 && info.cause !== 'fire') this.game.sfx.play('hurt');
+  }
+
+  // Our shot landed on something.
+  onHitConfirmed(res, headshot) {
+    const fb = this.feedback;
+    fb.hitT = this.game.time;
+    fb.hitKind = res.killed ? 'kill' : headshot ? 'head' : 'hit';
+    this.game.sfx.play(res.killed ? 'kill' : headshot ? 'head' : 'hit');
+  }
+
+  die(info) {
+    this.mode = 'dead';
+    this.deathT = 0;
+    this.deathInfo = info;
+    this.stats.deaths++;
+    this.vel.set(0, 0, 0);
+    this.sprinting = false;
+    this.aimZoom = 1;
+    this.net = this.rope = this.bars = null;
+    this.collider.setEnabled(false);
+    this.model.group.visible = false;
+    this.game.fx.deathPuff(this.center.x, this.feetY(), this.center.z);
+    this.game.sfx.play('death');
   }
 
   // Move the capsule through the world with collision. Call at most once per tick.
@@ -204,7 +314,8 @@ export class Player {
     const [wx, wz, wishLen] = this.wish();
 
     if (this.grounded) {
-      this.sprinting = inp.held.sprint && inp.moveY > 0.3 && !this.crouched && !this.inMud;
+      this.sprinting =
+        inp.held.sprint && inp.moveY > 0.3 && !this.crouched && !this.inMud && this.sprintLock <= 0 && !inp.held.fire;
     } else if (inp.moveY <= 0.3) {
       this.sprinting = false;
     }
@@ -362,7 +473,7 @@ export class Player {
     r.dir.x = 0;
     r.dir.y = -1;
     r.dir.z = 0;
-    return this.world.castRayAndGetNormal(r, maxDist, true, this.filter, undefined, this.collider);
+    return this.world.castRayAndGetNormal(r, maxDist, true, this.filter, undefined, this.collider, undefined, this.notBody);
   }
 
   castFrom(x, y, z, dx, dy, dz, maxDist) {
@@ -373,7 +484,7 @@ export class Player {
     r.dir.x = dx;
     r.dir.y = dy;
     r.dir.z = dz;
-    return this.world.castRay(r, maxDist, true, this.filter, undefined, this.collider);
+    return this.world.castRay(r, maxDist, true, this.filter, undefined, this.collider, undefined, this.notBody);
   }
 
   // Look for a ledge ahead in direction (dx, dz) and pull up onto it.
@@ -599,16 +710,40 @@ export class Player {
 
   updateCamera(alpha, dt, aspect) {
     _c.lerpVectors(this.prevCenter, this.center, alpha);
-    const target = this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND;
-    this.eyeOff += (target - this.eyeOff) * damp(14, dt);
+    const dead = this.mode === 'dead';
+    // Death cam: sink to the ground and tip over.
+    const target = dead ? 0.35 - this.halfHeight - BODY.radius : this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND;
+    this.eyeOff += (target - this.eyeOff) * damp(dead ? 4 : 14, dt);
+    this.deathRoll += ((dead ? 0.5 : 0) - this.deathRoll) * damp(dead ? 3 : 20, dt);
     this.landDip += (0 - this.landDip) * damp(9, dt);
     const cam = this.camera;
     cam.position.set(_c.x, _c.y + this.eyeOff - this.landDip, _c.z);
-    cam.rotation.set(this.pitch, this.yaw, 0);
+    cam.rotation.set(this.pitch, this.yaw, this.deathRoll);
 
     const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed + 0.5;
     this.fovBoost += ((fast ? CAMERA.sprintFovBoost : 0) - this.fovBoost) * damp(8, dt);
-    this.setFov(settings.fov + this.fovBoost, aspect);
+    this.setFov((settings.fov + this.fovBoost) / this.aimZoom, aspect);
+  }
+
+  // Body pose for other players' views, and the first-person rifle.
+  updateVisuals(dt, alpha) {
+    if (this.model.group.visible) {
+      _c.lerpVectors(this.prevCenter, this.center, alpha);
+      this.model.update(dt, {
+        x: _c.x,
+        y: _c.y - this.halfHeight - BODY.radius,
+        z: _c.z,
+        yaw: this.yaw,
+        pitch: this.pitch,
+        speed: this.speed(),
+        grounded: this.grounded,
+        crouched: this.crouched,
+        climbing: this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars',
+      });
+    }
+    this.viewmodel.update(dt, this, this.lastLookX, this.lastLookY);
+    this.lastLookX = 0;
+    this.lastLookY = 0;
   }
 
   // Horizontal FOV from settings, converted to vertical for this viewport's aspect.
@@ -629,6 +764,8 @@ export class Player {
   }
 
   dispose() {
+    this.model.dispose();
+    this.viewmodel.dispose();
     this.world.removeCharacterController(this.cc);
     this.world.removeRigidBody(this.body);
   }

@@ -41,6 +41,12 @@ procedurally in code (canvas) or come from CC0 sources. No external art pipeline
 - **Bots** (v1) for solo testing and filling out matches. Number of bots chosen in the menu.
 - **Later:** team modes, online play between separate houses.
 
+## Characters
+
+Contestants wear chunky armor with a wide amber visor and a smoker canister on the back. Each
+local player has a color: blue, red, green, gold. Bodies are procedural boxes on a small
+skeleton (one draw call each), so they can run, crouch, jump and climb without imported assets.
+
 ## Players and split-screen
 
 - 1 to 4 local players in one tab, rendered with renderer viewports and scissor.
@@ -87,7 +93,11 @@ Fast, floaty, generous. Current tuning lives in `src/config.js`.
   about 2 s. Health regenerates too, but only once shields are full, refilling in about 4 s.
   No health pickups: on a small, fast map full regen keeps fights flowing.
 - Starting values; tune in playtests.
-- Environmental damage: fire jump burns, falling out of the map kills.
+- Environmental damage: the fire jump burns at 45 per second (through shields first), falling
+  out of the map kills.
+- Death: you get smoked (literally: a puff of smoke), the camera sinks and tips over, and you
+  respawn after 3 seconds at the spawn point farthest from other players, with full shields,
+  health and ammo.
 
 ## Weapons
 
@@ -100,6 +110,15 @@ Two weapons carried at once, swap with a pickup on the map (proposal). Ten event
 | **Hickory** rifle | Full-auto mid-range workhorse. Spawn weapon. |
 | **Mesquite** shotgun | Pump shotgun. Brutal up close, useless far away. |
 | **Smoke Signal** | Signature weapon. Fires a guided missile and switches your view to the missile's camera; you steer it in real time. You are defenseless while flying it. Map pickup only, low ammo. |
+
+**Hickory starting stats** (tune in playtests): 9 shots per second, 13 damage, headshots x1.5,
+damage falls off to 60% between 35 m and 80 m, 32-round magazine with 160 in reserve, 1.7 s
+reload, right mouse zooms 1.35x and tightens spread. Spread blooms while firing and grows when
+moving or airborne. A full-shield, full-health target takes about 1.8 s of body shots.
+
+- Firing cancels sprint. You can shoot while climbing nets, ropes and monkey bars (with extra
+  spread), but not mid-mantle.
+- Bullets pass through cargo nets.
 
 ### Future weapons (ideas, not committed)
 
@@ -130,6 +149,11 @@ One motorcycle with a mounted gun. Fast, fragile, fun off ramps. Name proposal: 
   stronger.
 - **Get Huge**: become giant. More damage, but worse vision and easier to hit.
 - **Grapple**: fire at almost any surface and zip to it.
+- **The Stall** (proposal name; the idea came in as "Neo mode"): for about 3 seconds, any shot
+  that would hit you stops dead in mid-air about a meter in front of you, hanging there as a
+  glowing slug. Missiles and grenades freeze too. When it ends, the stalled rounds drop to the
+  ground (proposal; a spicier variant flings them back at whoever fired them). Shots are
+  hitscan, so this works as a bubble the shot ray checks before it hits you.
 
 How abilities are earned (loadout, pickup, cooldown, charge from kills) is an **open question**.
 
@@ -241,8 +265,10 @@ Placeholder sound effects are fine for v1 (generated with WebAudio).
 1. **Arena + movement (done)**: the obstacle-course arena, one player on keyboard and mouse,
    sprint, crouch, double jump, mantle, nets, ropes, monkey bars, mud. Main menu with quality,
    sensitivity, FOV and FPS settings. Pause menu. Shader warm-up at load.
-2. **Shooting**: Hickory rifle with a first-person viewmodel, hitscan, shields and health with
-   regen, fire jump damage, death and respawn, practice targets.
+2. **Shooting (done)**: Hickory rifle with a first-person viewmodel, hitscan with headshots,
+   spread, reload and zoom; shields and health with regen; fire jump damage; death and
+   respawn; HUD (vitals, ammo, hit markers, kill confirms, death screen); placeholder sounds;
+   six training dummies (standing and strafing) as practice targets.
 3. **Full arsenal**: Mesquite shotgun, Smoke Signal guided missile (missile camera), weapon
    pickups on the map, grenades, melee.
 4. **Bots**: simple AI that roams the arena (including obstacles) and shoots. Bot count in menu.
@@ -272,3 +298,6 @@ Need answers before the step that uses them gets built.
 - 2026-10-28: 3-player split-screen uses equal quadrants with a match info panel in the 4th.
 - 2026-10-28: Health regenerates after shields are full; no health pickups.
 - 2026-10-28: Ranks come from a 60/40 blend of finishing place and K/D.
+- 2026-10-29: Headshots deal 1.5x on every hit (shields up or down). Shooting allowed while
+  climbing with extra spread; firing cancels sprint.
+- 2026-10-29: Training dummies stay in as practice targets for solo play until bots arrive.

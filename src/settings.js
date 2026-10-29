@@ -32,10 +32,12 @@ const DEFAULTS = {
   invertY: false,
   fov: 95,
   showFps: false,
+  volume: 0.7,
 };
 
 export const SENSITIVITY_RANGE = { min: 0.1, max: 4, step: 0.05 };
 export const FOV_RANGE = { min: 70, max: 115, step: 1 };
+export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 };
 
 function load() {
   const out = { ...DEFAULTS };
@@ -48,6 +50,7 @@ function load() {
   if (!QUALITY_PRESETS[out.quality]) out.quality = DEFAULTS.quality;
   if (!Number.isFinite(out.sensitivity)) out.sensitivity = DEFAULTS.sensitivity;
   if (!Number.isFinite(out.fov)) out.fov = DEFAULTS.fov;
+  if (!Number.isFinite(out.volume)) out.volume = DEFAULTS.volume;
   return out;
 }
 

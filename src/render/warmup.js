@@ -1,23 +1,9 @@
 // Compile every shader and upload every texture before gameplay starts, so nothing stalls
-// mid-match. `extras` are objects that only appear later (effects, pickups): they get added to
-// the scene in front of the camera, rendered once with shadows, then removed.
-export async function warmUp(renderer, scene, camera, { textures = [], extras = [] } = {}) {
+// mid-match. Callers make every effect / pickup / model variant visible first (compile skips
+// hidden objects), then `render` draws one real frame to catch shadow depth variants and
+// render state that compile() alone misses.
+export async function warmUp(renderer, { textures = [], scenes = [], render }) {
   for (const t of textures) renderer.initTexture(t);
-
-  const added = [];
-  for (const obj of extras) {
-    if (obj.parent) continue;
-    obj.position.copy(camera.position);
-    obj.position.z -= 3;
-    scene.add(obj);
-    added.push(obj);
-  }
-
-  await renderer.compileAsync(scene, camera);
-
-  // A real render catches what compile() can't: shadow depth materials, render state.
-  renderer.shadowMap.needsUpdate = true;
-  renderer.render(scene, camera);
-
-  for (const obj of added) scene.remove(obj);
+  for (const [scene, camera] of scenes) await renderer.compileAsync(scene, camera);
+  render();
 }

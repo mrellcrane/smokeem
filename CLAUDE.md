@@ -50,8 +50,14 @@ Gamepad API.
 - `src/settings.js`: quality presets and saved settings (`localStorage`).
 - `src/input/`: input sources (keyboard/mouse, later gamepads and bots) all write the same
   `InputState`, so the player controller doesn't care where input comes from.
-- `src/player/`: the player controller (movement, climbing, mantling) and camera.
-- `src/world/`: procedural textures, materials, arena layout, sky, effects, trigger zones.
+- `src/player/`: the player controller (movement, climbing, mantling, camera), the skinned
+  character body and the first-person viewmodel.
+- `src/combat/`: vitals (shields/health), weapon data and state, shooting/hitscan, and
+  `dealDamage`, the single path all damage goes through.
+- `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system.
+- `src/audio/`: placeholder WebAudio sounds synthesized at load (unlocked by the drop-in click).
+- `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
+  training dummies.
 - `src/render/`: renderer setup, split-screen viewports, shader warm-up.
 - `src/ui/`: menus, HUD, FPS counter.
 
@@ -62,6 +68,8 @@ Gamepad API.
 - Look input is applied every rendered frame for responsiveness; movement is applied per tick.
 - Button presses are latched in `InputState` until a tick consumes them, so no press is lost
   between ticks.
+- Anything that can be shot registers its collider with `game.registerEntity`; `game.castShot`
+  maps ray hits back to entities. Targets implement `alive`, `vitals`, `headLineY()`, `die()`.
 
 ### Target platforms
 
@@ -93,6 +101,14 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
 - The FPS counter (backquote key or settings) shows fps, frame time and draw calls.
+- Each view renders the world, then clears depth and renders the viewmodel scene (its own
+  camera and lights) so guns never clip into walls. `renderer.autoClear` is off; views clear
+  themselves inside their scissor rect.
+- A player's own body sits on layer `1 + id`, which that player's camera disables. The sun's
+  shadow camera enables all layers so you still see your own shadow.
+- `renderer.compile` skips hidden objects, so warm-up forces every effect, shield shell and
+  muzzle flash visible for one compile + render. New spawnable things must hook into
+  `Game.warmUp()` the same way.
 
 ### Settings menu
 
