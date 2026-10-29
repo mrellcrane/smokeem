@@ -164,9 +164,14 @@ rosters and three judges.
   60 s; the pads under the Summit and in the southwest barrier field are field pads, cyan
   rim, 30 s). Power guns never go in loadouts.
 - A loadout is one primary plus the set's sidearm, so every set has two. You pick on the
-  drop-in screen (arrows, or left/right on your controller) and on every respawn screen
-  (A / D or the left stick); the pick sticks between lives and matches. Bots roll a loadout
-  every life (Hard bots lean toward the longer-range primary).
+  drop-in screen and the pause menu (arrows, or left/right on your controller) and on every
+  respawn screen (A / D or the left stick); the pick sticks between lives and matches. A
+  change mid-match takes effect at your next spawn, or at once if you spawned less than 3 s
+  ago and haven't fired or picked anything up (an instant swap any time would be a free
+  reload). Bots roll a loadout every life (Hard bots lean toward the longer-range primary).
+- Loadouts show as cards: each gun's picture and a little looping demo of how it works (the
+  Mesquite's pellet cone, the Smoke Signal swerving to its target, the Swarm Jar's bugs
+  hunting). The ready screen's gun list shows the same pictures and demos.
 - Loadout guns stay with you when you're smoked and vanish if you swap one for a pickup;
   picked-up guns drop when you're smoked (gone after 25 s).
 - Heat labels say how much a set asks you to learn: Mild (the default), Medium (no wacky
@@ -209,6 +214,7 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | planned, after maps |
+| **Smoke Ring** | wacky | Portal gun: two linked rings you walk, fall and shoot through (see below). | planned, rules need sign-off |
 
 **Shrink Wrap** (owner request, 2026-10-29: one gun for both, built after the new maps). A power
 gun for a wacky set, never in a loadout. Its hitbox change is the point: a shrunk player really
@@ -217,6 +223,20 @@ is harder to hit.
   and anyone who lands on you smokes you with a stomp.
 - The aim button grows for 6 s (the gun has no scope): 160% size, slower, takes 1.5x damage, and
   a second grow while still big pops you.
+
+**Smoke Ring** (owner request, 2026-10-29: "a portal gun like from the game Portal"). Original
+look and name, nothing taken from Portal (no blue and orange, no lab branding). Proposed, to be
+signed off:
+- Fire opens your first ring and the aim button your second, on any flat wall, floor or ceiling
+  with room for a body (not on mud, nets, ropes or glow strips). Opening one again moves it.
+- Your rings are in your armor color (one light, one dark), so everyone can tell whose they are.
+- Anyone walks through anyone's rings, and momentum carries through: drop into a floor ring and
+  fly out of a wall ring. Bullets, rockets, grenades and bugs go through too.
+- Rings close when you're smoked.
+- The first version shows a swirling ring surface rather than a live view through it (a view
+  through costs a whole extra render per ring per split-screen view); a see-through version on
+  High only if the Xbox bench has room.
+- A field or power gun in a wacky set, like the Shrink Wrap.
 
 **Shooting rules for every gun**
 - Hold the trigger to repeat at the gun's own rate (semi-autos too, so nobody has to mash).
@@ -599,3 +619,8 @@ Need answers before the step that uses them gets built.
   mud's surface instead of going through it to the pit floor (missiles and jars too), since
   the mud is what you see. No new meshes or shader programs; the trough embers keep the
   existing sparks and smoke draws on between fights.
+- 2026-10-29: Loadout cards (owner request): gun pictures and little demos of how each gun works,
+  on the drop-in, pause and respawn screens; the loadout can be changed any time (next spawn,
+  or at once right after spawning). Queued after it: movement (sprint-slide, wall kick), the new
+  bodies, ragdoll-ish deaths, a death replay from the killer's view, the game-show arena, maps,
+  then the Shrink Wrap and the Smoke Ring portal gun.

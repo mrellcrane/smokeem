@@ -145,7 +145,10 @@ Live build: https://mrellcrane.github.io/smokeem/
   `InputState` each tick. A new map needs its own links list.
 - `src/render/`: renderer setup, split-screen viewports, shader warm-up.
 - `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD, the
-  3-player info panel (`infoPanel.js`), FPS counter.
+  3-player info panel (`infoPanel.js`), FPS counter, and the loadout cards
+  (`loadoutCard.js`): gun pictures rendered once per page at match load with the match's
+  renderer (`gunIcons.js`) and looping SVG/CSS demos of how each gun works (`gunDemos.js`; a
+  new gun adds its demo there, else it gets the generic stream of shots).
 
 ### Game loop
 

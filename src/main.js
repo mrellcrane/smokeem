@@ -49,7 +49,10 @@ const menu = new Menu(uiRoot, {
   inMatch: () => !!game,
   lobby: () => ({ seats: seats.map(seatInfo), padsSeen: pads.seen }),
   onLoadout: (i, dir) => cycleLoadout(i, dir),
-  loadoutRows: () => (game && game.arsenal.loadouts.length > 1 ? game.humans.map((p) => loadoutLabel(game.arsenal.set, p.loadout)) : []),
+  loadoutRows: () =>
+    game && game.arsenal.loadouts.length > 1
+      ? game.humans.map((p) => ({ loadout: game.arsenal.loadouts[p.loadout], pending: game.state !== 'ready' && p.loadout !== p.armedLoadout }))
+      : [],
   matchKinds: () => seats.map((s) => s.kind),
   hasMissile: () => !game || game.arsenal.missile,
   audioLocked: () => sfx.ctx?.state !== 'running',
@@ -58,7 +61,7 @@ const menu = new Menu(uiRoot, {
     const { set } = game.arsenal;
     const where = (id) => (id === set.power ? 'power pad' : id === set.field ? 'field pads' : id === set.sidearm ? 'sidearm' : 'primary');
     const ids = [...set.primaries, set.sidearm, set.field, set.power];
-    return { name: set.name, heat: set.heat, guns: ids.map((id) => ({ name: WEAPONS[id].name, blurb: WEAPONS[id].blurb, where: where(id) })) };
+    return { name: set.name, heat: set.heat, guns: ids.map((id) => ({ id, name: WEAPONS[id].name, blurb: WEAPONS[id].blurb, where: where(id) })) };
   },
 });
 const nav = new PadNav(uiRoot);
@@ -199,12 +202,12 @@ async function startMatch() {
   }
 }
 
-// Before the first drop-in: change a local player's spawn loadout.
+// Change a local player's loadout (ready screen, pause menu). Before the first drop-in it arms
+// at once; mid-match it waits for the next spawn unless they've only just spawned.
 function cycleLoadout(i, dir) {
   const p = game?.humans[i];
-  if (!p || game.state !== 'ready') return;
-  p.loadout += dir;
-  p.armLoadout();
+  if (!p || game.state === 'over') return;
+  p.cycleLoadout(dir, game.state === 'ready');
   game.needsRender = true;
   menu.renderLoadouts();
 }
@@ -264,8 +267,8 @@ function padMenu(gp, e, seat) {
       return;
     }
   }
-  // On the ready screen, left/right changes that controller's own loadout.
-  if (screen === 'ready' && seat && (e.dir === 'left' || e.dir === 'right')) {
+  // On the ready and pause screens, left/right changes that controller's own loadout.
+  if ((screen === 'ready' || screen === 'pause') && seat && (e.dir === 'left' || e.dir === 'right')) {
     cycleLoadout(seats.indexOf(seat), e.dir === 'right' ? 1 : -1);
   } else if (e.dir) nav.move(e.dir);
   if (e.a) {
