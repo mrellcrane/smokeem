@@ -5,7 +5,7 @@ import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
 import { WEAPONS, WeaponState, GRENADE, STARTING_WEAPON } from '../combat/weapons.js';
 import { InputState } from '../input/inputState.js';
-import { updateShooting } from '../combat/shooting.js';
+import { updateShooting, cancelReload } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
 import { CharacterModel } from './character.js';
 import { Viewmodel } from './viewmodel.js';
@@ -132,7 +132,7 @@ export class Player {
     this.lungeDir = new THREE.Vector3();
     this.knockT = 0;
     this.shake = 0;
-    this.stats = { kills: 0, deaths: 0 };
+    this.stats = { kills: 0, deaths: 0, score: 0 };
     this.aimZoom = 1;
     this.aimTarget = null;
     this.sprintLock = 0;
@@ -387,6 +387,8 @@ export class Player {
     this.mode = 'dead';
     this.deathT = 0;
     this.deathInfo = info;
+    this.aimTarget = null;
+    cancelReload(this.game, this.weapon);
     this.stats.deaths++;
     this.vel.set(0, 0, 0);
     this.sprinting = false;

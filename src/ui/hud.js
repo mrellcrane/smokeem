@@ -2,6 +2,7 @@ import { DEG } from '../util/math.js';
 import { currentSpread } from '../combat/shooting.js';
 import { RESPAWN_DELAY } from '../player/player.js';
 import { controlsHtml } from './controls.js';
+import { clockText, ordinal } from '../match.js';
 
 // Per-player HUD laid over that player's viewport. Plain DOM; every write is cached so the
 // DOM is only touched when a value actually changes.
@@ -14,12 +15,30 @@ const KEY_LABELS = {
 const HITMARKER_TIME = 0.18;
 const HURT_TIME = 0.4;
 const KILL_MSG_TIME = 1.8;
+const FEED_TIME = 6;
+
+const hex = (c) => (c == null ? 'inherit' : `#${c.toString(16).padStart(6, '0')}`);
+const nameHtml = (p) => `<b style="color:${hex(p.color)}">${p.name}</b>`;
+
+// One kill feed line: "Killer weapon Victim", or "Victim how" when nobody else did it.
+export function feedRow(f) {
+  const how = `<span>${f.how}${f.headshot ? ' · head' : ''}</span>`;
+  return `<div>${f.killer ? `${nameHtml(f.killer)} ${how} ${nameHtml(f.victim)}` : `${nameHtml(f.victim)} ${how}`}</div>`;
+}
+
+// Visible feed entries (the last few seconds' worth) and a key that changes when they do.
+export function visibleFeed(match, now) {
+  let first = match.feed.length;
+  while (first > 0 && now - match.feed[first - 1].t < FEED_TIME) first--;
+  return { first, key: `${match.feedVersion}:${first}` };
+}
 
 export class Hud {
   // source: the player's input source (keyboard/mouse or a controller).
   constructor(root, source, { index = 0, color = '#ffffff' } = {}) {
     const inputKind = source.kind;
     this.source = source;
+    this.index = index;
     this.keys = KEY_LABELS[inputKind] ?? KEY_LABELS.keyboardMouse;
     this.el = document.createElement('div');
     this.el.className = 'hud-view';
@@ -32,6 +51,8 @@ export class Hud {
         <div class="bar health"><i></i></div>
       </div>
       <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
+      <div class="hud-match"><div class="hud-clock"></div><div class="hud-place"></div><div class="hud-feed"></div></div>
+      <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
       <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
       <div class="target-name"></div>
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
@@ -67,6 +88,11 @@ export class Hud {
       healthFill: q('.health i'),
       cross: q('.crosshair'),
       tag: q('.hud-tag'),
+      clock: q('.hud-clock'),
+      place: q('.hud-place'),
+      feed: q('.hud-feed'),
+      scores: q('.hud-scores'),
+      scoresBody: q('.hud-scores tbody'),
       targetName: q('.target-name'),
       ticks: [...this.el.querySelectorAll('.crosshair i')],
       hit: q('.hitmarker'),
@@ -246,6 +272,8 @@ export class Hud {
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
     }
 
+    this.updateMatch(player, game);
+
     const hint = this.hintFor(player, game.zones, game);
     this.set('hint', hint, (x) => {
       e.hint.textContent = x;
@@ -260,8 +288,32 @@ export class Hud {
       } | ${player.speed().toFixed(1)} m/s | ${c.x.toFixed(1)}, ${player.feetY().toFixed(1)}, ${c.z.toFixed(1)} | ${Math.round(
         v.shield,
       )}/${Math.round(v.health)}`;
+      if (this.index === 0 && game.fps.visible) debug = `${game.fps.text}\n${debug}`;
     }
     this.set('debug', debug, (x) => (e.debug.textContent = x));
+  }
+
+  // Clock, your place and score, the kill feed, and the scoreboard while it's held.
+  updateMatch(player, game) {
+    const e = this.els;
+    const m = game.match;
+    this.set('clock', m.timed ? clockText(m.timeLeft) : '', (x) => (e.clock.textContent = x));
+    this.set('clockHot', m.timed && m.timeLeft <= 30, (x) => e.clock.classList.toggle('hot', x));
+    this.set('place', `${ordinal(m.placeOf(player))} · ${player.stats.score}`, (x) => (e.place.textContent = x));
+    const feed = visibleFeed(m, game.time);
+    this.set('feed', feed.key, () => (e.feed.innerHTML = m.feed.slice(feed.first).map(feedRow).join('')));
+
+    const show = !!player.input.held.scoreboard;
+    this.set('scoresOn', show, (x) => (e.scores.style.display = x ? 'block' : 'none'));
+    if (show) {
+      let rows = '';
+      for (const s of m.standings()) {
+        const p = s.player;
+        const cls = p === player ? ' class="me"' : game.humans.includes(p) ? ' class="local"' : '';
+        rows += `<tr${cls}><td>${ordinal(s.place)}</td><td>${nameHtml(p)}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td></tr>`;
+      }
+      this.set('scoresRows', rows, (x) => (e.scoresBody.innerHTML = x));
+    }
   }
 
   dispose() {

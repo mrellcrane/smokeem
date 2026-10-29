@@ -66,7 +66,7 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.slot1 && p.slot !== 0 && p.slots[0]) want = 0;
   if (pressed.slot2 && p.slot !== 1 && p.slots[1]) want = 1;
   if (want >= 0) {
-    p.weapon.reloadT = 0;
+    cancelReload(game, p.weapon);
     p.slot = want;
     p.switchT = SWITCH_TIME;
     game.sfx.play('swap', { at: p.center, source: p });
@@ -85,7 +85,7 @@ export function updateShooting(game, p, dt, pressed) {
 
   const trigger = d.auto ? inp.held.fire || pressed.fire : pressed.fire;
   // Shotguns fire straight out of a shell-by-shell reload.
-  if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) w.reloadT = 0;
+  if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
   if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
     if (w.mag <= 0) {
       if (w.canReload()) startReload(game, p);
@@ -115,8 +115,11 @@ function tickReload(game, p, w, dt, firing) {
   if (d.reloadPerShell) {
     w.mag++;
     w.reserve--;
-    game.sfx.play('shell', { at: p.center, source: p });
-    if (w.mag < d.mag && w.reserve > 0 && !firing) w.reloadT = d.reloadTime;
+    // Start the next shell (each shell's sound plays as it goes in).
+    if (w.mag < d.mag && w.reserve > 0 && !firing) {
+      w.reloadT = d.reloadTime;
+      w.reloadSfx = game.sfx.play('shell', { at: p.center, source: p });
+    }
   } else {
     const take = Math.min(d.mag - w.mag, w.reserve);
     w.mag += take;
@@ -125,9 +128,18 @@ function tickReload(game, p, w, dt, firing) {
 }
 
 function startReload(game, p) {
-  p.weapon.reloadT = p.weapon.def.reloadTime;
+  const w = p.weapon;
+  w.reloadT = w.def.reloadTime;
   p.sprintLock = Math.max(p.sprintLock, 0.2);
-  game.sfx.play(p.weapon.def.reloadPerShell ? 'shell' : 'reload', { at: p.center, source: p });
+  w.reloadSfx = game.sfx.play(w.def.reloadPerShell ? 'shell' : 'reload', { at: p.center, source: p });
+}
+
+// Stop a reload part way (switching guns, getting smoked), sound included.
+export function cancelReload(game, w) {
+  if (!w || w.reloadT <= 0) return;
+  w.reloadT = 0;
+  game.sfx.stop(w.reloadSfx);
+  w.reloadSfx = null;
 }
 
 function fire(game, p) {

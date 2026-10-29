@@ -34,11 +34,14 @@ const menu = new Menu(uiRoot, {
   onPlay: startMatch,
   onResume: resumeMatch,
   onQuit: quitMatch,
+  onEndMatch: () => game?.match.end(),
+  onRematch: rematch,
   onJoinKbm: () => join(kbm),
   onLeave: (i) => leave(seats[i]),
   inMatch: () => !!game,
   lobby: () => ({ seats: seats.map(seatInfo), padsSeen: pads.seen }),
   matchKinds: () => seats.map((s) => s.kind),
+  audioLocked: () => sfx.ctx?.state !== 'running',
 });
 const nav = new PadNav(uiRoot);
 
@@ -47,14 +50,14 @@ function seatInfo(src) {
 }
 
 function join(src) {
-  if (game || seats.includes(src) || seats.length >= MAX_LOCAL_PLAYERS) return;
+  if (game || loading || seats.includes(src) || seats.length >= MAX_LOCAL_PLAYERS) return;
   seats.push(src);
   menu.renderLobby();
 }
 
 function leave(src) {
   const i = seats.indexOf(src);
-  if (game || i < 0) return;
+  if (game || loading || i < 0) return;
   seats.splice(i, 1);
   menu.renderLobby();
 }
@@ -68,6 +71,11 @@ const kbmPlaying = () => seats.includes(kbm);
 // browser owns Esc). Controllers pause with Menu.
 lock.onLock = () => {
   if (!game) return;
+  // The match ended (or nothing asked to resume) while the request was pending.
+  if (game.state === 'over') {
+    lock.exit();
+    return;
+  }
   menu.hide();
   kbm.setEnabled(true);
   game.resume();
@@ -78,7 +86,7 @@ lock.onUnlock = () => {
   pauseMatch();
 };
 lock.onError = () => {
-  if (!game || game.state === 'playing') return;
+  if (!game || game.state === 'playing' || game.state === 'over') return;
   const msg = "Couldn't capture the mouse. Click again (browsers block it for a moment after Esc).";
   if (game.state === 'ready') menu.showReady(msg);
   else menu.showPause(msg);
@@ -116,7 +124,8 @@ pads.onDisconnect = (index) => {
   const src = padSeat(index);
   if (!src) return;
   if (!game) {
-    leave(src);
+    // While loading, the new match already has this seat: keep it, like mid-match.
+    if (!loading) leave(src);
     return;
   }
   const msg = `Player ${seats.indexOf(src) + 1}'s controller dropped. Turn it back on, or press A on another one.`;
@@ -149,9 +158,16 @@ async function startMatch() {
       bots: settings.bots,
       botSkill: settings.botSkill,
       practiceTargets: settings.bots === 0,
+      timeLimit: settings.timeLimit,
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;
+    document.body.classList.add('in-match');
+    game.onMatchEnd = (results) => {
+      kbm.setEnabled(false);
+      lock.exit();
+      menu.showResults(results, game.humans);
+    };
     game.start();
     menu.showReady();
   } catch (err) {
@@ -164,16 +180,27 @@ async function startMatch() {
   }
 }
 
-function quitMatch() {
+function endGame() {
   kbm.setEnabled(false);
   lock.exit();
+  document.body.classList.remove('in-match');
   if (game) {
     game.dispose();
     game = null;
   }
   // Controllers that dropped out mid-match give up their seats.
   for (const s of [...seats]) if (s.kind === 'gamepad' && !s.connected) leave(s);
+}
+
+function quitMatch() {
+  endGame();
   menu.showTitle();
+}
+
+// Same players and settings, fresh match.
+function rematch() {
+  endGame();
+  startMatch();
 }
 
 // ---------------------------------------------------------------- controllers
@@ -222,7 +249,12 @@ function padMenu(gp, e, seat) {
   }
 }
 
+// After pause or results open over a live match, controllers are ignored for a moment: the
+// other players are still jumping (A) and crouching (B) and haven't noticed yet.
+const MENU_GRACE = 500;
 let lastNow = performance.now();
+let wasMenuUp = false;
+let menuOpenedAt = 0;
 function padFrame(now) {
   requestAnimationFrame(padFrame);
   const dt = Math.min(0.1, Math.max(0, (now - lastNow) / 1000));
@@ -231,16 +263,28 @@ function padFrame(now) {
   if (!pads.seen) return;
   guardBack();
   const menuUp = !!menu.screen && menu.screen !== 'loading';
+  if (menuUp && !wasMenuUp) {
+    nav.holdAll();
+    menuOpenedAt = now;
+  }
+  wasMenuUp = menuUp;
+  const grace = (menu.screen === 'pause' || menu.screen === 'results') && now - menuOpenedAt < MENU_GRACE;
   for (const gp of pads.connected()) {
     const e = nav.read(gp, dt);
-    // Best effort: some browsers count controller presses as a gesture for audio.
+    // Chromium counts controller presses as a gesture, so this can start audio there.
     if (e.a || e.menu) sfx.unlock();
     const seat = padSeat(gp.index);
-    if (menuUp) padMenu(gp, e, seat);
-    else if (game?.state === 'playing' && seat && (e.menu || e.down)) pauseMatch();
+    if (menuUp) {
+      if (!grace) padMenu(gp, e, seat);
+    } else if (game?.state === 'playing' && seat && (e.menu || e.down)) pauseMatch();
   }
   if (menu.screen === 'title') menu.renderLobby();
 }
+
+// Any real click or key press can start audio (Safari only allows it from these, never from a
+// controller).
+window.addEventListener('pointerdown', () => sfx.unlock(), true);
+window.addEventListener('keydown', () => sfx.unlock(), true);
 requestAnimationFrame(padFrame);
 
 // Backquote toggles the FPS counter from anywhere.

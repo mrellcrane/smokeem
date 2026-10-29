@@ -8,6 +8,8 @@ export class FpsCounter {
     this.time = 0;
     this.worst = 0;
     this.visible = false;
+    // Latest readout, also shown in player 1's debug line during a match.
+    this.text = '';
     this.setVisible(false);
   }
 
@@ -24,7 +26,8 @@ export class FpsCounter {
       if (this.visible) {
         const fps = this.frames / this.time;
         const ms = (this.time / this.frames) * 1000;
-        this.el.textContent = `${fps.toFixed(0)} fps | ${ms.toFixed(1)} ms (worst ${(this.worst * 1000).toFixed(0)}) | ${drawCalls} draws`;
+        this.text = `${fps.toFixed(0)} fps | ${ms.toFixed(1)} ms (worst ${(this.worst * 1000).toFixed(0)}) | ${drawCalls} draws`;
+        this.el.textContent = this.text;
       }
       this.frames = 0;
       this.time = 0;

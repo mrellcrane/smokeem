@@ -22,6 +22,7 @@ import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial } from './player/viewmodel.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
+import { Match } from './match.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -36,12 +37,25 @@ const _sunDir = new THREE.Vector3();
 const _invQ = new THREE.Quaternion();
 
 // One match: renderer, scene, physics world, players and the fixed-step loop.
-// States: 'ready' (loaded, waiting for the player to click in), 'playing', 'paused'.
+// States: 'ready' (loaded, waiting for the player to click in), 'playing', 'paused', 'over'.
 export class Game {
-  static async create({ stage, hudRoot, fps, sfx, players, bots = 0, botSkill = 'normal', practiceTargets = true, onProgress = () => {} }) {
+  static async create({
+    stage,
+    hudRoot,
+    fps,
+    sfx,
+    players,
+    bots = 0,
+    botSkill = 'normal',
+    practiceTargets = true,
+    timeLimit = 5,
+    onProgress = () => {},
+  }) {
     onProgress('Lighting the smoker', 0.05);
     await initRapier();
     const game = new Game(stage, hudRoot, fps, sfx);
+    game.match = new Match(game, timeLimit);
+    game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
     return game;
   }
@@ -308,9 +322,9 @@ export class Game {
   }
 
   onKill(victim, info) {
+    this.match.onKill(victim, info);
     const a = info.attacker;
     if (a && a !== victim && a.kind === 'player') {
-      a.stats.kills++;
       a.feedback.killT = this.time;
       a.feedback.killText = `Smoked ${victim.name}${info.headshot ? ' · headshot' : ''}`;
     }
@@ -352,7 +366,7 @@ export class Game {
   }
 
   resume() {
-    if (this.state === 'playing') return;
+    if (this.state === 'playing' || this.state === 'over') return;
     for (const s of this.inputs) {
       s.state.clear();
       s.prime?.();
@@ -367,6 +381,14 @@ export class Game {
     this.needsRender = true;
   }
 
+  // Time's up (or ended from the pause menu): freeze everything and hand the results over.
+  endMatch(results) {
+    this.state = 'over';
+    this.needsRender = true;
+    this.results = results;
+    this.onMatchEnd?.(results);
+  }
+
   frame(now) {
     if (this.disposed) return;
     requestAnimationFrame(this._frame);
@@ -378,7 +400,7 @@ export class Game {
       for (const p of this.humans) p.applyLook();
       this.acc += dt;
       let steps = 0;
-      while (this.acc >= PHYSICS_DT && steps < MAX_STEPS_PER_FRAME) {
+      while (this.state === 'playing' && this.acc >= PHYSICS_DT && steps < MAX_STEPS_PER_FRAME) {
         this.tick(PHYSICS_DT);
         this.acc -= PHYSICS_DT;
         steps++;
@@ -413,6 +435,7 @@ export class Game {
     for (const p of this.players) {
       if (p.alive && p.center.y < -20) dealDamage(this, p, 1e6, { cause: 'fell' });
     }
+    this.match.tick(dt);
   }
 
   updateVisuals(dt, alpha) {
@@ -469,6 +492,8 @@ export class Game {
   dispose() {
     this.disposed = true;
     this.sfx.listeners = [];
+    // Seats outlive the match; don't let them keep it alive.
+    for (const s of this.inputs) s.player = null;
     window.removeEventListener('resize', this._onResize);
     this._offSettings?.();
     for (const h of this.huds) h.dispose();

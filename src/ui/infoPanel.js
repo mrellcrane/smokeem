@@ -1,8 +1,10 @@
 import { ARENA_HALF } from '../world/arena.js';
+import { clockText, ordinal } from '../match.js';
+import { feedRow, visibleFeed } from './hud.js';
 
-// The match info panel in the spare bottom-right quadrant of 3-player split-screen: a live
-// scoreboard and an arena map showing only the local players. Plain DOM plus a 2D canvas;
-// the map's background is sampled from the physics world once at load.
+// The match info panel in the spare bottom-right quadrant of 3-player split-screen: the clock,
+// a live scoreboard, the kill feed and an arena map showing only the local players. Plain DOM
+// plus a 2D canvas; the map's background is sampled from the physics world once at load.
 
 const MAP_RES = 0.5; // meters per map pixel
 const UPDATE_EVERY = 1 / 12;
@@ -15,15 +17,22 @@ export class InfoPanel {
     this.el = document.createElement('div');
     this.el.className = 'info-panel';
     this.el.innerHTML = `
-      <div class="ip-head"><b>Mudlark Gauntlet</b><span class="ip-mode">Free-for-all</span></div>
+      <div class="ip-head"><b>Mudlark Gauntlet</b><span class="ip-mode">Free-for-all</span><span class="ip-clock"></span></div>
       <div class="ip-body">
         <canvas class="ip-map"></canvas>
-        <table class="ip-score"><thead><tr><th></th><th>Kills</th><th>Deaths</th></tr></thead><tbody></tbody></table>
+        <div class="ip-side">
+          <table class="ip-score"><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table>
+          <div class="ip-feed"></div>
+        </div>
       </div>`;
     root.appendChild(this.el);
     this.canvas = this.el.querySelector('.ip-map');
     this.ctx = this.canvas.getContext('2d');
     this.tbody = this.el.querySelector('tbody');
+    this.clock = this.el.querySelector('.ip-clock');
+    this.feed = this.el.querySelector('.ip-feed');
+    this._feedKey = '';
+    this._clock = '';
     this.background = buildMapImage(game);
     this.t = UPDATE_EVERY;
     this._rect = '';
@@ -39,7 +48,8 @@ export class InfoPanel {
     s.top = `${totalHeight - rect.y - rect.h}px`;
     s.width = `${rect.w}px`;
     s.height = `${rect.h}px`;
-    s.setProperty('--hud-scale', Math.max(0.6, Math.min(1.2, rect.h / 720)).toFixed(3));
+    // The panel has a whole quadrant to itself, so its text can be bigger than the views' HUDs.
+    s.setProperty('--hud-scale', Math.max(0.9, Math.min(1.4, rect.h / 400)).toFixed(3));
     // Square map filling the panel height under the header.
     const size = Math.max(64, Math.floor(Math.min(rect.h * 0.8, rect.w * 0.5)));
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -88,16 +98,28 @@ export class InfoPanel {
   }
 
   drawScores() {
-    const humans = this.game.humans;
-    const sorted = [...this.game.players].sort((a, b) => b.stats.kills - a.stats.kills || a.stats.deaths - b.stats.deaths);
+    const { game } = this;
+    const m = game.match;
     let html = '';
-    for (const p of sorted) {
-      const local = humans.includes(p) ? ' class="local"' : '';
-      html += `<tr${local}><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td></tr>`;
+    for (const s of m.standings()) {
+      const p = s.player;
+      const local = game.humans.includes(p) ? ' class="local"' : '';
+      html += `<tr${local}><td>${ordinal(s.place)}</td><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td></tr>`;
     }
     if (html !== this._rows) {
       this._rows = html;
       this.tbody.innerHTML = html;
+    }
+    const clock = m.timed ? clockText(m.timeLeft) : '';
+    if (clock !== this._clock) {
+      this._clock = clock;
+      this.clock.textContent = clock;
+      this.clock.classList.toggle('hot', m.timed && m.timeLeft <= 30);
+    }
+    const feed = visibleFeed(m, game.time);
+    if (feed.key !== this._feedKey) {
+      this._feedKey = feed.key;
+      this.feed.innerHTML = m.feed.slice(feed.first).map(feedRow).join('');
     }
   }
 

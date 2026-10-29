@@ -59,6 +59,15 @@ const SOUNDS = {
   swing: (ctx) => synth(ctx, 0.22, (t) => 0.3 * noise() * Math.sin((Math.PI * t) / 0.22)),
   bash: (ctx) =>
     synth(ctx, 0.2, (t) => 0.9 * Math.sin(t * 120 * Math.PI * 2) * Math.exp(-t * 22) + 0.4 * noise() * Math.exp(-t * 30)),
+  // Last seconds of the match clock, and time's up.
+  tick: (ctx) => synth(ctx, 0.09, (t) => 0.35 * Math.sin(t * 1320 * Math.PI * 2) * Math.exp(-t * 40)),
+  horn: (ctx) =>
+    synth(ctx, 1.4, (t, s, rate) => {
+      s.phase += (233 * Math.PI * 2) / rate;
+      s.phase2 += (349 * Math.PI * 2) / rate;
+      const env = Math.min(1, t / 0.04) * Math.min(1, (1.4 - t) / 0.4);
+      return 0.3 * env * (Math.sign(Math.sin(s.phase)) * 0.5 + Math.sin(s.phase2) * 0.6);
+    }),
   pickup: (ctx) => synth(ctx, 0.2, (t) => 0.3 * click(t, 0, 880, 25) + 0.3 * click(t, 0.07, 1320, 25)),
   burn: (ctx) =>
     synth(ctx, 0.3, (t) => {
@@ -88,8 +97,8 @@ const MIX = {
 };
 const DEFAULT_MIX = { volume: 1, ref: 10, wet: 0, voices: 8 };
 
-// Minimum seconds between two plays of the same sound, so rapid events don't pile up.
-const MIN_GAP = { hit: 0.025, head: 0.04, burn: 0.22, hurt: 0.12, shieldCharge: 0.5, clink: 0.06, boom: 0.05 };
+// Minimum seconds between two plays of the same personal sound, so rapid events don't pile up.
+const MIN_GAP = { hit: 0.025, head: 0.04, burn: 0.22, hurt: 0.12, shieldCharge: 0.5 };
 
 export class Sfx {
   constructor() {
@@ -103,8 +112,11 @@ export class Sfx {
     // Start downloading the recordings right away; they're decoded once audio unlocks.
     this.files = Object.entries(SAMPLE_URLS).map(([path, url]) => ({
       name: path.match(/([a-z]+)(?:-\d+)?\.wav$/i)[1],
-      data: fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+      url,
+      data: null,
+      state: 'new',
     }));
+    for (const f of this.files) this.fetch(f);
     this._off = onSettingsChange((s, patch) => {
       if ('volume' in patch && this.master) this.master.gain.value = s.volume;
     });
@@ -137,28 +149,51 @@ export class Sfx {
       this.echoIn.gain.value = 0.6;
       this.echoIn.connect(this.echo).connect(this.master);
       for (const [name, make] of Object.entries(SOUNDS)) this.buffers[name] = [make(ctx)];
-      for (const f of this.files) {
-        f.data
-          .then((data) => (data ? decode(ctx, data) : null))
-          .then((buf) => {
-            if (buf) (this.buffers[f.name] ??= []).push(buf);
-          })
-          .catch(() => {});
-      }
+    }
+    // Decode whatever has downloaded; anything that failed (a network blip) is fetched again.
+    for (const f of this.files) {
+      if (f.state === 'failed') this.fetch(f);
+      if (f.state === 'fetched') this.decode(f);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
   }
 
+  fetch(f) {
+    f.state = 'fetching';
+    f.data = fetch(f.url)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .catch(() => null)
+      .then((data) => {
+        f.state = data ? 'fetched' : 'failed';
+        f.bytes = data;
+        if (data && this.ctx) this.decode(f);
+      });
+  }
+
+  decode(f) {
+    f.state = 'decoding';
+    decode(this.ctx, f.bytes).then((buf) => {
+      f.bytes = null;
+      f.state = buf ? 'done' : 'failed';
+      if (buf) (this.buffers[f.name] ??= []).push(buf);
+    });
+  }
+
   // opts: volume, rate, delay (seconds), at (world position), source (who made the sound).
+  // Returns a handle for stop(), or null if nothing played.
   play(name, { volume = 1, rate = 1, delay = 0, at = null, source = null } = {}) {
     const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running') return;
+    if (!ctx || ctx.state !== 'running') return null;
     const list = this.buffers[name];
-    if (!list?.length) return;
+    if (!list?.length) return null;
     const now = ctx.currentTime;
-    const gap = MIN_GAP[name] ?? 0;
-    if (gap && now - (this.lastPlayed[name] ?? -1) < gap) return;
-    this.lastPlayed[name] = now;
+    // Throttle repeats of personal sounds; world sounds are limited by voices instead, so a
+    // far one never silences a near one.
+    if (!at) {
+      const gap = MIN_GAP[name] ?? 0;
+      if (gap && now - (this.lastPlayed[name] ?? -1) < gap) return null;
+      this.lastPlayed[name] = now;
+    }
     const mix = MIX[name] ?? DEFAULT_MIX;
 
     // Where is it relative to us? Local players' own sounds are always up close.
@@ -175,28 +210,25 @@ export class Sfx {
         }
       }
       if (!nearest) dist = 0;
-      else if (this.listeners.length === 1 && dist > 0.5) {
-        // Pan by direction relative to where the one local player faces.
+      else if (this.listeners.length === 1) {
+        // Pan by direction relative to where the one local player's camera faces (the
+        // missile's heading while flying one). Overhead sounds stay centered.
         const p = nearest.camera.position;
-        const ang = Math.atan2(at.x - p.x, at.z - p.z) - (nearest.yaw + Math.PI);
-        pan = -Math.sin(ang) * Math.min(1, dist / 4) * 0.75;
+        const h = Math.hypot(at.x - p.x, at.z - p.z);
+        if (h > 0.5) {
+          const ang = Math.atan2(at.x - p.x, at.z - p.z) - (nearest.camera.rotation.y + Math.PI);
+          pan = -Math.sin(ang) * Math.min(1, h / 4) * 0.75;
+        }
       }
     }
     const ref = mix.ref ?? DEFAULT_MIX.ref;
     const falloff = 1 / (1 + Math.pow(dist / ref, 1.6));
     const gain = volume * (mix.volume ?? 1) * falloff;
-    if (gain < 0.004) return;
+    if (gain < 0.004) return null;
 
-    // Voice cap per sound: the oldest voice makes room for the new one.
+    // Voice cap per sound: the oldest voice fades out quickly to make room.
     const voices = (this.voices[name] ??= []);
-    if (voices.length >= (mix.voices ?? DEFAULT_MIX.voices)) {
-      const old = voices.shift();
-      try {
-        old.stop();
-      } catch {
-        // Already finished.
-      }
-    }
+    if (voices.length >= (mix.voices ?? DEFAULT_MIX.voices)) this.stop(voices.shift());
 
     const src = ctx.createBufferSource();
     src.buffer = list[(Math.random() * list.length) | 0];
@@ -217,6 +249,7 @@ export class Sfx {
     const g = ctx.createGain();
     g.gain.value = gain;
     node.connect(g).connect(this.master);
+    const voice = { src, g };
     // The echo fades slower than the direct sound, so distant shots sound distant.
     const wet = mix.wet ?? 0;
     if (wet) {
@@ -224,12 +257,25 @@ export class Sfx {
       w.gain.value = volume * (mix.volume ?? 1) * wet * (1 / (1 + Math.pow(dist / (ref * 2.5), 1.3)));
       node.connect(w).connect(this.echoIn);
     }
-    voices.push(src);
+    voices.push(voice);
     src.onended = () => {
-      const i = voices.indexOf(src);
+      const i = voices.indexOf(voice);
       if (i >= 0) voices.splice(i, 1);
     };
     src.start(now + delay);
+    return voice;
+  }
+
+  // Fade a playing sound out over a few milliseconds (no click) and stop it.
+  stop(voice) {
+    if (!voice || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    voice.g.gain.setTargetAtTime(0, now, 0.01);
+    try {
+      voice.src.stop(now + 0.06);
+    } catch {
+      // Already stopped.
+    }
   }
 }
 
