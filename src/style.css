@@ -1322,7 +1322,9 @@ body.in-match .fps {
   display: none;
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, transparent 0, transparent 36%, rgba(4, 6, 8, 0.55) 37%, #050607 46%);
+  /* Sized to the shorter side so the circle fits wide split views too. The scope sits under
+     every other HUD element (it's the view's first child). */
+  background: radial-gradient(circle closest-side at center, transparent 0, transparent 72%, rgba(4, 6, 8, 0.55) 74%, #050607 88%);
 }
 
 .scope i {

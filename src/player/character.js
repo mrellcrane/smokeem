@@ -4,8 +4,9 @@ import { damp } from '../util/math.js';
 import { GUNS } from '../combat/guns/index.js';
 
 // The contestant body: chunky armor, a wide amber visor and a smoker canister on the back.
-// Built from boxes, rigidly skinned to a 13-bone skeleton so each body is a single draw call
-// (plus its shadow) no matter how it's posed. Faces -z like the camera; its right side is +x.
+// Built from boxes, rigidly skinned to a 12-bone body skeleton plus one bone per gun in the
+// match's set, so each body is a single draw call (plus its shadow) no matter how it's posed.
+// Faces -z like the camera; its right side is +x.
 
 const JOINTS = {
   root: [0, 0, 0],

@@ -170,8 +170,9 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Also saved: quality preset, invert Y, field of view, FPS counter, volume, bot count and skill,
   match length (`timeLimit`, minutes, 0 = no limit), movement speed (`settings.moveSpeed`,
   read live by the player controller every tick),
-  controller look speed (`stickSensitivity`) and vibration (`rumble`). Settings are shared by
-  all local players.
+  controller look speed (`stickSensitivity`), vibration (`rumble`) and the weapon set
+  (`weaponSet`: `'default'` for the map's set, a set id, or `'mystery'`). Settings are shared
+  by all local players.
 
 ## Style
 

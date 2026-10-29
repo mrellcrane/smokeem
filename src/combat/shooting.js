@@ -49,7 +49,9 @@ export function updateShooting(game, p, dt, pressed) {
   const inp = p.input;
   p.meleeT = Math.max(0, p.meleeT - dt);
   p.throwT = Math.max(0, p.throwT - dt);
-  for (const w of p.slots) if (w) w.cooldown = Math.max(0, w.cooldown - dt);
+  // A cooldown that runs out mid-tick keeps the leftover (below 0), so a held trigger fires
+  // at the gun's real rate instead of rounding up to whole ticks; a gun already ready sits at 0.
+  for (const w of p.slots) if (w) w.cooldown = w.cooldown > 0 ? w.cooldown - dt : 0;
 
   // Flying a missile: the trigger blows it up early; nothing else works meanwhile.
   if (p.guiding) {
@@ -85,8 +87,9 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.reload && w.canReload()) startReload(game, p);
 
   // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
-  // mash); the cooldown is what limits the rate.
-  const trigger = inp.held.fire || pressed.fire;
+  // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
+  // held through an auto-swap never launches it by surprise.
+  const trigger = d.kind === 'missile' ? pressed.fire : inp.held.fire || pressed.fire;
   // Shotguns fire straight out of a shell-by-shell reload.
   if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
   if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
@@ -182,8 +185,9 @@ function fire(game, p) {
     _d.copy(_f).addScaledVector(_r, Math.cos(a) * rr).addScaledVector(_u, Math.sin(a) * rr).normalize();
     const hit = game.castShot(_o, _d, d.range, p.collider);
     _end.copy(_o).addScaledVector(_d, hit.hit ? hit.distance : d.range);
-    // Fast guns draw a tracer on every few rounds so several of them never flood the pool.
-    if (rays === 1 ? w.shots % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
+    // Fast guns draw a tracer on every few rounds (always the first) so several of them never
+    // flood the pool.
+    if (rays === 1 ? (w.shots - 1) % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
       game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, d.tracerLife);
     }
     if (!hit.hit) continue;
@@ -201,8 +205,8 @@ function fire(game, p) {
       acc.head ||= hit.headshot;
       acc.point.copy(hit.point);
       acc.normal.copy(hit.normal);
-      if (rays === 1 ? w.shots % (d.tracerEvery ?? 1) === 0 : i % 3 === 0) game.fx.impactBody(hit.point, hit.normal, acc.shields);
-    } else if (rays === 1 ? w.shots % (d.tracerEvery ?? 1) === 0 : i % 3 === 0) {
+      if (rays === 1 || i % 3 === 0) game.fx.impactBody(hit.point, hit.normal, acc.shields);
+    } else if (rays === 1 || i % 3 === 0) {
       game.fx.impactWorld(hit.point, hit.normal);
     }
   }

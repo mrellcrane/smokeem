@@ -42,8 +42,10 @@ function wrap(a) {
   return a;
 }
 
-// How well a gun suits a fight at this distance: 1 at its preferred range, a bit less across
-// its band, negative outside it, and worst of all when it's empty.
+// How well a gun suits a fight at this distance: 1 at its preferred range, dropping with every
+// meter away from it (so a narrow gun wins inside its band and loses outside it, whatever the
+// band widths), negative outside the band, and worst of all when it's empty. The sidearm is a
+// fallback, so it scores lower.
 function bandFit(w, dist) {
   if (w.empty) return -100;
   // Needs a reload first: only better than nothing.
@@ -51,7 +53,15 @@ function bandFit(w, dist) {
   const b = w.def.bot;
   if (dist < b.min) return -(b.min - dist) / 4;
   if (dist > b.max) return -(dist - b.max) / 10;
-  return 1 - (Math.abs(dist - b.pref) / Math.max(4, b.max - b.min)) * 0.5;
+  return Math.max(0.05, 1 - Math.abs(dist - b.pref) / 20) - (b.sidearm ? 0.5 : 0);
+}
+
+// How much a bot wants to keep a gun when a swap means giving one up.
+function gunValue(def) {
+  return def.bot.power ? 3 : def.bot.sidearm ? 0 : 1;
+}
+function keepValue(w) {
+  return !w ? -2 : w.empty ? -1 : gunValue(w.def);
 }
 
 export class BotBrain {
@@ -96,6 +106,10 @@ export class BotBrain {
     this.advanceT = 0;
     this.burstOn = true;
     this.burstT = 0;
+    this.tapT = 0;
+    this.swapping = false;
+    // The pickup we set out for (swapped for when we stand on it).
+    this.goalItem = null;
     this.grenadeT = 3 + Math.random() * 3;
     this.throwT = 0;
     this.hurtBy = null;
@@ -134,6 +148,7 @@ export class BotBrain {
       return;
     }
     this.alive = true;
+    this.tapT -= dt;
 
     this.perceiveT -= dt;
     if (this.perceiveT <= 0) {
@@ -147,11 +162,31 @@ export class BotBrain {
       return;
     }
 
-    // Standing on a gun worth swapping for (we walked here for it): hold the swap.
-    if (p.pickupPrompt && (this.goalKind === 'weapon' || p.pickupPrompt.def.bot.power)) s.press('interact');
-
     const t = this.game.time;
     const sees = this.target && t - this.lastSeenT < 0.4;
+
+    // Standing on the gun we walked here for (or any power gun): swap for it. A swap gives up
+    // the gun in hand, so first draw the one worth least; hold still for that unless fighting.
+    const prompt = p.pickupPrompt;
+    this.swapping = false;
+    if (prompt && (prompt === this.goalItem || (prompt.def.bot.power && !p.slots.some((w) => w?.def.bot.power)))) {
+      const give = keepValue(p.slots[0]) <= keepValue(p.slots[1]) ? 0 : 1;
+      if (keepValue(p.slots[give]) <= gunValue(prompt.def)) {
+        if (p.switchT <= 0 && give === p.slot) {
+          s.press('interact');
+          this.goalItem = null;
+          // No weapon switch this tick, or the swap would give up the gun switched to.
+          this.swapping = true;
+        } else {
+          if (p.switchT <= 0) s.press('switchWeapon');
+          if (!sees) return;
+        }
+      }
+    }
+
+    // Out of a fight: load guns we put away dry, then top up the one in hand.
+    if (!sees) this.refill();
+
     if (sees) this.fight(dt);
     else if (this.target && t - this.lastSeenT < MEMORY) this.chase(dt);
     else this.roam(dt);
@@ -210,9 +245,9 @@ export class BotBrain {
     const max = rate * dt * (1 + Math.min(1, Math.abs(wrap(yaw - p.yaw))) * 0.6);
     const dy = clamp(wrap(yaw - p.yaw), -max, max);
     const dp = clamp(pitch - p.pitch, -max, max);
-    // applyLook subtracts look input from yaw/pitch.
-    this.state.lookX -= dy;
-    this.state.lookY -= dp;
+    // applyLook subtracts look input from yaw/pitch (divided by the aim zoom, so undo that).
+    this.state.lookX -= dy * p.aimZoom;
+    this.state.lookY -= dp * p.aimZoom;
   }
 
   aimAt(point, dt, extraPitch = 0) {
@@ -272,7 +307,6 @@ export class BotBrain {
     }
     const inRange = dist >= w.bot.min && dist <= w.bot.max * 1.2;
     const cone = (sk.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist))) * (w.bot.careful ?? 1);
-    this.tapT -= dt;
     if (this.reactT <= 0 && this.throwT <= 0 && inRange && this.aimError(_t) < cone) {
       if (w.auto) {
         if (this.burstOn) s.held.fire = true;
@@ -337,17 +371,40 @@ export class BotBrain {
   chooseWeapon(dist) {
     const p = this.player;
     const other = p.slots[1 - p.slot];
-    if (!other || other.empty || p.switchT > 0) return;
-    // Primary empty or reloading mid-fight: finish with the sidearm instead.
+    if (!other || other.empty || p.switchT > 0 || this.swapping) return;
+    // Primary dry mid-fight: finish with the sidearm instead of reloading (refill() loads the
+    // primary once the fight is over). Once the sidearm is dry too, reload the primary.
     const w = p.weapon;
-    if (other.def.bot.sidearm && other.mag > 0 && dist < 30 && (w.mag === 0 || w.reloading)) {
-      this.state.press('switchWeapon');
+    if (other.def.bot.sidearm && other.mag > 0 && dist < 30 && w.mag === 0) {
+      this.switchWeapon();
+      return;
+    }
+    if (w.def.bot.sidearm && w.mag === 0 && other.mag === 0 && other.reserve > 0) {
+      this.switchWeapon();
       return;
     }
     const cur = bandFit(w, dist);
     const alt = bandFit(other, dist);
     if (other.def.bot.power && Math.random() > 0.02) return;
-    if (alt > cur + 0.25) this.state.press('switchWeapon');
+    if (alt > cur + 0.25) this.switchWeapon();
+  }
+
+  switchWeapon() {
+    this.state.press('switchWeapon');
+    // The new gun's own cooldown and draw time pace it; don't carry the old gun's tap wait.
+    this.tapT = 0;
+  }
+
+  // Between fights: draw a gun that was put away dry so it reloads, reload the one in hand,
+  // then put the sidearm away for the primary.
+  refill() {
+    const p = this.player;
+    const w = p.weapon;
+    if (p.switchT > 0 || w.reloading || this.swapping) return;
+    const other = p.slots[1 - p.slot];
+    if (other && other.mag === 0 && other.reserve > 0 && w.mag > 0) this.switchWeapon();
+    else if (w.canReload()) this.state.press('reload');
+    else if (w.def.bot.sidearm && other && other.mag > 0 && !other.def.bot.sidearm && !other.def.bot.power) this.switchWeapon();
   }
 
   // Steer our own Smoke Signal into the target.
@@ -405,6 +462,7 @@ export class BotBrain {
     if (it) {
       goal = it.pos;
       kind = 'weapon';
+      this.goalItem = it;
     } else if (p.grenades < 2 && Math.random() < 0.6) {
       const it = pick((i) => i.type === 'grenades');
       if (it) {

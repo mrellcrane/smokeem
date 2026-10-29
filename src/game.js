@@ -23,7 +23,7 @@ import { disposeViewmodelMaterial } from './player/viewmodel.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
-import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts } from './combat/arsenal.js';
+import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts, loadoutLabel } from './combat/arsenal.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -58,7 +58,8 @@ export class Game {
     const game = new Game(stage, hudRoot, fps, sfx);
     const id = WEAPON_SETS[weaponSet] ? weaponSet : DEFAULT_SET;
     const set = WEAPON_SETS[id];
-    game.arsenal = { id, set, guns: setGuns(set), loadouts: setLoadouts(set) };
+    const loadouts = setLoadouts(set);
+    game.arsenal = { id, set, guns: setGuns(set), loadouts, labels: loadouts.map((_, i) => loadoutLabel(set, i)) };
     game.match = new Match(game, timeLimit);
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);

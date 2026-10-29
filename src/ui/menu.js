@@ -65,6 +65,11 @@ export class Menu {
     this.lastInput = 'kbm';
     window.addEventListener('keydown', () => (this.lastInput = 'kbm'), true);
     this.root.addEventListener('pointerdown', () => (this.lastInput = 'kbm'), true);
+    // The loadout arrows re-render their row, so a click mustn't focus them (focus would be
+    // lost with the old button and the next A press would only refocus).
+    this.root.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.loadout-row .step')) e.preventDefault();
+    });
     this.root.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;

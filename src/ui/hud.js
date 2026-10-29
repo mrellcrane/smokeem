@@ -3,7 +3,6 @@ import { currentSpread } from '../combat/shooting.js';
 import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
 import { controlsHtml } from './controls.js';
 import { clockText, ordinal } from '../match.js';
-import { loadoutLabel } from '../combat/arsenal.js';
 
 // Per-player HUD laid over that player's viewport. Plain DOM; every write is cached so the
 // DOM is only touched when a value actually changes.
@@ -49,6 +48,7 @@ export class Hud {
     this.el = document.createElement('div');
     this.el.className = 'hud-view';
     this.el.innerHTML = `
+      <div class="scope"><i></i><i></i></div>
       <div class="hud-burn"></div>
       <div class="hud-hurt"></div>
       <div class="dmg-arrow"><i></i></div>
@@ -59,7 +59,6 @@ export class Hud {
       <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
       <div class="hud-match"><div class="hud-clock"></div><div class="hud-place"></div><div class="hud-feed"></div></div>
       <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
-      <div class="scope"><i></i><i></i></div>
       <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
       <div class="target-name"></div>
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
@@ -282,10 +281,9 @@ export class Hud {
       this.set('cause', deathText(player.deathInfo, player), (x) => (e.cause.textContent = x));
       const left = Math.max(0, Math.ceil(RESPAWN_DELAY - player.deathT));
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
-      // Pick the loadout for the next life.
-      const set = game.arsenal.set;
-      const pick = game.arsenal.loadouts.length > 1 ? `◀ ${loadoutLabel(set, player.loadout)} ▶  (${this.keys.pick})` : '';
-      this.set('loadout', pick, (x) => (e.loadout.textContent = x));
+      // Pick the loadout for the next life (labels are built once per match).
+      const labels = game.arsenal.labels;
+      this.set('loadout', player.loadout, (i) => (e.loadout.textContent = labels.length > 1 ? `◀ ${labels[i]} ▶  (${this.keys.pick})` : ''));
     }
 
     this.updateMatch(player, game);

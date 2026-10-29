@@ -3,7 +3,7 @@ import { BODY, MOVE, CAMERA } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
-import { WEAPONS, WeaponState, GRENADE } from '../combat/weapons.js';
+import { WEAPONS, WeaponState, GRENADE, SWITCH_TIME } from '../combat/weapons.js';
 import { InputState } from '../input/inputState.js';
 import { updateShooting, cancelReload } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
@@ -115,7 +115,7 @@ export class Player {
     this.eyeOff = EYE_OFF_STAND;
     this.landDip = 0;
     this.fovBoost = 0;
-    this._fovKey = '';
+    this._fovH = this._fovA = this._fovZ = NaN;
     this.deathRoll = 0;
     this.lastLookX = 0;
     this.lastLookY = 0;
@@ -223,7 +223,7 @@ export class Player {
     const slot = this.slots[0] && this.slots[1] ? this.slot : this.slots[0] ? 1 : 0;
     this.slots[slot] = state;
     this.slot = slot;
-    this.switchT = 0.25;
+    this.switchT = def.switchTime ?? SWITCH_TIME;
     return slot;
   }
 
@@ -425,6 +425,9 @@ export class Player {
     this.deathInfo = info;
     this.aimTarget = null;
     cancelReload(this.game, this.weapon);
+    // A direction already held when you're smoked (mid-strafe) isn't a loadout pick.
+    const x = this.input.moveX;
+    this.pickDir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
     this.stats.deaths++;
     this.vel.set(0, 0, 0);
     this.sprinting = false;
@@ -899,7 +902,7 @@ export class Player {
 
     const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed * settings.moveSpeed + 0.5;
     this.fovBoost += ((fast ? CAMERA.sprintFovBoost : 0) - this.fovBoost) * damp(8, dt);
-    this.setFov((settings.fov + this.fovBoost) / this.aimZoom, aspect);
+    this.setFov(settings.fov + this.fovBoost, aspect, this.aimZoom);
   }
 
   // Body pose for other players' views, and the first-person rifle.
@@ -924,15 +927,17 @@ export class Player {
     this.lastLookY = 0;
   }
 
-  // Horizontal FOV from settings, converted to vertical for this viewport's aspect.
-  setFov(hfovDeg, aspect) {
-    const key = `${hfovDeg.toFixed(2)}|${aspect.toFixed(4)}`;
-    if (key === this._fovKey) return;
-    this._fovKey = key;
+  // Horizontal FOV from settings, converted to vertical for this viewport's aspect and clamped,
+  // then magnified by the aim zoom (after the clamp, so wide split views still zoom).
+  setFov(hfovDeg, aspect, zoom = 1) {
+    if (hfovDeg === this._fovH && aspect === this._fovA && zoom === this._fovZ) return;
+    this._fovH = hfovDeg;
+    this._fovA = aspect;
+    this._fovZ = zoom;
     const h = hfovDeg * DEG;
-    let v = 2 * Math.atan(Math.tan(h / 2) / aspect) / DEG;
-    v = clamp(v, CAMERA.minVerticalFov, CAMERA.maxVerticalFov);
-    this.camera.fov = v;
+    let v = 2 * Math.atan(Math.tan(h / 2) / aspect);
+    v = clamp(v / DEG, CAMERA.minVerticalFov, CAMERA.maxVerticalFov) * DEG;
+    this.camera.fov = (2 * Math.atan(Math.tan(v / 2) / zoom)) / DEG;
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
   }

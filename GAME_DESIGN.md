@@ -407,7 +407,8 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 ### Phase 2: More game
 
-- More weapons (up to 10), abilities, the motorcycle, more maps, team modes.
+- More weapons: 15 guns in 6 weapon sets (in progress, one set per PR; see Weapons).
+- Abilities, the motorcycle, more maps, team modes.
 
 ### Phase 3: Online
 
@@ -463,3 +464,11 @@ Need answers before the step that uses them gets built.
   all gun and set names.
 - 2026-10-29: Every gun repeats when the trigger is held; bloom waits 0.15 s after the last
   shot before recovering (it never built up before), and the Hickory is retuned to match.
+- 2026-10-29: Review fixes for the weapons framework: fire cooldowns carry leftover time
+  between ticks so every gun fires at its stated rate (fast guns were rounding down to whole
+  ticks); the Smoke Signal needs a fresh pull (a trigger held through an auto-swap no longer
+  launches it); a direction held when you're smoked doesn't change your respawn loadout;
+  aim zoom is applied after the field-of-view clamp, so the 2.5x scope really is 2.5x and
+  zoom works in 2-player split views. Bots reload guns they put away dry once a fight is
+  over, pick guns by meters from each gun's preferred range (so they swap both ways, shotgun
+  up close included), and give up their sidearm rather than their primary at pickups.
