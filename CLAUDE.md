@@ -147,7 +147,8 @@ Live build: https://mrellcrane.github.io/smokeem/
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
   `InputState` each tick. A new map needs its own links list.
 - `src/render/`: renderer setup, split-screen viewports, shader warm-up.
-- `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD, the
+- `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD (with
+  the motion tracker, `radar.js`: one small 2D canvas per view), the
   3-player info panel (`infoPanel.js`), FPS counter, and the loadout cards
   (`loadoutCard.js`): gun pictures rendered once per page at match load with the match's
   renderer (`gunIcons.js`) and looping SVG/CSS demos of how each gun works (`gunDemos.js`; a
