@@ -234,8 +234,8 @@ export class Effects {
   // - tint: the ring and embers, per explosive
   // - ring: the floor ({ point, normal }) the ring lies flat on, or null to face the camera
   // - scorch, scorchWidth: the surface to scorch and the scorch's width there (0 for none)
-  // - wall, push: against a wall, its normal (fire and smoke billow out from it instead of up)
-  //   and how far to move them off it
+  // - wall, push: against a wall, the way fire and smoke billow (out from it instead of up into
+  //   it) and how far to move them off it
   explosion(pos, radius, { tint = 0xffb050, ring = null, scorch = null, scorchWidth = 0, wall = null, push = 0 } = {}) {
     const r = radius / 5;
     const k = this.fxScale;
@@ -272,7 +272,8 @@ export class Effects {
         minPx: 12,
       });
     } else {
-      this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, tint, 0.6, 0.3, { cell: RING, grow: ringSize / 0.6, ease: true, minPx: 12 });
+      // (At its true size even up close: it shows the real radius.)
+      this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, tint, 0.6, 0.3, { cell: RING, grow: ringSize / 0.6, ease: true, minPx: 12, trueSize: true });
     }
     const embers = Math.round((20 + Math.random() * 8) * k);
     for (let i = 0; i < embers; i++) {

@@ -296,8 +296,9 @@ synthesized.
   within 1 m. Solid cover between you and a blast blocks it. Blasts shove people and other
   grenades, shake nearby cameras, and hurt the thrower.
 - Every blast flashes white, rolls fire that cools from yellow to red into dark smoke, and
-  sends a shock ring along the ground out to its real damage radius, so you learn how close is
-  too close. It leaves a scorch that fades after 30 s.
+  shows a shock ring out to its real damage radius, so you learn how close is too close: flat
+  along the ground in the open, facing you when cover would cut it short. It leaves a scorch
+  that fades after 30 s.
 - **Tenderizer** melee: 65 damage at up to 2.3 m. Anyone up to 3.6 m in front pulls you into a
   quick lunge. Hits from behind smoke instantly. 0.9 s cooldown.
 

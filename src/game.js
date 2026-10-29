@@ -50,6 +50,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 // Marks shrink to these fractions of their width to fit the surface they lie on (fitDecal).
 const FIT_STEPS = [1, 0.7, 0.45, 0.3];
+// How far proud of a collider a trim can stand and still carry a hit's mark (trimFace).
+const TRIM_REACH = 0.1;
 
 // One match: renderer, scene, physics world, players and the fixed-step loop.
 // States: 'ready' (loaded, waiting for the player to click in), 'playing', 'paused', 'over'.
@@ -400,31 +402,44 @@ export class Game {
   }
 
   // A shot stops at a collider, but a thin trim with no collider of its own (hazard bands, glow
-  // strips, pickup pads) can stand a few cm proud of it. Moves a hit on an axis-aligned face out
-  // to the face of a trim covering it, so marks and debris sit on what you see, and returns the
-  // surface there (null on glow strips, which take no marks).
+  // strips, pickup pads, drum rings) can stand a few cm proud of it. Moves a hit out to the face
+  // of a trim covering it, so marks and debris sit on what you see, and returns the surface there
+  // (null on glow strips, which take no marks). Only trims whose face is within TRIM_REACH of the
+  // hit count: a long band runs past the end of a buttress's side, which it doesn't cover.
   trimFace(point, normal, surface) {
     const k = Math.abs(normal.x) > 0.99 ? 0 : Math.abs(normal.y) > 0.99 ? 1 : Math.abs(normal.z) > 0.99 ? 2 : -1;
-    if (k < 0) return surface;
-    const up = normal.getComponent(k) > 0;
+    const up = k >= 0 && normal.getComponent(k) > 0;
     const i = (k + 1) % 3;
     const j = (k + 2) % 3;
     for (const t of this.arena.trims) {
-      const pk = point.getComponent(k);
       if (t.cyl) {
-        if (k !== 1 || !up || pk < t.y0 - 0.01 || pk >= t.y1) continue;
         const dx = point.x - t.x;
         const dz = point.z - t.z;
-        if (dx * dx + dz * dz > t.r * t.r) continue;
-        point.y = t.y1;
-        surface = t.surface;
+        const d2 = dx * dx + dz * dz;
+        if (k === 1 && up) {
+          // On top of a pad.
+          if (point.y < t.y0 - 0.01 || point.y >= t.y1 || t.y1 - point.y > TRIM_REACH || d2 > t.r * t.r) continue;
+          point.y = t.y1;
+          surface = t.surface;
+        } else if (Math.abs(normal.y) < 0.2 && point.y >= t.y0 && point.y <= t.y1) {
+          // On the side of a ring around a pole or drum.
+          const d = Math.sqrt(d2);
+          if (d < 1e-3 || d > t.r + 0.01 || t.r - d > TRIM_REACH) continue;
+          point.x = t.x + (dx / d) * t.r;
+          point.z = t.z + (dz / d) * t.r;
+          surface = t.surface;
+        }
         continue;
       }
+      if (k < 0) continue;
       const pi = point.getComponent(i);
       const pj = point.getComponent(j);
       if (pi < t.min[i] - 1e-3 || pi > t.max[i] + 1e-3 || pj < t.min[j] - 1e-3 || pj > t.max[j] + 1e-3) continue;
-      if (up ? pk < t.min[k] - 0.01 || pk >= t.max[k] : pk <= t.min[k] || pk > t.max[k] + 0.01) continue;
-      point.setComponent(k, up ? t.max[k] : t.min[k]);
+      const pk = point.getComponent(k);
+      const face = up ? t.max[k] : t.min[k];
+      if (up ? pk < t.min[k] - 0.01 || pk >= face : pk <= face || pk > t.max[k] + 0.01) continue;
+      if (Math.abs(face - pk) > TRIM_REACH) continue;
+      point.setComponent(k, face);
       surface = t.surface;
     }
     return surface;

@@ -11,6 +11,7 @@ import { viewUniforms } from './viewUniforms.js';
 // - 1 stretched along an axis as seen on screen (streaks), with the same limits.
 // - 2 flat in the plane across a world normal (shock rings on the ground, marks on walls),
 //   pulled a hair toward the camera so it never fights the surface it lies on.
+// - 3 facing the camera at its true size, however close (shock rings in the air).
 // A particle with an owner is hidden in that player's own view. Smoke (NEAR_FADE) fades out
 // right in front of the camera instead of filling the screen.
 // A system can keep marks (decals) in reserved slots at the front of its pool: they stay put for
@@ -25,7 +26,7 @@ const vertexShader = /* glsl */ `
   attribute vec3 iPos;
   attribute vec4 iColor;
   attribute vec2 iSizeRot;
-  // cell, owner, minimum size in pixels, mode (0 facing, 1 stretched, 2 flat)
+  // cell, owner, minimum size in pixels, mode (0 facing, 1 stretched, 2 flat, 3 facing, true size)
   attribute vec4 iExtra;
   // Stretch direction and length (mode 1) or the plane's normal (mode 2).
   attribute vec3 iAxis;
@@ -41,6 +42,8 @@ const vertexShader = /* glsl */ `
     float py = projectionMatrix[1][1];
     float s = max(iSizeRot.x, iExtra.z * 2.0 * z / (py * uViewportH));
     if (mode < 1.5) s = min(s, 1.2 * z / py);
+    // (Mode 3 is drawn as mode 0 below.)
+    if (mode > 2.5) mode = 0.0;
     if (iExtra.y == uViewer || iSizeRot.x == 0.0) s = 0.0;
     vec2 corner = position.xy;
     float c = cos(iSizeRot.y);
@@ -92,6 +95,7 @@ const _c = new THREE.Color();
 const NO_OWNER = -2;
 const MODE_STRETCH = 1;
 const MODE_FLAT = 2;
+const MODE_TRUE_SIZE = 3;
 // Per-particle flags.
 const RAMP = 1;
 const EASE = 2;
@@ -171,8 +175,9 @@ export class Particles {
   // opts: grow (end size multiplier), ease (grow fast, then settle), drag (per second), gravity,
   // alpha, rotVel, cell (atlas cell, 0), owner (hidden in this player's view), minPx (smallest
   // on-screen size), axis (a Vector3: stretch the particle along it, its length in meters),
-  // flat (a unit Vector3: lie flat across this normal instead of facing the camera), ramp (fire
-  // colors over its life instead of color)
+  // flat (a unit Vector3: lie flat across this normal instead of facing the camera), trueSize
+  // (facing the camera without the 60%-of-view cap), ramp (fire colors over its life instead of
+  // color)
   spawn(x, y, z, vx, vy, vz, color, size, life, opts = {}) {
     const i = this.next;
     this.next = this.next + 1 < this.max ? this.next + 1 : this.decals;
@@ -198,7 +203,8 @@ export class Particles {
     this.rotVel[i] = opts.rotVel ?? 0;
     this.flags[i] = (opts.ramp ? RAMP : 0) | (opts.ease ? EASE : 0);
     const dir = opts.flat ?? opts.axis;
-    this.writeExtra(i, opts.cell ?? 0, opts.owner ?? NO_OWNER, opts.minPx ?? 0, opts.flat ? MODE_FLAT : opts.axis ? MODE_STRETCH : 0, dir);
+    const mode = opts.flat ? MODE_FLAT : opts.axis ? MODE_STRETCH : opts.trueSize ? MODE_TRUE_SIZE : 0;
+    this.writeExtra(i, opts.cell ?? 0, opts.owner ?? NO_OWNER, opts.minPx ?? 0, mode, dir);
     this.active = this.max;
   }
 
@@ -209,9 +215,10 @@ export class Particles {
     if (this.decals === 0) return;
     const i = this.decalNext;
     this.decalNext = (this.decalNext + 1) % this.decals;
-    // The slot this ring reaches a third of a lap from now starts its fade, so under heavy fire
-    // old marks fade out instead of popping when their slot is reused.
-    const j = (i + Math.ceil(this.decals / 3)) % this.decals;
+    // The slot this ring reaches half a lap from now starts its fade, so under heavy fire old
+    // marks fade out instead of popping when their slot is reused (up to about 16 marks a
+    // second with 96 slots).
+    const j = (i + Math.ceil(this.decals / 2)) % this.decals;
     if (this.life[j] > this.maxLife[j]) this.life[j] = this.maxLife[j];
     const i3 = i * 3;
     this.p[i3] = point.x + normal.x * DECAL_LIFT;

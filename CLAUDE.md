@@ -98,23 +98,25 @@ Live build: https://mrellcrane.github.io/smokeem/
     fades out right at the camera.
   - Marks: the smoke system keeps reserved slots at the front of its pool for bullet marks and
     blast scorches (`fx.mark`, `Particles.decal`: flat, lifted 1.5 cm and pulled a hair toward
-    the camera in depth, fading over their last 3 s; a slot a third of a lap ahead starts its
-    fade early, so marks never pop). They're black with alpha only, so they darken whatever
+    the camera in depth, fading over their last 3 s; a slot half a lap ahead starts its fade
+    early, so marks fade out instead of popping up to about 16 a second on Medium). They're
+    black with alpha only, so they darken whatever
     they lie on and keep its light. How many is the preset's `decals` (0 on Low), fixed per
     match. Guns leave at most about 5 marks a second (`shooting.js`).
   - Surfaces: `StaticBuilder` records each collider's material surface (`userData.surface` in
     `materials.js`: metal, dirt, wood, concrete, mud, cloth) and `game.castShot` returns it as
     `surface`, so `fx.impactWorld` throws the right debris and marks skip mud, nets and ropes.
     It also records visible boxes and cylinders with no collider (`trims`: hazard bands, glow
-    strips, pads); `game.trimFace` moves a hit out to a trim covering it, so marks sit on what
-    you see. The mud has no collider, so `castShot` stops shots, projectiles and bugs at its
+    strips, pads, drum rings); `game.trimFace` moves a hit out to a trim covering it (within
+    10 cm), so marks sit on what you see. The mud has no collider, so `castShot` stops shots, projectiles and bugs at its
     surface (`zones.mudAlong`); a body under it can still be hit.
   - Explosions (`fx.explosion`, from `explode`): a white frame, fire billows, a shock ring out
     to the real damage radius, embers, smoke and a scorch. `explode` picks the surfaces: the
     scorch goes on what the blast went off against (`game.surfaceNear`, shrunk to fit by
-    `game.fitDecal`), the ring lies flat only on a floor with no cover cutting it short
-    (otherwise it faces the camera), blasts in the mud lie on its surface, and against a wall
-    the fire and smoke billow out from it. Explosion configs carry a `tint`. The preset's
+    `game.fitDecal`), the ring lies flat only on a floor with no cover cutting it short and no
+    drop under it (otherwise it faces the camera at its true size), blasts in the mud lie on its
+    surface, and against a wall (missiles hitting one, grenades resting by one) the fire and
+    smoke billow out from it. Explosion configs carry a `tint`. The preset's
     `fxScale` multiplies smoke and ember counts (also the fire troughs' embers and wisps, from
     `arena.update`).
   - Tracers are camera-facing ribbons built in the vertex shader, never thinner than about
