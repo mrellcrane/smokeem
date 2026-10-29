@@ -23,6 +23,8 @@ import { Viewmodel } from './viewmodel.js';
 
 export const RESPAWN_DELAY = 3;
 const FIRE_DPS = 45;
+// Zoomed past this with a scoped gun, you look through the scope.
+export const SCOPE_ZOOM = 1.6;
 // Controller aim slows to this fraction while the crosshair is on someone.
 const AIM_FRICTION = 0.6;
 export const PLAYER_COLORS = [0x3d7bd9, 0xd9443d, 0x3dbd5a, 0xe0b53a];
@@ -164,7 +166,7 @@ export class Player {
 
   // Both guns of the chosen loadout, full ammo. They stay with you when you're smoked.
   armLoadout() {
-    const loadouts = this.game.arsenal.set.loadouts;
+    const loadouts = this.game.arsenal.loadouts;
     this.loadout = ((this.loadout % loadouts.length) + loadouts.length) % loadouts.length;
     loadouts[this.loadout].guns.forEach((id, i) => {
       const w = new WeaponState(WEAPONS[id]);
@@ -179,10 +181,15 @@ export class Player {
     const x = this.input.moveX;
     const dir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
     if (dir && dir !== this.pickDir) {
-      const n = this.game.arsenal.set.loadouts.length;
+      const n = this.game.arsenal.loadouts.length;
       this.loadout = (this.loadout + dir + n) % n;
     }
     this.pickDir = dir;
+  }
+
+  // First-person gun on screen: not while dead, flying a missile or looking through a scope.
+  showsViewmodel() {
+    return this.alive && !this.guiding && !(this.weapon.def.scope && this.aimZoom > SCOPE_ZOOM);
   }
 
   get alive() {
@@ -287,7 +294,7 @@ export class Player {
     this.sprintLock = 0;
     this.input.clear();
     this.vitals.reset();
-    if (this.isBot) this.loadout = Math.floor(Math.random() * this.game.arsenal.set.loadouts.length);
+    if (this.isBot) this.loadout = this.brain.pickLoadout();
     this.armLoadout();
     this.slot = 0;
     this.grenades = GRENADE.start;

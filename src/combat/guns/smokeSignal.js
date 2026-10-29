@@ -5,6 +5,7 @@ export default {
   def: {
     id: 'smokeSignal',
     name: 'Smoke Signal',
+    blurb: 'Guided rocket you fly from its nose. Steer it with look, fire to blow it early.',
     kind: 'missile',
     auto: false,
     fireRate: 1 / 1.2,

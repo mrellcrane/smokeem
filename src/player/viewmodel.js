@@ -21,16 +21,8 @@ export class Viewmodel {
     this.root.name = 'viewmodel';
     this.guns = {};
     this.muzzles = {};
-    for (const id of guns) {
-      const g = GUNS[id];
-      const geom = partsGeometry([...g.parts, ...g.hands], armorColor);
-      const mesh = new THREE.Mesh(geom, sharedMaterial);
-      mesh.scale.setScalar(g.view.scale);
-      this.muzzles[id] = new THREE.Vector3(...g.muzzle);
-      mesh.visible = false;
-      this.root.add(mesh);
-      this.guns[id] = mesh;
-    }
+    this.armorColor = armorColor;
+    for (const id of guns) this.addGun(id);
 
     this.flashMaterial = new THREE.MeshBasicMaterial({
       map: textures.flash,
@@ -68,10 +60,22 @@ export class Viewmodel {
     this.vy = 0;
   }
 
+  addGun(id) {
+    const g = GUNS[id];
+    const mesh = new THREE.Mesh(partsGeometry([...g.parts, ...g.hands], this.armorColor), sharedMaterial);
+    mesh.scale.setScalar(g.view.scale);
+    mesh.visible = false;
+    this.muzzles[id] = new THREE.Vector3(...g.muzzle);
+    this.root.add(mesh);
+    this.guns[id] = mesh;
+  }
+
   setWeapon(id) {
     if (id === this.current) return;
     if (this.gun) this.gun.visible = false;
     this.current = id;
+    // Only the match's set is built up front; anything else (debug, tests) is built on demand.
+    if (!this.guns[id]) this.addGun(id);
     this.gun = this.guns[id];
     this.gun.visible = true;
     this.gun.add(this.flash);
@@ -97,7 +101,7 @@ export class Viewmodel {
 
   // lookX / lookY: radians turned this frame.
   update(dt, p, lookX, lookY) {
-    this.root.visible = p.alive && !p.guiding;
+    this.root.visible = p.showsViewmodel();
     const id = p.weapon.def.id;
     this.setWeapon(id);
     const pose = GUNS[id].view;
@@ -124,7 +128,7 @@ export class Viewmodel {
     const toss = curve(this.tossT);
     const pump = this.pumpT > 0.25 ? curve((this.pumpT - 0.25) / 0.75) : 0;
     const reload = Math.sin(Math.PI * p.weapon.reloadProgress);
-    const sw = p.switchT > 0 ? Math.min(1, p.switchT / SWITCH_TIME) : 0;
+    const sw = p.switchT > 0 ? Math.min(1, p.switchT / (p.weapon.def.switchTime ?? SWITCH_TIME)) : 0;
 
     const bobX = Math.sin(this.bobPhase) * 0.012 * run;
     const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * run;

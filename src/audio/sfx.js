@@ -83,6 +83,10 @@ const SAMPLE_URLS = import.meta.glob('./samples/*.wav', { query: '?url', import:
 const MIX = {
   shot: { volume: 0.9, ref: 16, wet: 0.35, voices: 14 },
   shotgun: { volume: 1, ref: 18, wet: 0.4, voices: 6 },
+  pistol: { volume: 0.8, ref: 14, wet: 0.3, voices: 8 },
+  smg: { volume: 0.75, ref: 14, wet: 0.3, voices: 12 },
+  marksman: { volume: 1, ref: 22, wet: 0.45, voices: 6 },
+  reloadPistol: { volume: 0.5, ref: 5, voices: 4 },
   pump: { volume: 0.6, ref: 6, voices: 4 },
   launch: { volume: 0.7, ref: 20, wet: 0.35, voices: 4 },
   boom: { volume: 0.95, ref: 28, wet: 0.5, voices: 6 },

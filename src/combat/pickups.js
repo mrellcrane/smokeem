@@ -9,8 +9,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // it fits (empty slot, same-weapon ammo, grenade room); otherwise E swaps for it.
 
 // Spawners. The arena builds a pad under each one. Weapon pads say which kind of pad they are;
-// the match's weapon set decides the gun: its power gun on the power pad, its field guns on
-// the rest, in order.
+// the match's weapon set decides the gun: its power gun on the power pad, its field gun on
+// the rest.
 export const PICKUP_SPOTS = [
   { type: 'weapon', pad: 'power', pos: [-1.5, 6.0, -1.5], respawn: 60 },
   { type: 'weapon', pad: 'field', pos: [0, 0, 2.6], respawn: 30 },
@@ -41,12 +41,10 @@ export class Pickups {
     this.items = [];
     this.dropPool = {};
 
-    let field = 0;
     for (const spot of PICKUP_SPOTS) {
       let gun = null;
       if (spot.type === 'weapon') {
-        gun = spot.pad === 'power' ? set.power : set.field.length ? set.field[field++ % set.field.length] : null;
-        if (!gun) continue;
+        gun = spot.pad === 'power' ? set.power : set.field;
       }
       const pos = new THREE.Vector3(...spot.pos);
       const item = {
@@ -114,8 +112,9 @@ export class Pickups {
   }
 
   drop(def, mag, reserve, x, y, z) {
-    if (mag + reserve <= 0) return;
     const pool = this.dropPool[def.id];
+    // Empty guns, and guns outside the match's set (debug only), aren't dropped.
+    if (mag + reserve <= 0 || !pool) return;
     // Reuse the oldest drop of this type if the pool is empty.
     let mesh = pool.pop();
     if (!mesh) {
@@ -200,7 +199,8 @@ export class Pickups {
         const old = p.weapon;
         p.giveWeapon(item.def, item.mag, item.reserve);
         this.consume(item);
-        this.drop(old.def, old.mag, old.reserve, p.center.x, feet, p.center.z);
+        // A loadout gun swapped away is gone until respawn; picked-up guns hit the floor.
+        if (!old.spawnGun) this.drop(old.def, old.mag, old.reserve, p.center.x, feet, p.center.z);
         this.taken(p, `Swapped for ${item.def.name}`);
         p.pickupPrompt = null;
       }

@@ -5,6 +5,7 @@ export default {
   def: {
     id: 'mesquite',
     name: 'Mesquite',
+    blurb: 'Pump shotgun. Two close blasts smoke anyone; useless far away.',
     kind: 'pellets',
     auto: false,
     fireRate: 1 / 0.85,

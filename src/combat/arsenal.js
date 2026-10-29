@@ -1,45 +1,115 @@
 import { WEAPONS } from './weapons.js';
 
-// Weapon sets. A match uses one set of at most MAX_SET_GUNS gun types, so nobody has to learn
-// the whole roster at once.
-//   loadouts  the two-gun spawn options players pick between (on the ready and respawn screens)
-//   power     the gun on the map's power pad
-//   field     guns for the map's other weapon pads, handed out in order
+// Weapon sets. A match uses one set of at most 5 gun types, so nobody has to learn the whole
+// roster at once. Every set is "3 to start, 2 to find":
+//   primaries  two primaries; each loadout is one of them plus the sidearm (first is preselected)
+//   sidearm    the set's sidearm, in both loadouts
+//   field      the gun on the map's field pads
+//   power      the gun on the map's power pad (power guns never go in loadouts)
+// heat says how much a set asks you to learn: Mild (the default), Medium (no wacky guns in
+// loadouts), Hot, Extra Hot (anything goes; opt-in only, never picked by Mystery Meat).
+// A set only shows up once all its guns are built.
 export const MAX_SET_GUNS = 5;
 
 export const WEAPON_SETS = {
-  classic: {
-    name: 'Classic',
-    loadouts: [
-      { name: 'Pitmaster', guns: ['hickory', 'mesquite'] },
-      { name: 'Close Call', guns: ['mesquite', 'hickory'] },
-    ],
+  backyard: {
+    name: 'Backyard',
+    heat: 'Mild',
+    primaries: ['hickory', 'kindling'],
+    sidearm: 'toothpick',
+    field: 'mesquite',
     power: 'smokeSignal',
-    field: ['mesquite'],
+    loadoutNames: ['Pitmaster', 'Hot n Fast'],
+  },
+  competitionCut: {
+    name: 'Competition Cut',
+    heat: 'Medium',
+    primaries: ['kindling', 'coldSmoke'],
+    sidearm: 'toothpick',
+    field: 'chimney',
+    power: 'rotisserie',
+  },
+  sauceOnTheSide: {
+    name: 'Sauce on the Side',
+    heat: 'Medium',
+    primaries: ['hickory', 'kindling'],
+    sidearm: 'toothpick',
+    field: 'gust',
+    power: 'sauceBoss',
+  },
+  bankShot: {
+    name: 'Bank Shot',
+    heat: 'Hot',
+    primaries: ['hickory', 'wishbone'],
+    sidearm: 'castIron',
+    field: 'skewer',
+    power: 'smokeSignal',
+  },
+  hotAndCold: {
+    name: 'Hot and Cold',
+    heat: 'Hot',
+    primaries: ['coldSmoke', 'brander'],
+    sidearm: 'toothpick',
+    field: 'mesquite',
+    power: 'swarmJar',
+  },
+  hogWild: {
+    name: 'Hog Wild',
+    heat: 'Extra Hot',
+    primaries: ['wishbone', 'brander'],
+    sidearm: 'castIron',
+    field: 'gust',
+    power: 'swarmJar',
+    wild: true,
   },
 };
 
-export const DEFAULT_SET = 'classic';
+// Mudlark Gauntlet's default (maps name their own default set).
+export const DEFAULT_SET = 'backyard';
 
 // Every gun type a set uses.
 export function setGuns(set) {
-  const ids = new Set();
-  for (const l of set.loadouts) for (const id of l.guns) ids.add(id);
-  if (set.power) ids.add(set.power);
-  for (const id of set.field) ids.add(id);
-  return [...ids];
+  return [...new Set([...set.primaries, set.sidearm, set.field, set.power])];
 }
 
-// Catch mistakes in the table above at load rather than mid-match.
-for (const [id, set] of Object.entries(WEAPON_SETS)) {
-  const guns = setGuns(set);
-  if (guns.length > MAX_SET_GUNS) throw new Error(`Weapon set ${id} has ${guns.length} guns (max ${MAX_SET_GUNS})`);
-  for (const g of guns) if (!WEAPONS[g]) throw new Error(`Weapon set ${id} uses unknown gun ${g}`);
-  if (!set.loadouts.length) throw new Error(`Weapon set ${id} has no loadouts`);
+// The set's two loadouts: each primary with the sidearm.
+export function setLoadouts(set) {
+  return set.primaries.map((g, i) => ({
+    name: set.loadoutNames?.[i] ?? WEAPONS[g].name,
+    guns: [g, set.sidearm],
+  }));
+}
+
+// Sets whose guns all exist yet.
+export function availableSets() {
+  return Object.keys(WEAPON_SETS).filter((id) => setGuns(WEAPON_SETS[id]).every((g) => WEAPONS[g]));
+}
+
+// Resolve a weapon-set setting ('default', a set id, or 'mystery') to a set id. Mystery Meat
+// picks a random set that isn't Extra Hot and isn't the one just played.
+export function chooseSet(choice, last = null) {
+  const sets = availableSets();
+  if (choice === 'mystery') {
+    const pool = sets.filter((id) => !WEAPON_SETS[id].wild);
+    const fresh = pool.length > 1 ? pool.filter((id) => id !== last) : pool;
+    return fresh[Math.floor(Math.random() * fresh.length)] ?? DEFAULT_SET;
+  }
+  return sets.includes(choice) ? choice : DEFAULT_SET;
 }
 
 export function loadoutLabel(set, i) {
-  const n = set.loadouts.length;
-  const l = set.loadouts[((i % n) + n) % n];
+  const loadouts = setLoadouts(set);
+  const n = loadouts.length;
+  const l = loadouts[((i % n) + n) % n];
   return `${l.name}: ${l.guns.map((g) => WEAPONS[g].name).join(' + ')}`;
+}
+
+// Catch mistakes in the table above at load rather than mid-match (only for sets that exist).
+for (const id of availableSets()) {
+  const set = WEAPON_SETS[id];
+  const guns = setGuns(set);
+  if (guns.length > MAX_SET_GUNS) throw new Error(`Weapon set ${id} has ${guns.length} guns (max ${MAX_SET_GUNS})`);
+  for (const g of [...set.primaries, set.sidearm]) {
+    if (WEAPONS[g].bot.power) throw new Error(`Weapon set ${id} puts power gun ${g} in a loadout`);
+  }
 }

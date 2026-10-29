@@ -8,7 +8,8 @@ import { KeyboardMouseInput } from './input/keyboardMouse.js';
 import { Gamepads, GamepadInput } from './input/gamepad.js';
 import { Sfx } from './audio/sfx.js';
 import { settings, updateSettings, onSettingsChange } from './settings.js';
-import { loadoutLabel } from './combat/arsenal.js';
+import { loadoutLabel, chooseSet, DEFAULT_SET } from './combat/arsenal.js';
+import { WEAPONS } from './combat/weapons.js';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
@@ -25,6 +26,8 @@ const pads = new Gamepads();
 const sfx = new Sfx();
 let game = null;
 let loading = false;
+// The last weapon set played, so Mystery Meat never repeats it.
+let lastSet = null;
 
 // Local players in seat order (player 1 first). Each seat is an input source: the keyboard
 // and mouse, or a GamepadInput. Seats change only on the title screen and carry over between
@@ -42,9 +45,16 @@ const menu = new Menu(uiRoot, {
   inMatch: () => !!game,
   lobby: () => ({ seats: seats.map(seatInfo), padsSeen: pads.seen }),
   onLoadout: (i, dir) => cycleLoadout(i, dir),
-  loadoutRows: () => (game && game.arsenal.set.loadouts.length > 1 ? game.humans.map((p) => loadoutLabel(game.arsenal.set, p.loadout)) : []),
+  loadoutRows: () => (game && game.arsenal.loadouts.length > 1 ? game.humans.map((p) => loadoutLabel(game.arsenal.set, p.loadout)) : []),
   matchKinds: () => seats.map((s) => s.kind),
   audioLocked: () => sfx.ctx?.state !== 'running',
+  setInfo: () => {
+    if (!game) return null;
+    const { set } = game.arsenal;
+    const where = (id) => (id === set.power ? 'power pad' : id === set.field ? 'field pads' : id === set.sidearm ? 'sidearm' : 'primary');
+    const ids = [...set.primaries, set.sidearm, set.field, set.power];
+    return { name: set.name, heat: set.heat, guns: ids.map((id) => ({ name: WEAPONS[id].name, blurb: WEAPONS[id].blurb, where: where(id) })) };
+  },
 });
 const nav = new PadNav(uiRoot);
 
@@ -162,6 +172,7 @@ async function startMatch() {
       botSkill: settings.botSkill,
       practiceTargets: settings.bots === 0,
       timeLimit: settings.timeLimit,
+      weaponSet: (lastSet = chooseSet(settings.weaponSet === 'default' ? DEFAULT_SET : settings.weaponSet, lastSet)),
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;

@@ -72,8 +72,10 @@ Live build: https://mrellcrane.github.io/smokeem/
   `GamepadInput` (one pad's gameplay mapping, rumble).
 - `src/player/`: the player controller (movement, climbing, mantling, camera), the skinned
   character body and the first-person viewmodel.
-- `src/combat/`: vitals (shields/health), weapon data and state (`weapons.js`), the shared
-  box-built gun shapes (`weaponModels.js`), the per-tick weapon controller (`shooting.js`:
+- `src/combat/`: vitals (shields/health), one module per gun under `guns/` (stats, box model,
+  first-person hands and pose, muzzle, third-person grip; registered in `guns/index.js`),
+  weapon sets and loadouts (`arsenal.js`: a match builds only its set's guns), weapon state
+  (`weapons.js`), shared box helpers and colors (`weaponModels.js`), the per-tick weapon controller (`shooting.js`:
   trigger, pellets, missile launch, grenades, melee, switching, reloads), projectiles
   (`projectiles.js`: Smoke Signal missiles, grenades as Rapier dynamic bodies), area damage
   (`explosions.js`), pickups, and `dealDamage`, the single path all damage goes through.

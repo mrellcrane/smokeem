@@ -232,6 +232,7 @@ export class CharacterModel {
   setWeapon(id) {
     if (id === this.weaponId) return;
     this.weaponId = id;
+    // A gun outside the match's set has no bone: the body just shows no gun.
     for (const [wid, bone] of Object.entries(this.rig.gunBones)) {
       // Not exactly zero, so skinned normals never divide by zero.
       this.bones[bone].scale.setScalar(wid === id ? 1 : 1e-4);

@@ -1,15 +1,26 @@
 import * as THREE from 'three';
 import { InputState } from '../input/inputState.js';
 import { DEG, clamp } from '../util/math.js';
+import { WEAPONS } from '../combat/weapons.js';
 
 // A bot is a regular Player whose InputState is written by this brain instead of a controller,
 // so it moves, climbs, shoots and dies by exactly the same rules as people.
 // The brain runs in the fixed tick: perceive, pick what to do, then write inputs.
+//
+// Each gun's `bot` block says how to use it: { min, max, pref } range band (meters), plus
+//   sidearm     switch to it instead of reloading the primary mid-fight
+//   zoomAt      hold zoom past this distance
+//   careful     only fire when aim is inside this share of the usual cone
+//   headshots   Hard bots aim for the head
+//   highGround  share of roam goals picked above ground level
+//   mobile      push in more often while fighting
+//   power       a power weapon: used now and then, always worth a swap
+// semiRate: share of a semi-auto gun's full fire rate a bot taps at.
 
 export const BOT_SKILL = {
-  easy: { reaction: 0.75, aimError: 5, turnRate: 3.2, fireCone: 6, burst: [0.45, 0.9], grenadeChance: 0.15, jumpRate: 0.2, strafe: 0.6, advance: 0.3 },
-  normal: { reaction: 0.42, aimError: 2.6, turnRate: 5.5, fireCone: 4, burst: [0.7, 0.5], grenadeChance: 0.3, jumpRate: 0.45, strafe: 0.85, advance: 0.45 },
-  hard: { reaction: 0.22, aimError: 1.4, turnRate: 8.5, fireCone: 2.8, burst: [1.0, 0.3], grenadeChance: 0.45, jumpRate: 0.7, strafe: 1, advance: 0.55 },
+  easy: { reaction: 0.75, aimError: 5, turnRate: 3.2, fireCone: 6, burst: [0.45, 0.9], grenadeChance: 0.15, jumpRate: 0.2, strafe: 0.6, advance: 0.3, semiRate: 0.55 },
+  normal: { reaction: 0.42, aimError: 2.6, turnRate: 5.5, fireCone: 4, burst: [0.7, 0.5], grenadeChance: 0.3, jumpRate: 0.45, strafe: 0.85, advance: 0.45, semiRate: 0.8 },
+  hard: { reaction: 0.22, aimError: 1.4, turnRate: 8.5, fireCone: 2.8, burst: [1.0, 0.3], grenadeChance: 0.45, jumpRate: 0.7, strafe: 1, advance: 0.55, semiRate: 1 },
 };
 
 export const BOT_NAMES = ['Gristle', 'Dry Rub', 'Rib Tip', 'Pit Boss', 'Low n Slow', 'Charcoal', 'Flare-Up', 'Mop Sauce'];
@@ -35,6 +46,8 @@ function wrap(a) {
 // its band, negative outside it, and worst of all when it's empty.
 function bandFit(w, dist) {
   if (w.empty) return -100;
+  // Needs a reload first: only better than nothing.
+  if (w.mag === 0) return -50;
   const b = w.def.bot;
   if (dist < b.min) return -(b.min - dist) / 4;
   if (dist > b.max) return -(dist - b.max) / 10;
@@ -46,6 +59,8 @@ export class BotBrain {
     this.kind = 'bot';
     this.game = game;
     this.skill = BOT_SKILL[skillName] ?? BOT_SKILL.normal;
+    this.skillName = BOT_SKILL[skillName] ? skillName : 'normal';
+    this.tapT = 0;
     this.state = new InputState();
     this.player = null;
     this.reset();
@@ -242,24 +257,29 @@ export class BotBrain {
     const maxErr = sk.aimError * DEG * (1 + 1.5 * Math.exp(-this.trackT));
     this.errX = clamp(this.errX + (Math.random() - 0.5) * maxErr * 5 * dt, -maxErr, maxErr);
     this.errY = clamp(this.errY + (Math.random() - 0.5) * maxErr * 5 * dt, -maxErr, maxErr);
-    _t.y += 0.35;
+    const w = p.weapon.def;
+    // Chest height, or the head for Hard bots with a precision gun.
+    _t.y = w.bot.headshots && this.skillName === 'hard' ? tg.headLineY() + 0.12 : _t.y + 0.35;
     let arc = 0;
     if (this.throwT > 0) arc = 0.16 + dist * 0.008;
     this.aimAt(_t, dt, arc);
+    if (w.bot.zoomAt && dist > w.bot.zoomAt) s.held.aim = true;
 
-    const w = p.weapon.def;
     this.burstT -= dt;
     if (this.burstT <= 0) {
       this.burstOn = !this.burstOn;
       this.burstT = (this.burstOn ? sk.burst[0] : sk.burst[1]) * (0.7 + Math.random() * 0.6);
     }
     const inRange = dist >= w.bot.min && dist <= w.bot.max * 1.2;
-    const cone = sk.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist));
+    const cone = (sk.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist))) * (w.bot.careful ?? 1);
+    this.tapT -= dt;
     if (this.reactT <= 0 && this.throwT <= 0 && inRange && this.aimError(_t) < cone) {
       if (w.auto) {
         if (this.burstOn) s.held.fire = true;
-      } else if (p.weapon.cooldown <= 0) {
+      } else if (p.weapon.cooldown <= 0 && this.tapT <= 0) {
+        // Semi-autos: tap at the skill's share of the full rate.
         s.press('fire');
+        this.tapT = 1 / (w.fireRate * sk.semiRate);
       }
     }
     if (dist < 2.3 && p.meleeT <= 0 && this.reactT <= 0) s.press('melee');
@@ -276,7 +296,7 @@ export class BotBrain {
 
     this.advanceT -= dt;
     if (this.advanceT <= 0) {
-      this.advancing = Math.random() < sk.advance;
+      this.advancing = !w.bot.noAdvance && Math.random() < sk.advance * (w.bot.mobile ? 1.5 : 1);
       this.advanceT = 2.5 + Math.random() * 3;
     }
     if (this.advancing) {
@@ -304,12 +324,27 @@ export class BotBrain {
     }
   }
 
+  // A loadout for the next life: a coin flip, but Hard bots lean toward the longer-range primary.
+  pickLoadout() {
+    const loadouts = this.game.arsenal.loadouts;
+    if (this.skillName !== 'hard' || loadouts.length < 2) return Math.floor(Math.random() * loadouts.length);
+    const reach = (l) => WEAPONS[l.guns[0]].bot.pref;
+    const longer = reach(loadouts[1]) > reach(loadouts[0]) ? 1 : 0;
+    return Math.random() < 0.65 ? longer : 1 - longer;
+  }
+
   // Use whichever gun's range band fits the fight better. Power weapons only now and then.
   chooseWeapon(dist) {
     const p = this.player;
     const other = p.slots[1 - p.slot];
     if (!other || other.empty || p.switchT > 0) return;
-    const cur = bandFit(p.weapon, dist);
+    // Primary empty or reloading mid-fight: finish with the sidearm instead.
+    const w = p.weapon;
+    if (other.def.bot.sidearm && other.mag > 0 && dist < 30 && (w.mag === 0 || w.reloading)) {
+      this.state.press('switchWeapon');
+      return;
+    }
+    const cur = bandFit(w, dist);
     const alt = bandFit(other, dist);
     if (other.def.bot.power && Math.random() > 0.02) return;
     if (alt > cur + 0.25) this.state.press('switchWeapon');
@@ -379,7 +414,7 @@ export class BotBrain {
     }
     if (!goal) {
       // Favor high ground now and then.
-      const high = Math.random() < 0.3;
+      const high = Math.random() < (p.weapon.def.bot.highGround ?? 0.3);
       const n = this.game.nav.randomNode((x) => (high ? x.y > 2 : true));
       goal = _t.set(n.x, n.y, n.z);
     }

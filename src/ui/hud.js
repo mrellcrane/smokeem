@@ -1,6 +1,6 @@
 import { DEG } from '../util/math.js';
 import { currentSpread } from '../combat/shooting.js';
-import { RESPAWN_DELAY } from '../player/player.js';
+import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
 import { controlsHtml } from './controls.js';
 import { clockText, ordinal } from '../match.js';
 import { loadoutLabel } from '../combat/arsenal.js';
@@ -22,6 +22,11 @@ const hex = (c) => (c == null ? 'inherit' : `#${c.toString(16).padStart(6, '0')}
 const nameHtml = (p) => `<b style="color:${hex(p.color)}">${p.name}</b>`;
 
 // One kill feed line: "Killer weapon Victim", or "Victim how" when nobody else did it.
+// Zoomed far enough with a scoped gun to look through the scope.
+export function scopedIn(player) {
+  return !!player.weapon.def.scope && player.aimZoom > SCOPE_ZOOM;
+}
+
 export function feedRow(f) {
   const how = `<span>${f.how}${f.headshot ? ' · head' : ''}</span>`;
   return `<div>${f.killer ? `${nameHtml(f.killer)} ${how} ${nameHtml(f.victim)}` : `${nameHtml(f.victim)} ${how}`}</div>`;
@@ -54,6 +59,7 @@ export class Hud {
       <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
       <div class="hud-match"><div class="hud-clock"></div><div class="hud-place"></div><div class="hud-feed"></div></div>
       <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
+      <div class="scope"><i></i><i></i></div>
       <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
       <div class="target-name"></div>
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
@@ -88,6 +94,7 @@ export class Hud {
       health: q('.health'),
       healthFill: q('.health i'),
       cross: q('.crosshair'),
+      scope: q('.scope'),
       tag: q('.hud-tag'),
       clock: q('.hud-clock'),
       place: q('.hud-place'),
@@ -245,7 +252,10 @@ export class Hud {
       e.tag.style.display = x ? 'block' : 'none';
       this.el.classList.toggle('split', x);
     });
-    this.set('crossVis', alive && !g, (x) => (e.cross.style.display = x ? '' : 'none'));
+    // Through a scope: the scope's own reticle replaces the crosshair.
+    const scoped = alive && !g && scopedIn(player);
+    this.set('scoped', scoped, (x) => (e.scope.style.display = x ? 'block' : 'none'));
+    this.set('crossVis', alive && !g && !scoped, (x) => (e.cross.style.display = x ? '' : 'none'));
 
     // Hit marker.
     const hm = Math.max(0, 1 - (now - fb.hitT) / HITMARKER_TIME);
@@ -274,7 +284,7 @@ export class Hud {
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
       // Pick the loadout for the next life.
       const set = game.arsenal.set;
-      const pick = set.loadouts.length > 1 ? `◀ ${loadoutLabel(set, player.loadout)} ▶  (${this.keys.pick})` : '';
+      const pick = game.arsenal.loadouts.length > 1 ? `◀ ${loadoutLabel(set, player.loadout)} ▶  (${this.keys.pick})` : '';
       this.set('loadout', pick, (x) => (e.loadout.textContent = x));
     }
 

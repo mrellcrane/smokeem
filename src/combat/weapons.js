@@ -36,7 +36,10 @@ export const MELEE = {
   backstabDot: 0.55,
 };
 
+// Defaults a gun can override: seconds to bring it up, and how long after the last shot spread
+// starts recovering.
 export const SWITCH_TIME = 0.4;
+export const BLOOM_DELAY = 0.15;
 
 export class WeaponState {
   constructor(def) {
@@ -50,6 +53,8 @@ export class WeaponState {
     this.cooldown = 0;
     this.reloadT = 0;
     this.bloom = 0;
+    this.shots = 0;
+    this.lastShotT = -99;
   }
 
   get reloading() {

@@ -14,6 +14,28 @@ import {
 import { controlsHtml } from './controls.js';
 import { PLAYER_COLORS } from '../player/player.js';
 import { ordinal } from '../match.js';
+import { WEAPON_SETS, DEFAULT_SET, availableSets, setGuns } from '../combat/arsenal.js';
+import { WEAPONS } from '../combat/weapons.js';
+
+// The Guns choices on the title screen: the map's default, each set that exists, Mystery Meat.
+function setChoices() {
+  return ['default', ...availableSets(), 'mystery'];
+}
+
+function setChoiceLabel(choice) {
+  if (choice === 'mystery') return 'Mystery Meat';
+  const id = choice === 'default' ? DEFAULT_SET : choice;
+  const set = WEAPON_SETS[id];
+  return `${choice === 'default' ? 'Map default: ' : ''}${set.name} (${set.heat})`;
+}
+
+function setChoiceHint(choice) {
+  if (choice === 'mystery') return 'A random set each match (never Extra Hot).';
+  const set = WEAPON_SETS[choice === 'default' ? DEFAULT_SET : choice];
+  return setGuns(set)
+    .map((g) => WEAPONS[g].name)
+    .join(', ');
+}
 
 // All full-screen UI: title (with the join lobby), settings, loading, ready, pause, results,
 // error.
@@ -83,6 +105,15 @@ export class Menu {
         updateSettings({ botSkill: btn.dataset.value });
         this.renderMatchValues();
         break;
+      case 'set-':
+      case 'set+': {
+        const choices = setChoices();
+        const i = Math.max(0, choices.indexOf(settings.weaponSet));
+        const next = choices[(i + (action === 'set+' ? 1 : -1) + choices.length) % choices.length];
+        updateSettings({ weaponSet: next });
+        this.renderMatchValues();
+        break;
+      }
       case 'timeLimit':
         updateSettings({ timeLimit: Number(btn.dataset.value) });
         this.renderMatchValues();
@@ -173,6 +204,19 @@ export class Menu {
               .map((k) => `<button data-action="timeLimit" data-value="${k}" class="seg">${TIME_LIMITS[k]}</button>`)
               .join('')}</div>
           </div>
+          ${
+            availableSets().length > 1
+              ? `<div class="row-inline">
+            <label>Guns</label>
+            <div class="stepper wide">
+              <button data-action="set-" class="step">◀</button>
+              <span class="set-val"></span>
+              <button data-action="set+" class="step">▶</button>
+            </div>
+          </div>
+          <p class="hint set-hint"></p>`
+              : ''
+          }
         </div>
         <div class="lobby"></div>
         <p class="hint lobby-hint"></p>
@@ -237,6 +281,11 @@ export class Menu {
     }
     const h = r.querySelector('.bots-hint');
     if (h) h.textContent = settings.bots === 0 ? 'No bots: training dummies take their place.' : '';
+    const choice = setChoices().includes(settings.weaponSet) ? settings.weaponSet : 'default';
+    const sv = r.querySelector('.set-val');
+    if (sv) sv.textContent = setChoiceLabel(choice);
+    const sh = r.querySelector('.set-hint');
+    if (sh) sh.textContent = setChoiceHint(choice);
   }
 
   showSettings(returnTo) {
@@ -352,6 +401,7 @@ export class Menu {
       `
       <div class="panel ready">
         <h2>Mudlark Gauntlet</h2>
+        ${this.gunList()}
         <div class="loadouts"></div>
         <button data-action="start" class="big" data-autofocus>${label}</button>
         ${message ? `<p class="warn">${message}</p>` : ''}
@@ -362,6 +412,16 @@ export class Menu {
       'dim',
     );
     this.renderLoadouts();
+  }
+
+  // The match's weapon set: every gun in it, with a line on what it does.
+  gunList() {
+    const info = this.handlers.setInfo?.();
+    if (!info) return '';
+    const rows = info.guns
+      .map((g) => `<li><b>${g.name}</b> <em>${g.where}</em><span>${g.blurb}</span></li>`)
+      .join('');
+    return `<div class="gun-list"><h4>${info.name} <em>${info.heat}</em></h4><ul>${rows}</ul></div>`;
   }
 
   // Each local player's spawn loadout, changed with the arrows (or left/right on their pad).

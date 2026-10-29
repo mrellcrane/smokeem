@@ -23,7 +23,7 @@ import { disposeViewmodelMaterial } from './player/viewmodel.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
-import { WEAPON_SETS, DEFAULT_SET, setGuns } from './combat/arsenal.js';
+import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts } from './combat/arsenal.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -56,8 +56,9 @@ export class Game {
     onProgress('Lighting the smoker', 0.05);
     await initRapier();
     const game = new Game(stage, hudRoot, fps, sfx);
-    const set = WEAPON_SETS[weaponSet] ?? WEAPON_SETS[DEFAULT_SET];
-    game.arsenal = { set, guns: setGuns(set) };
+    const id = WEAPON_SETS[weaponSet] ? weaponSet : DEFAULT_SET;
+    const set = WEAPON_SETS[id];
+    game.arsenal = { id, set, guns: setGuns(set), loadouts: setLoadouts(set) };
     game.match = new Match(game, timeLimit);
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
@@ -470,7 +471,7 @@ export class Game {
       r.clear(true, true, false);
       r.render(this.scene, p.camera);
 
-      if (p.alive && !p.guiding) {
+      if (p.showsViewmodel()) {
         for (const o of this.humans) o.viewmodel.root.visible = o === p;
         const vc = this.vmCamera;
         if (vc.aspect !== rect.w / rect.h) {

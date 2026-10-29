@@ -5,6 +5,7 @@ export default {
   def: {
     id: 'hickory',
     name: 'Hickory',
+    blurb: 'Full-auto rifle. The workhorse at mid range; long sprays bloom.',
     kind: 'hitscan',
     auto: true,
     fireRate: 9, // shots per second
@@ -19,8 +20,9 @@ export default {
     reserve: 160,
     reloadTime: 1.7,
     spreadBase: 0.5,
-    spreadMax: 3.4,
-    spreadPerShot: 0.32,
+    // Bloom caps at 3.1 degrees hip-fire after about 13 rounds.
+    spreadMax: 2.6,
+    spreadPerShot: 0.2,
     spreadRecovery: 8, // degrees per second
     spreadMoveAdd: 0.9,
     spreadAirAdd: 1.4,
