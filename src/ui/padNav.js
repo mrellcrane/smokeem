@@ -9,7 +9,10 @@ const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), input[type="rang
 const STICK = 0.55;
 const REPEAT_DELAY = 0.38;
 const REPEAT_EVERY = 0.09;
-// How long a pad has to rest (no direction) after a menu opens over play to count as settled.
+// How long a pad has to rest (no button, trigger or stick in use) after a menu opens over play
+// to count as settled.
+const REST_MOVE = 0.25;
+const REST_LOOK = 0.3;
 const SETTLE = 0.4;
 const DIRS = ['up', 'down', 'left', 'right'];
 const DIR_BUTTON = { up: PAD.UP, down: PAD.DOWN, left: PAD.LEFT, right: PAD.RIGHT };
@@ -59,7 +62,11 @@ export class PadNav {
         dir = Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up';
       }
     }
-    st.rest = dir ? 0 : st.rest + dt;
+    // Someone standing still and firing, or walking at part tilt, is still playing.
+    const ax = gp.axes;
+    let busy = !!dir || Math.hypot(ax[0] ?? 0, ax[1] ?? 0) > REST_MOVE || Math.hypot(ax[2] ?? 0, ax[3] ?? 0) > REST_LOOK;
+    for (let i = 0; !busy && i < st.prev.length; i++) busy = buttonDown(gp, i);
+    st.rest = busy ? 0 : st.rest + dt;
     if (st.rest >= SETTLE) st.settled = true;
     out.settled = st.settled;
     if (st.blockDir) {

@@ -148,7 +148,7 @@ export class Hud {
 
   hintFor(player, zones, game) {
     const k = this.keys;
-    // The death card has the screen (and nothing needs the mouse until the respawn).
+    // The death card has the screen (it says how to pick, click included).
     if (player.mode === 'dead') return '';
     // Resumed from a controller: the mouse isn't captured until the keyboard player clicks.
     if (this.source.kind === 'keyboardMouse' && !this.source.enabled && game.state === 'playing') {
@@ -288,8 +288,11 @@ export class Hud {
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
       // Pick the loadout for the next life.
       const loadouts = game.arsenal.loadouts;
-      this.set('loadout', player.loadout, (i) => {
-        e.loadout.innerHTML = loadouts.length > 1 ? `<span class="arrow">◀</span>${loadoutCard(loadouts[i], { demos: false })}<span class="arrow">▶</span><small>${this.keys.pick}</small>` : '';
+      const i = player.loadout;
+      // Resumed from a controller, the keyboard does nothing until a click captures the mouse.
+      const pick = this.source.kind === 'keyboardMouse' && !this.source.enabled ? `Click, then ${this.keys.pick}` : this.keys.pick;
+      this.set('loadout', `${i} ${pick}`, () => {
+        e.loadout.innerHTML = loadouts.length > 1 ? `<span class="arrow">◀</span>${loadoutCard(loadouts[i], { demos: false })}<span class="arrow">▶</span><small>${pick}</small>` : '';
       });
     }
 

@@ -175,8 +175,9 @@ rosters and three judges.
   change mid-match takes effect at your next spawn, or at once if you spawned less than 3 s
   ago and haven't fired or picked anything up (an instant swap any time would be a free
   reload). Bots roll a loadout every life (Hard bots lean toward the longer-range primary).
-  On the pause screen a controller's left stick changes loadouts only once you've let it rest
-  after the pause opens (the others may still be strafing); the D-pad counts at once. Holding
+  On the pause screen a controller's left stick changes loadouts only once you've let go of
+  that controller for a moment after the pause opens (the others may still be moving, aiming
+  or firing); the D-pad counts at once. Holding
   a direction changes it one step, never a flip through them.
 - Loadouts show as cards: each gun's picture and a little looping demo of how it works (the
   Mesquite's pellet cone, the Smoke Signal swerving to its target, the Swarm Jar's bugs
