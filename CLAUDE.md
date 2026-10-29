@@ -140,7 +140,8 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 ### Settings menu
 
 - Mouse sensitivity setting: a multiplier applied to pointer lock `movementX` / `movementY`, saved to `localStorage` so it persists between sessions.
-- Also saved: quality preset, invert Y, field of view, FPS counter.
+- Also saved: quality preset, invert Y, field of view, FPS counter, volume, bot count and skill,
+  movement speed (`settings.moveSpeed`, read live by the player controller every tick).
 
 ## Style
 

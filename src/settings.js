@@ -35,12 +35,15 @@ const DEFAULTS = {
   volume: 0.7,
   bots: 3,
   botSkill: 'normal',
+  // Multiplier on horizontal movement and climbing speed for everyone (players and bots).
+  moveSpeed: 0.7,
 };
 
 export const SENSITIVITY_RANGE = { min: 0.1, max: 4, step: 0.05 };
 export const FOV_RANGE = { min: 70, max: 115, step: 1 };
 export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 };
 export const MAX_BOTS = 7;
+export const MOVE_SPEED_RANGE = { min: 0.4, max: 1.3, step: 0.05 };
 export const BOT_SKILLS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
 function load() {
@@ -57,6 +60,8 @@ function load() {
   if (!Number.isFinite(out.volume)) out.volume = DEFAULTS.volume;
   out.bots = Number.isInteger(out.bots) ? Math.max(0, Math.min(MAX_BOTS, out.bots)) : DEFAULTS.bots;
   if (!BOT_SKILLS[out.botSkill]) out.botSkill = DEFAULTS.botSkill;
+  if (!Number.isFinite(out.moveSpeed)) out.moveSpeed = DEFAULTS.moveSpeed;
+  out.moveSpeed = Math.max(MOVE_SPEED_RANGE.min, Math.min(MOVE_SPEED_RANGE.max, out.moveSpeed));
   return out;
 }
 
