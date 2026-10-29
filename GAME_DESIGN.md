@@ -34,7 +34,9 @@ hardware (metal panels, glowing strips, a gas giant in the sky) mixed with obsta
 
 Roughly early-2000s console shooter era: real-time lighting and shadows, simple textures,
 low-to-mid poly geometry, saturated colors, big readable shapes. All textures are generated
-procedurally in code (canvas) or come from CC0 sources. No external art pipeline for v1.
+procedurally in code (canvas) or come from CC0 sources. No external art pipeline for v1: the
+one imported model (the contestant body, CC0) is converted by a script in `tools/` into a data
+module that ships with the code.
 
 Light: warm sun, cool sky fill, so the lit and shaded sides of every box separate. The floor is
 "lightmapped" at load like a level of that era: soft contact shadows around everything standing
@@ -64,22 +66,46 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
     their route while shooting, swap to the shotgun up close, throw grenades, melee, and steer
     their own Smoke Signals.
   - Bot names: Gristle, Dry Rub, Rib Tip, Pit Boss, Low n Slow, Charcoal, Flare-Up, Mop Sauce.
+- **Rocky Mountain Oysters** (owner idea, 2026-10-29, planned right after movement; PG-13 cartoon,
+  truck-nuts style). A mode toggle on top of free-for-all, inspired by teabagging:
+  - Each kill grows a cartoon two-lobed sack hanging from the back of your belt (nothing else is
+    shown). It jiggles, and once it's big enough it drags and bounces along the ground behind you.
+  - Hits on it count against you at 1.5x (a low blow). Each size slows you a little and lowers
+    your jumps, and a big one sticks out from behind cover.
+  - Bounty: smoking someone bigger than you is worth bonus points.
+  - Crouch three times over someone you just smoked (within 3 s) and the kill feed shouts
+    "SAUCED!" for a little extra growth.
+  - Dying pops it back to small.
 - **Later:** team modes, online play between separate houses.
 
 ## Characters
 
-Contestants wear chunky armor (big shoulder pads, a layered chest plate, thigh and knee
-plates, a crested helmet) with a wide glowing amber visor and a smoker canister on the back
-with a glowing ember ring. Light strips on the chest and shoulders glow in the body's own
-color, and a rim of that color lights the silhouette, stronger with distance, so a far player
-reads as a colored person even in shade. Each local player has a color: blue, red, green,
-gold. Bodies are procedural boxes on a small skeleton (one draw call each), so they can run,
-crouch, jump and climb without imported assets.
+Contestants are armored soldiers with human proportions, styled after Halo's multiplayer
+Spartans: rounded plates over a charcoal undersuit (big shoulder pads, a sculpted chest and back
+plate, forearm guards, thigh, knee and shin plates, heavy boots, the undersuit showing at the
+backs of the knees and thighs), dark gloved fists, a thick neck seal with an armor collar, and a
+Mark VI style helmet: a round shell with a big glowing gold visor set in under a brow lip and
+between cheek guards, a mouthpiece with a center ridge and vents, a disc over each ear and a
+ridge down the back. A smoker canister rides on the back with a glowing ember vent band. The
+plates take the body's color; side panels down the torso and upper arms, the ear discs and the
+helmet's back ridge take the trim color (a bot's second color, a darker shade for local
+players). Thin light strips on the chest and shoulder pads glow in the body's own color, and a
+rim of that color lights the silhouette, stronger with distance, so a far player reads as a
+colored person even in shade. Each local player has a color: blue, red, green, gold. The body
+is a CC0 model ("Futuristic 3D Soldier" by rickomax, credits in `src/player/body/CREDITS.md`),
+re-weighted onto the game's skeleton with smooth joints, baked occlusion and one draw call each.
+The helmet, fists, neck seal, strips and canister are our own.
 
 Body language says what someone is doing: feet plant, legs run toward where the body is going
 while the torso and gun stay on the aim (strafing and backpedaling show), the gun rides at the
-hip, comes up to the shoulder when firing or zoomed and crosses the chest when sprinting, jumps
-tuck, the double jump kicks a knee up, and hard landings squash.
+hip, comes up to the shoulder when firing or zoomed and crosses the chest when sprinting (the
+Smoke Signal always rests on the right pauldron), both hands hold the gun with the elbows bent
+and the torso turned a little into a bladed stance (the support shoulder comes forward and the
+hand slides back along the gun when the handguard is out of reach), the head and gun follow the
+aim up and down, each body breathes on its own rhythm standing still, jumps tuck, the double
+jump kicks a knee up, hard landings squash, and crouching is a deep squat with the hips sat
+back. Whatever the pose, the helmet stays inside the hitbox's head band (from just under the
+head line to the capsule top), so a shot at the visible head is a headshot.
 
 Character options (owner request, planned after the new bodies): Crash Bandicoot, Link and
 James Bond, each as close to the source as we can make them, with the shared skeleton so they
@@ -157,8 +183,9 @@ obstacle works at any setting.
 
 ## Weapons
 
-Two weapon slots, both full at spawn. 15 guns in all (7 normal, 8 wacky), but a match only
-ever uses one **weapon set** of 5, so nobody has to learn the whole roster at once. Each gun's
+Two weapon slots, both full at spawn. 19 guns in all (7 normal, 12 wacky: the original 15 plus
+four the owner added), but a match only ever uses one **weapon set** of 5, so nobody has to
+learn the whole roster at once. Each gun's
 numbers live in its own module under `src/combat/guns/`; the full design (every gun's stats,
 model, sound, bot use and counterplay) came out of a design workflow with three competing
 rosters and three judges.
@@ -225,6 +252,20 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | planned, after maps |
 | **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | planned, rules need sign-off |
+| **Stickybomb Launcher** | wacky | TF2's: sticky bombs that cling to walls, floors and ceilings, set off together with the aim button (see below). | planned |
+| **Gravity Gun** | wacky | Half-Life 2's: grab and fling loose things, including other people's grenades, stickies and rockets (see below). | planned |
+
+**Stickybomb Launcher** (owner pick, 2026-10-29, TF2's). Fire lobs a sticky bomb; up to 6 can
+be out at once, stuck to walls, floors or ceilings (not to people), each armed after about
+0.7 s. The aim button sets them all off. Your own blast knocks you around, so sticky jumps work.
+Your bombs vanish when you're smoked.
+
+**Gravity Gun** (owner pick, 2026-10-29, Half-Life 2's). The aim button pulls a loose object
+toward you and holds it in front of you; fire launches it hard. It grabs grenades, sticky bombs,
+Chimney coals, Swarm Jars and Smoke Signal rockets in flight, so you can throw them back. Fire
+with nothing held punts: a shove that knocks a player back with a little damage. The arena gets
+loose physics props to throw (crates, barrels, a propane tank that explodes when it lands). The
+two come together as a new weapon set after Rocky Mountain Oysters, before maps.
 
 **Shrink Wrap** (owner request, 2026-10-29: one gun for both, built after the new maps). A power
 gun for a wacky set, never in a loadout. Its hitbox change is the point: a shrunk player really
@@ -648,3 +689,13 @@ Need answers before the step that uses them gets built.
   cost 1 to 2 ms a frame across 3 views), and with reduced motion each demo stops on a telling
   moment. A teammate still strafing when someone pauses no longer changes their loadout with
   the stick (see Weapon sets and loadouts).
+- 2026-10-29: New soldier body (graphics). The owner picked the CC0 OpenGameArt soldier from a
+  three-way bake-off and asked for it to look closer to Master Chief, so the tool builds a Mark
+  VI style helmet with a big gold visor on it, plus baked occlusion, a neck seal, thicker arms
+  and gloved fists. The rig keeps the helmet inside the head band in every pose (it wasn't
+  before: looking straight down or mid-stride dropped it under the head line). About 21% more
+  triangles per body than the prototype, one draw call each as before; the Xbox `?bench` is
+  still to be run. The bladed stance with two-handed guns is a style call the owner can undo.
+- 2026-10-29: Owner ideas queued: Rocky Mountain Oysters mode (right after movement), the
+  Stickybomb Launcher and Gravity Gun (a new set after it), a Halo motion tracker and everyone's
+  scores on every view (being built now).
