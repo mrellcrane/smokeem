@@ -201,7 +201,7 @@ export class Pickups {
   taken(p, text) {
     p.feedback.killT = this.game.time;
     p.feedback.killText = text;
-    this.game.sfx.play('pickup');
+    if (!p.isBot) this.game.sfx.play('pickup');
   }
 
   updateVisuals(time) {

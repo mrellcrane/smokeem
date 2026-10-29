@@ -69,14 +69,14 @@ export function updateShooting(game, p, dt, pressed) {
     p.weapon.reloadT = 0;
     p.slot = want;
     p.switchT = SWITCH_TIME;
-    game.sfx.play('swap');
+    game.sfx.play('swap', { at: p.center, source: p });
   }
   if (p.switchT > 0) p.switchT = Math.max(0, p.switchT - dt);
 
   const w = p.weapon;
   const d = w.def;
   w.bloom = Math.max(0, w.bloom - d.spreadRecovery * dt);
-  tickReload(game, w, dt, inp.held.fire);
+  tickReload(game, p, w, dt, inp.held.fire);
 
   const busy = p.mode === 'mantle' || p.switchT > 0;
   if (pressed.melee && !busy && p.meleeT <= 0) melee(game, p);
@@ -89,7 +89,7 @@ export function updateShooting(game, p, dt, pressed) {
   if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
     if (w.mag <= 0) {
       if (w.canReload()) startReload(game, p);
-      else if (pressed.fire) game.sfx.play('empty');
+      else if (pressed.fire && !p.isBot) game.sfx.play('empty');
     } else {
       while (w.cooldown <= 0 && w.mag > 0) {
         fire(game, p);
@@ -106,7 +106,7 @@ export function updateShooting(game, p, dt, pressed) {
   p.aimTarget = hit.entity && hit.entity.alive ? hit.entity : null;
 }
 
-function tickReload(game, w, dt, firing) {
+function tickReload(game, p, w, dt, firing) {
   if (w.reloadT <= 0) return;
   w.reloadT -= dt;
   if (w.reloadT > 0) return;
@@ -115,7 +115,7 @@ function tickReload(game, w, dt, firing) {
   if (d.reloadPerShell) {
     w.mag++;
     w.reserve--;
-    game.sfx.play('shell');
+    game.sfx.play('shell', { at: p.center, source: p });
     if (w.mag < d.mag && w.reserve > 0 && !firing) w.reloadT = d.reloadTime;
   } else {
     const take = Math.min(d.mag - w.mag, w.reserve);
@@ -127,7 +127,7 @@ function tickReload(game, w, dt, firing) {
 function startReload(game, p) {
   p.weapon.reloadT = p.weapon.def.reloadTime;
   p.sprintLock = Math.max(p.sprintLock, 0.2);
-  game.sfx.play(p.weapon.def.reloadPerShell ? 'shell' : 'reload');
+  game.sfx.play(p.weapon.def.reloadPerShell ? 'shell' : 'reload', { at: p.center, source: p });
 }
 
 function fire(game, p) {
@@ -137,7 +137,8 @@ function fire(game, p) {
   p.sprinting = false;
   p.sprintLock = 0.35;
   p.viewmodel?.fired();
-  game.sfx.play(d.sound, { rate: 0.94 + Math.random() * 0.12 });
+  game.sfx.play(d.sound, { rate: 0.97 + Math.random() * 0.06, at: p.center, source: p });
+  if (d.pump) game.sfx.play('pump', { delay: 0.18, at: p.center, source: p });
   game.noise(p, 30);
 
   aimBasis(p, _f, _r, _u);
@@ -211,7 +212,7 @@ function throwGrenade(game, p) {
     .addScaledVector(p.vel, 0.5);
   game.grenades.throw(p, _o, _d);
   p.viewmodel?.toss();
-  game.sfx.play('throw');
+  game.sfx.play('throw', { at: p.center, source: p });
 }
 
 function melee(game, p) {
@@ -237,7 +238,7 @@ function melee(game, p) {
     target = e;
   }
   if (!target) {
-    game.sfx.play('swing');
+    game.sfx.play('swing', { at: p.center, source: p });
     return;
   }
   // Lunge into anyone just out of reach.
@@ -262,6 +263,6 @@ function melee(game, p) {
     dir: _d,
   });
   game.fx.impactBody(_pt, _n, target.vitals.shield > 0 && !backstab);
-  game.sfx.play('bash');
+  game.sfx.play('bash', { at: p.center, source: p });
   if (res) p.onHitConfirmed(res, false);
 }

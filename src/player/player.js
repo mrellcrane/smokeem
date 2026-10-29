@@ -341,10 +341,10 @@ export class Player {
 
     if (this.inFire) {
       dealDamage(this.game, this, FIRE_DPS * dt, { cause: 'fire' });
-      this.game.sfx.play('burn');
+      if (!this.isBot) this.game.sfx.play('burn');
     }
     if (!this.alive) return;
-    if (this.vitals.update(dt)) this.game.sfx.play('shieldCharge');
+    if (this.vitals.update(dt) && !this.isBot) this.game.sfx.play('shieldCharge');
 
     const w = this.weapon;
     const wantZoom = this.input.held.aim && !this.sprinting && !w.reloading && this.mode !== 'mantle';
@@ -366,6 +366,8 @@ export class Player {
       this.feedback.hurtDirT = this.game.time;
     }
     this.brain?.onHurt(info.attacker);
+    // Hurt sounds and hit confirms are just for local players.
+    if (this.isBot) return;
     if (res.broke) this.game.sfx.play('shieldBreak');
     else if (res.healthDamage > 0 && info.cause !== 'fire') this.game.sfx.play('hurt');
   }
@@ -375,7 +377,7 @@ export class Player {
     const fb = this.feedback;
     fb.hitT = this.game.time;
     fb.hitKind = res.killed ? 'kill' : headshot ? 'head' : 'hit';
-    this.game.sfx.play(res.killed ? 'kill' : headshot ? 'head' : 'hit');
+    if (!this.isBot) this.game.sfx.play(res.killed ? 'kill' : headshot ? 'head' : 'hit');
   }
 
   die(info) {
@@ -393,7 +395,7 @@ export class Player {
     this.collider.setEnabled(false);
     this.model.group.visible = false;
     this.game.fx.deathPuff(this.center.x, this.feetY(), this.center.z);
-    this.game.sfx.play('death');
+    this.game.sfx.play('death', { at: this.center, source: this });
   }
 
   // Move the capsule through the world with collision. Call at most once per tick.

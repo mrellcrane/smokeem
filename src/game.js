@@ -145,6 +145,8 @@ export class Game {
       this.respawn(p, this.players.length - 1);
     }
     this.physics.world.step();
+    // Sounds fade with distance from the local players.
+    this.sfx.listeners = this.humans;
     // 3 players leave a spare quadrant: fill it with the scoreboard and map.
     if (this.humans.length === 3) this.infoPanel = new InfoPanel(this.hudRoot, this);
 
@@ -466,6 +468,7 @@ export class Game {
 
   dispose() {
     this.disposed = true;
+    this.sfx.listeners = [];
     window.removeEventListener('resize', this._onResize);
     this._offSettings?.();
     for (const h of this.huds) h.dispose();

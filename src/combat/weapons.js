@@ -53,6 +53,8 @@ export const WEAPONS = {
     // Loads one shell at a time; firing interrupts the reload.
     reloadTime: 0.5,
     reloadPerShell: true,
+    // Rack the pump after every shot (sound only; the viewmodel animates it too).
+    pump: true,
     spreadBase: 6,
     spreadMax: 6,
     spreadPerShot: 0,

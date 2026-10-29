@@ -10,7 +10,7 @@ const _d = new THREE.Vector3();
 // cfg: { radius, inner, damage, knockback }  info: { attacker, weapon }
 export function explode(game, pos, cfg, info) {
   game.fx.explosion(pos, cfg.radius);
-  game.sfx.play('boom');
+  game.sfx.play('boom', { at: pos });
   game.grenades.shove(pos, cfg);
 
   // Each body registers exactly one collider, so every entity appears once here.
