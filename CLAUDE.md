@@ -187,7 +187,12 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Lights, fog and sky colors come from the map's look (`src/world/looks.js`).
 - Pooled systems hide themselves while empty (particles, tracers, beams, grenades, bolts, swarms, pickups): three still issues a draw for a zero-count instanced mesh. Pickups are one instanced mesh per gun type plus one for grenade pairs.
 - The sky dome draws last (`renderOrder` 1, depth test on, no depth write), so the arena's depth hides most of its pixels.
-- Textures are painted once per page load; later matches reuse the canvases.
+- Textures are painted once per page load and size (the preset's `textureSize`: 512 on medium
+  and high, 256 on low); later matches reuse the canvases, and the title screen pre-paints
+  them while idle (`prepaintTextures`). Surface painters also paint a height canvas, and
+  `relief()` shades the color by its slope (walls lit from above, the ground from the sun's
+  azimuth), so details look raised at no per-frame cost. Keep distinctive marks (numbers,
+  prints) off tiling textures: they show the repeat.
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
 - The FPS counter (backquote key or settings) shows fps, frame time and draw calls, plus the shadow pass's draws and each view's.

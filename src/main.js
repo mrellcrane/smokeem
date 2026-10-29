@@ -7,7 +7,8 @@ import { PointerLock } from './input/pointerLock.js';
 import { KeyboardMouseInput } from './input/keyboardMouse.js';
 import { Gamepads, GamepadInput } from './input/gamepad.js';
 import { Sfx } from './audio/sfx.js';
-import { settings, updateSettings, onSettingsChange } from './settings.js';
+import { settings, updateSettings, onSettingsChange, qualityPreset } from './settings.js';
+import { prepaintTextures } from './world/textures.js';
 import { loadoutLabel, chooseSet, DEFAULT_SET } from './combat/arsenal.js';
 import { WEAPONS } from './combat/weapons.js';
 import { gfx } from './render/gfx.js';
@@ -328,7 +329,11 @@ window.addEventListener('keydown', (e) => {
 });
 
 if (BENCH) import('./render/bench.js').then((m) => m.runBench({ stage, hudRoot, uiRoot, fps, sfx }));
-else menu.showTitle();
+else {
+  menu.showTitle();
+  // Paint the match textures while the title screen sits idle, so the first load is quicker.
+  prepaintTextures(qualityPreset().textureSize);
+}
 
 if (DEBUG) {
   window.smokeem = {

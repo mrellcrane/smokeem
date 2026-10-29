@@ -462,7 +462,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   bot palette that avoids arena colors, chunkier armor (done); (3) world light: baked ground shading
   and glow pools, contact shading on walls and props, a light grade per map (done); (4) shots you
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
-  (5) painted sky and skyline; (6) textures 2.0; (7) body language: real locomotion, aiming
+  (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
   separate from legs, jumps and landings; (8) pickup beacons; (9) explosions, impacts and
   decals; (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
@@ -560,3 +560,8 @@ Need answers before the step that uses them gets built.
   about 1.6 px, a broken shield pops with a cyan ring, and a death puff carries the victim's
   armor color. Fuse blink, low-health smoke and spawn flashes were left out until the owner
   wants them.
+- 2026-10-29: Textures 2.0 (graphics PR 6) went ahead of the sky PR, which waits on the owner's
+  sign-off for the facility skyline. Surfaces are 512 px (256 on Low) with painted relief:
+  metal walls in 1 m x 2 m panels with worn edges, grime and a little rust, pebbly ground with
+  hairline cracks, cast concrete with tie holes, knotted planks, chipped crates. Stenciled
+  numbers on walls and boot prints were dropped: on a 4 m tile they show the repeat.

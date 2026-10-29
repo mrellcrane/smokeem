@@ -9,6 +9,8 @@ export const QUALITY_PRESETS = {
     anisotropy: 1,
     // Texels per side of the baked arena light (bake.js).
     bakeSize: 256,
+    // Texels per side of the main surface textures (textures.js).
+    textureSize: 256,
   },
   medium: {
     label: 'Medium',
@@ -17,6 +19,7 @@ export const QUALITY_PRESETS = {
     shadowMapSize: 1024,
     anisotropy: 4,
     bakeSize: 512,
+    textureSize: 512,
   },
   high: {
     label: 'High',
@@ -25,6 +28,7 @@ export const QUALITY_PRESETS = {
     shadowMapSize: 2048,
     anisotropy: 8,
     bakeSize: 512,
+    textureSize: 512,
   },
 };
 
