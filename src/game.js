@@ -14,6 +14,9 @@ import { Effects } from './fx/effects.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Pickups } from './combat/pickups.js';
+import { NavGraph } from './ai/navgraph.js';
+import { MUDLARK_LINKS } from './ai/mapLinks.js';
+import { BotBrain, BOT_NAMES, BOT_COLORS } from './ai/bot.js';
 import { Player } from './player/player.js';
 import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial } from './player/viewmodel.js';
@@ -34,11 +37,11 @@ const _invQ = new THREE.Quaternion();
 // One match: renderer, scene, physics world, players and the fixed-step loop.
 // States: 'ready' (loaded, waiting for the player to click in), 'playing', 'paused'.
 export class Game {
-  static async create({ stage, hudRoot, fps, sfx, players, practiceTargets = true, onProgress = () => {} }) {
+  static async create({ stage, hudRoot, fps, sfx, players, bots = 0, botSkill = 'normal', practiceTargets = true, onProgress = () => {} }) {
     onProgress('Lighting the smoker', 0.05);
     await initRapier();
     const game = new Game(stage, hudRoot, fps, sfx);
-    await game.build(players, practiceTargets, onProgress);
+    await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
     return game;
   }
 
@@ -53,7 +56,10 @@ export class Game {
     this.acc = 0;
     this.last = 0;
     this.needsRender = true;
+    // Everyone in the match (local people and bots), and just the local people with views.
     this.players = [];
+    this.humans = [];
+    this.bots = [];
     this.inputs = [];
     this.huds = [];
     this.dummies = [];
@@ -63,7 +69,7 @@ export class Game {
     this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false };
   }
 
-  async build(playerDefs, practiceTargets, onProgress) {
+  async build(playerDefs, { bots, botSkill, practiceTargets }, onProgress) {
     const preset = qualityPreset();
     this.renderer = createRenderer(this.stage, preset);
     this.renderer.autoClear = false;
@@ -102,6 +108,10 @@ export class Game {
     // One step so scene queries see the static colliders before anyone spawns.
     this.physics.world.step();
 
+    onProgress('Teaching the bots the course', 0.55);
+    await nextFrame();
+    this.nav = new NavGraph(this, MUDLARK_LINKS);
+
     if (practiceTargets) {
       for (const def of DUMMY_POSTS) this.dummies.push(new Dummy(this, def));
     }
@@ -109,12 +119,28 @@ export class Game {
     playerDefs.forEach((def, i) => {
       const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}` });
       this.players.push(p);
+      this.humans.push(p);
       this.inputs.push(def.source);
       this.huds.push(new Hud(this.hudRoot, def.source.kind));
       scene.add(p.model.group);
       this.vmScene.add(p.viewmodel.root);
       this.respawn(p, i);
     });
+    for (let i = 0; i < bots; i++) {
+      const brain = new BotBrain(this, botSkill);
+      const p = new Player(this, {
+        id: this.players.length,
+        input: brain.state,
+        name: BOT_NAMES[i % BOT_NAMES.length],
+        brain,
+        color: BOT_COLORS[i % BOT_COLORS.length],
+      });
+      brain.player = p;
+      this.players.push(p);
+      this.bots.push(p);
+      scene.add(p.model.group);
+      this.respawn(p, this.players.length - 1);
+    }
     this.physics.world.step();
 
     onProgress('Compiling shaders', 0.7);
@@ -172,11 +198,11 @@ export class Game {
     // Make everything that can show up mid-match visible for one compile + render.
     for (const p of this.players) {
       p.model.warmup(true);
-      p.viewmodel.warmup(true);
+      p.viewmodel?.warmup(true);
     }
     for (const d of this.dummies) d.model.warmup(true);
-    const cam = this.players[0].camera;
-    this.players[0].updateCamera(1, 0, window.innerWidth / window.innerHeight);
+    const cam = this.humans[0].camera;
+    this.humans[0].updateCamera(1, 0, window.innerWidth / window.innerHeight);
     const fwd = new THREE.Vector3(0, 0, -3).applyQuaternion(cam.quaternion).add(cam.position);
     this.missiles.warmup(true, fwd);
     this.grenades.warmup(true, fwd);
@@ -195,7 +221,7 @@ export class Game {
     });
     for (const p of this.players) {
       p.model.warmup(false);
-      p.viewmodel.warmup(false);
+      p.viewmodel?.warmup(false);
     }
     for (const d of this.dummies) d.model.warmup(false);
     this.missiles.warmup(false);
@@ -267,6 +293,13 @@ export class Game {
     return this.physics.world.castRay(ray, len, true, this.shotFilter, undefined, undefined, undefined, this.notBody) !== null;
   }
 
+  // A loud thing happened at `source` (gunfire): bots in earshot take notice.
+  noise(source, radius) {
+    for (const b of this.bots) {
+      if (b !== source && b.alive && b.center.distanceTo(source.center) < radius) b.brain.onHeard(source);
+    }
+  }
+
   onKill(victim, info) {
     const a = info.attacker;
     if (a && a !== victim && a.kind === 'player') {
@@ -332,7 +365,7 @@ export class Game {
 
     if (this.state === 'playing') {
       for (const src of this.inputs) src.update();
-      for (const p of this.players) p.applyLook();
+      for (const p of this.humans) p.applyLook();
       this.acc += dt;
       let steps = 0;
       while (this.acc >= PHYSICS_DT && steps < MAX_STEPS_PER_FRAME) {
@@ -355,6 +388,10 @@ export class Game {
 
   tick(dt) {
     this.time += dt;
+    for (const p of this.bots) {
+      p.brain.think(dt);
+      p.applyLook();
+    }
     for (const p of this.players) p.tick(dt);
     this.missiles.tick(dt);
     this.grenades.tick(dt);
@@ -380,13 +417,13 @@ export class Game {
     const r = this.renderer;
     const W = window.innerWidth;
     const H = window.innerHeight;
-    const rects = viewportRects(this.players.length, W, H);
+    const rects = viewportRects(this.humans.length, W, H);
     r.info.reset();
     r.shadowMap.needsUpdate = true;
     r.setScissorTest(rects.length > 1);
     _sunDir.copy(this.sun.position).sub(this.sun.target.position).normalize();
-    for (let i = 0; i < this.players.length; i++) {
-      const p = this.players[i];
+    for (let i = 0; i < this.humans.length; i++) {
+      const p = this.humans[i];
       const rect = rects[i];
       p.updateCamera(alpha, dt, rect.w / rect.h);
       r.setViewport(rect.x, rect.y, rect.w, rect.h);
@@ -395,7 +432,7 @@ export class Game {
       r.render(this.scene, p.camera);
 
       if (p.alive && !p.guiding) {
-        for (const o of this.players) o.viewmodel.root.visible = o === p;
+        for (const o of this.humans) o.viewmodel.root.visible = o === p;
         const vc = this.vmCamera;
         if (vc.aspect !== rect.w / rect.h) {
           vc.aspect = rect.w / rect.h;

@@ -5,6 +5,8 @@ import {
   SENSITIVITY_RANGE,
   FOV_RANGE,
   VOLUME_RANGE,
+  MAX_BOTS,
+  BOT_SKILLS,
 } from '../settings.js';
 import { controlsHtml } from './controls.js';
 
@@ -45,6 +47,15 @@ export class Menu {
       case 'quality':
         updateSettings({ quality: btn.dataset.value });
         this.renderSettingsValues();
+        break;
+      case 'bots-':
+      case 'bots+':
+        updateSettings({ bots: Math.max(0, Math.min(MAX_BOTS, settings.bots + (action === 'bots+' ? 1 : -1))) });
+        this.renderMatchValues();
+        break;
+      case 'botSkill':
+        updateSettings({ botSkill: btn.dataset.value });
+        this.renderMatchValues();
         break;
       case 'start':
       case 'resume':
@@ -100,14 +111,43 @@ export class Menu {
       <div class="panel title">
         ${LOGO}
         <p class="tagline">Run the course. Smoke your friends.</p>
+        <div class="match-setup">
+          <div class="row-inline">
+            <label>Bots</label>
+            <div class="stepper">
+              <button data-action="bots-" class="step">-</button>
+              <span class="bots-val"></span>
+              <button data-action="bots+" class="step">+</button>
+            </div>
+          </div>
+          <div class="row-inline">
+            <label>Bot skill</label>
+            <div class="segmented">${Object.entries(BOT_SKILLS)
+              .map(([k, label]) => `<button data-action="botSkill" data-value="${k}" class="seg">${label}</button>`)
+              .join('')}</div>
+          </div>
+          <p class="hint bots-hint"></p>
+        </div>
         <div class="buttons">
           <button data-action="play">Play</button>
           <button data-action="settings" class="secondary">Settings</button>
         </div>
-        <p class="note">Step 3 build: three weapons, grenades, melee and pickups vs training dummies. Bots and split-screen come next.</p>
+        <p class="note">Step 4 build: free-for-all against bots. Match timer, scoreboard and split-screen come next.</p>
       </div>`,
       'title',
     );
+    this.renderMatchValues();
+  }
+
+  renderMatchValues() {
+    const r = this.root;
+    const v = r.querySelector('.bots-val');
+    if (v) v.textContent = settings.bots;
+    for (const btn of r.querySelectorAll('[data-action="botSkill"]')) {
+      btn.classList.toggle('active', btn.dataset.value === settings.botSkill);
+    }
+    const h = r.querySelector('.bots-hint');
+    if (h) h.textContent = settings.bots === 0 ? 'No bots: training dummies take their place.' : '';
   }
 
   showSettings(returnTo) {

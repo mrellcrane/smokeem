@@ -23,6 +23,7 @@ export class Hud {
     this.el.innerHTML = `
       <div class="hud-burn"></div>
       <div class="hud-hurt"></div>
+      <div class="dmg-arrow"><i></i></div>
       <div class="vitals">
         <div class="bar shield"><i></i></div>
         <div class="bar health"><i></i></div>
@@ -53,6 +54,7 @@ export class Hud {
     this.els = {
       burn: q('.hud-burn'),
       hurt: q('.hud-hurt'),
+      dmgArrow: q('.dmg-arrow'),
       vitals: q('.vitals'),
       shield: q('.shield'),
       shieldFill: q('.shield i'),
@@ -146,6 +148,20 @@ export class Hud {
     const hurt = Math.max(low ? 0.45 : 0, alive ? 1 - (now - fb.hurtT) / HURT_TIME : 0);
     this.set('hurt', Math.max(0, hurt).toFixed(2), (x) => (e.hurt.style.opacity = x));
     this.set('burn', player.inFire && alive, (x) => (e.burn.style.opacity = x ? '1' : '0'));
+
+    // Arrow pointing toward whatever hurt us last.
+    const since = now - fb.hurtDirT;
+    if (alive && since < 1.2) {
+      const dx = fb.hurtFromX - player.center.x;
+      const dz = fb.hurtFromZ - player.center.z;
+      const fx = -Math.sin(player.yaw);
+      const fz = -Math.cos(player.yaw);
+      const ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
+      this.set('dmgAng', ang.toFixed(2), (x) => (e.dmgArrow.style.transform = `rotate(${x}rad)`));
+      this.set('dmgOp', (1 - since / 1.2).toFixed(2), (x) => (e.dmgArrow.style.opacity = x));
+    } else {
+      this.set('dmgOp', '0', (x) => (e.dmgArrow.style.opacity = x));
+    }
 
     // Ammo.
     this.set('wname', w.def.name, (x) => (e.wname.textContent = x));

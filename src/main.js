@@ -72,6 +72,9 @@ async function startMatch() {
       fps,
       sfx,
       players: [{ source: kbm, name: 'Player 1' }],
+      bots: settings.bots,
+      botSkill: settings.botSkill,
+      practiceTargets: settings.bots === 0,
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;

@@ -38,7 +38,16 @@ procedurally in code (canvas) or come from CC0 sources. No external art pipeline
 
 - **Free-for-all** (v1). 5-minute matches. Most kills wins.
   - Default scoring (proposal): kill +1, suicide or environment death -1.
-- **Bots** (v1) for solo testing and filling out matches. Number of bots chosen in the menu.
+- **Bots** (v1) for solo testing and filling out matches. Choose 0 to 7 bots and a skill level
+  (Easy / Normal / Hard) on the title screen. With 0 bots, training dummies fill in.
+  - Bots are regular players driven by an AI instead of a controller: same movement, same
+    weapons, same damage. They run the obstacle course (nets, ropes, walls, monkey bars, mud,
+    jumping the fire), grab pickups, and fight: they see within a forward cone with line of
+    sight, hear gunfire within 30 m and turn toward whoever hurts them, aim with reaction time
+    and wobble that settle as they track you, fire in bursts, strafe, sometimes push along
+    their route while shooting, swap to the shotgun up close, throw grenades, melee, and steer
+    their own Smoke Signals.
+  - Bot names: Gristle, Dry Rub, Rib Tip, Pit Boss, Low n Slow, Charcoal, Flare-Up, Mop Sauce.
 - **Later:** team modes, online play between separate houses.
 
 ## Characters
@@ -297,7 +306,8 @@ Placeholder sound effects are fine for v1 (generated with WebAudio).
 3. **Full arsenal (done)**: Mesquite shotgun, Smoke Signal guided missile (missile camera),
    weapon pickups on the map, grenades, melee, explosions with knockback and camera shake,
    permanent on-screen controls.
-4. **Bots**: simple AI that roams the arena (including obstacles) and shoots. Bot count in menu.
+4. **Bots (done)**: bots that run the obstacle course and fight, bot count and skill on the
+   title screen, a damage-direction arrow on the HUD.
 5. **Match flow**: free-for-all rules, 5-minute timer, kill feed, respawns, end-of-match
    scoreboard with smoked meat ranks.
 6. **Split-screen + controllers**: 1 to 4 local players, Gamepad API, press A to join, full
@@ -331,3 +341,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Two weapon slots; auto pick up into an empty slot, E to swap when full; you drop
   picked-up guns when smoked. Grenades: start 2, max 4.
 - 2026-10-29: Explosions hurt their owner, and a direct Smoke Signal hit always kills.
+- 2026-10-29: Bots get three skill levels (not in the original brief; cheap and useful for
+  solo testing). Training dummies only appear with 0 bots.
+- 2026-10-29: Next up after bots: step 6 (controllers and split-screen) so the Xbox is
+  playable, then the owner's picks: art and animation pass, abilities, the motorcycle, more
+  maps. Step 5 (match flow) slots in alongside.

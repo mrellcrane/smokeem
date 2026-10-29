@@ -42,12 +42,15 @@ const NEUTRAL_INPUT = new InputState();
 const NO_PRESSES = NEUTRAL_INPUT.consumePressed();
 
 export class Player {
-  constructor(game, { id, input, name }) {
+  // brain: set for bots (an AI writing `input`); bots have no camera view or viewmodel.
+  constructor(game, { id, input, name, brain = null, color = null }) {
     this.game = game;
     this.kind = 'player';
     this.id = id;
     this.name = name;
     this.input = input;
+    this.brain = brain;
+    this.isBot = !!brain;
 
     const { RAPIER, world } = game.physics;
     this.RAPIER = RAPIER;
@@ -133,17 +136,22 @@ export class Player {
     this.sprintLock = 0;
     this.deathT = 0;
     this.deathInfo = null;
-    this.feedback = { hitT: -99, hitKind: '', hurtT: -99, killT: -99, killText: '' };
+    this.feedback = { hitT: -99, hitKind: '', hurtT: -99, killT: -99, killText: '', hurtDirT: -99, hurtFromX: 0, hurtFromZ: 0 };
     game.registerEntity(this.collider, this);
 
     // Third-person body for everyone else's views (hidden from our own camera by layer),
     // and the first-person rifle.
-    const color = PLAYER_COLORS[id % PLAYER_COLORS.length];
-    this.model = new CharacterModel({ armor: color });
-    this.model.setLayer(1 + id);
-    this.camera.layers.enableAll();
-    this.camera.layers.disable(1 + id);
-    this.viewmodel = new Viewmodel(game.textures, color);
+    const armor = color ?? PLAYER_COLORS[id % PLAYER_COLORS.length];
+    this.model = new CharacterModel({ armor });
+    if (this.isBot) {
+      // Everyone sees bots; they have no view of their own.
+      this.viewmodel = null;
+    } else {
+      this.model.setLayer(1 + id);
+      this.camera.layers.enableAll();
+      this.camera.layers.disable(1 + id);
+      this.viewmodel = new Viewmodel(game.textures, armor);
+    }
   }
 
   get alive() {
@@ -272,6 +280,9 @@ export class Player {
     lx /= this.aimZoom;
     ly /= this.aimZoom;
     this.yaw -= lx;
+    // Keep yaw in [-PI, PI] so long sessions never lose precision.
+    if (this.yaw > Math.PI) this.yaw -= Math.PI * 2;
+    else if (this.yaw < -Math.PI) this.yaw += Math.PI * 2;
     this.pitch = clamp(this.pitch - ly, -CAMERA.maxPitch, CAMERA.maxPitch);
     this.lastLookX = lx;
     this.lastLookY = ly;
@@ -340,6 +351,14 @@ export class Player {
 
   onDamaged(res, info) {
     this.feedback.hurtT = this.game.time;
+    // Where it came from, for the damage arrow (and so bots turn to face it).
+    const src = info.cause === 'explosion' ? info.point : info.attacker?.center;
+    if (src && info.attacker !== this) {
+      this.feedback.hurtFromX = src.x;
+      this.feedback.hurtFromZ = src.z;
+      this.feedback.hurtDirT = this.game.time;
+    }
+    this.brain?.onHurt(info.attacker);
     if (res.broke) this.game.sfx.play('shieldBreak');
     else if (res.healthDamage > 0 && info.cause !== 'fire') this.game.sfx.play('hurt');
   }
@@ -850,7 +869,7 @@ export class Player {
         climbing: this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars',
       });
     }
-    this.viewmodel.update(dt, this, this.lastLookX, this.lastLookY);
+    this.viewmodel?.update(dt, this, this.lastLookX, this.lastLookY);
     this.lastLookX = 0;
     this.lastLookY = 0;
   }
@@ -874,7 +893,7 @@ export class Player {
 
   dispose() {
     this.model.dispose();
-    this.viewmodel.dispose();
+    this.viewmodel?.dispose();
     this.world.removeCharacterController(this.cc);
     this.world.removeRigidBody(this.body);
   }

@@ -33,11 +33,15 @@ const DEFAULTS = {
   fov: 95,
   showFps: false,
   volume: 0.7,
+  bots: 3,
+  botSkill: 'normal',
 };
 
 export const SENSITIVITY_RANGE = { min: 0.1, max: 4, step: 0.05 };
 export const FOV_RANGE = { min: 70, max: 115, step: 1 };
 export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 };
+export const MAX_BOTS = 7;
+export const BOT_SKILLS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
 function load() {
   const out = { ...DEFAULTS };
@@ -51,6 +55,8 @@ function load() {
   if (!Number.isFinite(out.sensitivity)) out.sensitivity = DEFAULTS.sensitivity;
   if (!Number.isFinite(out.fov)) out.fov = DEFAULTS.fov;
   if (!Number.isFinite(out.volume)) out.volume = DEFAULTS.volume;
+  out.bots = Number.isInteger(out.bots) ? Math.max(0, Math.min(MAX_BOTS, out.bots)) : DEFAULTS.bots;
+  if (!BOT_SKILLS[out.botSkill]) out.botSkill = DEFAULTS.botSkill;
   return out;
 }
 
