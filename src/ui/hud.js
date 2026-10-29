@@ -4,6 +4,7 @@ import { currentSpread } from '../combat/shooting.js';
 import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
 import { controlsHtml } from './controls.js';
 import { clockText, ordinal } from '../match.js';
+import { Radar } from './radar.js';
 
 // Per-player HUD laid over that player's viewport. Plain DOM; every write is cached so the
 // DOM is only touched when a value actually changes.
@@ -58,7 +59,7 @@ export class Hud {
         <div class="bar health"><i></i></div>
       </div>
       <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
-      <div class="hud-match"><div class="hud-clock"></div><div class="hud-place"></div><div class="hud-feed"></div></div>
+      <div class="hud-match"><div class="hud-clock"></div><div class="hud-standings"></div><div class="hud-feed"></div></div>
       <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
       <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
       <div class="target-name"></div>
@@ -97,7 +98,7 @@ export class Hud {
       scope: q('.scope'),
       tag: q('.hud-tag'),
       clock: q('.hud-clock'),
-      place: q('.hud-place'),
+      standings: q('.hud-standings'),
       feed: q('.hud-feed'),
       scores: q('.hud-scores'),
       scoresBody: q('.hud-scores tbody'),
@@ -121,6 +122,7 @@ export class Hud {
       hint: q('.hud-hint'),
       debug: q('.hud-debug'),
     };
+    this.radar = new Radar(this.el);
     this.cache = {};
     this.rect = { x: 0, y: 0, w: 1, h: 1 };
     this._rect = '';
@@ -143,7 +145,9 @@ export class Hud {
     s.width = `${rect.w}px`;
     s.height = `${rect.h}px`;
     // Scale HUD text with the view so split-screen stays readable but uncluttered.
-    s.setProperty('--hud-scale', Math.max(0.6, Math.min(1.2, rect.h / 720)).toFixed(3));
+    const scale = Math.max(0.6, Math.min(1.2, rect.h / 720));
+    s.setProperty('--hud-scale', scale.toFixed(3));
+    this.radar.layout(scale);
   }
 
   hintFor(player, zones, game) {
@@ -297,6 +301,7 @@ export class Hud {
     }
 
     this.updateMatch(player, game);
+    this.radar.update(player, game);
 
     const hint = this.hintFor(player, game.zones, game);
     this.set('hint', hint, (x) => {
@@ -317,13 +322,22 @@ export class Hud {
     this.set('debug', debug, (x) => (e.debug.textContent = x));
   }
 
-  // Clock, your place and score, the kill feed, and the scoreboard while it's held.
+  // Clock, everyone's place and score (yours highlighted), the kill feed, and the full scoreboard
+  // while it's held.
   updateMatch(player, game) {
     const e = this.els;
     const m = game.match;
     this.set('clock', m.timed ? clockText(m.timeLeft) : '', (x) => (e.clock.textContent = x));
     this.set('clockHot', m.timed && m.timeLeft <= 30, (x) => e.clock.classList.toggle('hot', x));
-    this.set('place', `${ordinal(m.placeOf(player))} · ${player.stats.score}`, (x) => (e.place.textContent = x));
+    // Scores only change with a kill, which also bumps the feed.
+    this.set('standings', `${m.feedVersion}:${game.players.length}`, () => {
+      let rows = '';
+      for (const s of m.standings()) {
+        const p = s.player;
+        rows += `<div${p === player ? ' class="me"' : ''}><span>${s.place}</span><i style="background:${hex(p.color)}"></i><em>${p.name}</em><b>${p.stats.score}</b></div>`;
+      }
+      e.standings.innerHTML = rows;
+    });
     const feed = visibleFeed(m, game.time);
     this.set('feed', feed.key, () => (e.feed.innerHTML = m.feed.slice(feed.first).map(feedRow).join('')));
 
@@ -341,6 +355,7 @@ export class Hud {
   }
 
   dispose() {
+    this.radar.dispose();
     this.el.remove();
   }
 }
