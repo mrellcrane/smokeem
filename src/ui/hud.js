@@ -8,8 +8,8 @@ import { clockText, ordinal } from '../match.js';
 // DOM is only touched when a value actually changes.
 
 const KEY_LABELS = {
-  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D' },
-  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick' },
+  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'Q' },
+  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB' },
 };
 
 const HITMARKER_TIME = 0.18;
@@ -163,6 +163,8 @@ export class Hud {
         break;
     }
     if (player.guiding) return `${k.steer} steer · ${k.fire} to blow it early`;
+    if (game.swarms.on(player)) return `Bugs on you! ${k.melee} to swat them`;
+    if (game.swarms.after(player)) return 'Bugs coming: sprint away or swat them';
     const prompt = player.pickupPrompt;
     if (prompt) return `${k.interact}: swap ${player.weapon.def.name} for ${prompt.def.name}`;
     if (player.inFire) return 'Too hot!';
@@ -343,6 +345,7 @@ function deathText(info, victim) {
     return `Smoked yourself with your own ${info.weapon?.name ?? 'explosion'}`;
   }
   if (info.cause === 'melee') return `Tenderized by ${info.attacker?.name ?? 'someone'}${info.backstab ? ' from behind' : ''}`;
+  if (info.cause === 'swarm') return `Stung to death by ${info.attacker?.name ?? 'someone'}'s bugs`;
   if (info.cause === 'explosion') return `Blown up by ${info.attacker?.name ?? 'someone'}'s ${info.weapon?.name ?? 'boom'}`;
   if (info.attacker) return `Smoked by ${info.attacker.name}${info.headshot ? ' (headshot)' : ''}`;
   return 'Smoked';

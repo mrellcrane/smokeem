@@ -7,6 +7,8 @@ import { GUNS } from './guns/index.js';
 //   pellets   several rays per shot (Mesquite)
 //   missile   a guided rocket you fly from its own camera (Smoke Signal)
 //   launcher  throws a physics projectile described by `projectile` (Chimney coals)
+//   bolt      lobs a ballistic bolt described by `projectile` (the Swarm Jar's jar, bolts.js)
+//   beam      an exact ray per pulse whose damage ramps up on one target (Brander)
 // spinUp / spinDown: a gun whose barrels must spin up before it fires (Rotisserie).
 // bot: { min, max, pref } is the range band (meters) bots like to use a gun in; `power` marks
 // a power weapon bots save for good moments.
@@ -61,6 +63,11 @@ export class WeaponState {
     // 0..1 barrel spin for spin-up guns (fires only at 1).
     this.spin = 0;
     this.spinSfx = null;
+    // Beam ramp: who we're on, for how long, when we last touched them, last hit tick.
+    this.beamTarget = null;
+    this.beamHeat = 0;
+    this.beamHitT = -99;
+    this.hitSoundT = -99;
   }
 
   get reloading() {

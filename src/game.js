@@ -13,6 +13,8 @@ import { Dummy, DUMMY_POSTS } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
+import { Bolts } from './combat/bolts.js';
+import { Swarms } from './combat/swarms.js';
 import { Pickups } from './combat/pickups.js';
 import { NavGraph } from './ai/navgraph.js';
 import { MUDLARK_LINKS } from './ai/mapLinks.js';
@@ -137,6 +139,10 @@ export class Game {
     this.fx = new Effects(scene, this.textures);
     this.missiles = new Missiles(this, this.materials.props, this.textures);
     this.grenades = new Grenades(this, this.materials.props);
+    this.bolts = new Bolts(this, this.materials.props);
+    this.swarms = new Swarms(this, this.materials.props);
+    this.bolts.onImpact.jar = (b, hit) => this.swarms.release(b, hit);
+    if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'beam')) this.fx.enableBeams(scene);
     this.pickups = new Pickups(this, this.materials.props);
     this.setupViewmodelScene();
     // One step so scene queries see the static colliders before anyone spawns.
@@ -246,8 +252,11 @@ export class Game {
     const fwd = new THREE.Vector3(0, 0, -3).applyQuaternion(cam.quaternion).add(cam.position);
     this.missiles.warmup(true, fwd);
     this.grenades.warmup(true, fwd);
+    this.bolts.warmup(true, fwd);
+    this.swarms.warmup(true, fwd);
     this.fx.explosion(fwd, 5);
     this.fx.tracer(cam.position, fwd, 0xffffff);
+    this.fx.beam(cam.position, fwd, 0xffffff, 0.03);
     this.fx.impactWorld(fwd, new THREE.Vector3(0, 1, 0));
     this.fx.deathPuff(fwd.x, fwd.y - 1, fwd.z);
     this.fx.update(0.001);
@@ -266,6 +275,8 @@ export class Game {
     for (const d of this.dummies) d.model.warmup(false);
     this.missiles.warmup(false);
     this.grenades.warmup(false);
+    this.bolts.warmup(false);
+    this.swarms.warmup(false);
     this.fx.update(10);
     this.needsRender = true;
   }
@@ -449,6 +460,8 @@ export class Game {
     for (const p of this.players) p.tick(dt);
     this.missiles.tick(dt);
     this.grenades.tick(dt);
+    this.bolts.tick(dt);
+    this.swarms.tick(dt);
     this.pickups.tick(dt);
     for (const d of this.dummies) d.tick(dt);
     this.physics.world.step();
@@ -464,6 +477,8 @@ export class Game {
     for (const d of this.dummies) d.updateVisual(dt, alpha);
     this.missiles.updateVisuals(alpha);
     this.grenades.updateVisuals(alpha);
+    this.bolts.updateVisuals(alpha);
+    this.swarms.updateVisuals(alpha);
     this.pickups.updateVisuals(this.time);
     this.fx.update(dt);
   }
@@ -522,6 +537,8 @@ export class Game {
     for (const d of this.dummies) d.dispose();
     this.grenades.clear();
     this.grenades.dispose();
+    this.bolts.dispose();
+    this.swarms.dispose();
     this.missiles.dispose();
     this.pickups.dispose();
     this.fx.dispose();

@@ -15,7 +15,8 @@ import { WEAPONS } from '../combat/weapons.js';
 //   highGround  share of roam goals picked above ground level
 //   mobile      push in more often while fighting
 //   power       a power weapon: used now and then, always worth a swap
-//   hold        keep the trigger down through the fight (spin-up guns)
+//   hold        no burst gaps (beams, spin-up guns); spin-up guns also keep spinning in range
+//   noSight     fired at someone's last-seen spot while chasing (Swarm Jar)
 //   lob         aim a ballistic arc at the target's feet (launchers)
 // semiRate: share of a semi-auto gun's full fire rate a bot taps at; lead: how much of a
 // moving target's travel a bot leads lobbed shots by.
@@ -113,6 +114,11 @@ export class BotBrain {
     this.burstT = 0;
     this.tapT = 0;
     this.swapping = false;
+    // When bugs latched on (0 when they aren't).
+    this.swarmT = 0;
+    // A lob gun found no arc to the target last tick; the sighting we last lobbed a jar at.
+    this.lobFail = false;
+    this.lobbedAtSeenT = -1;
     // The pickup we set out for (swapped for when we stand on it).
     this.goalItem = null;
     this.grenadeT = 3 + Math.random() * 3;
@@ -192,7 +198,19 @@ export class BotBrain {
     // Out of a fight: load guns we put away dry, then top up the one in hand.
     if (!sees) this.refill();
 
-    if (sees) this.fight(dt);
+    // Bugs: Normal and Hard bots swat them once they notice; Easy bots run from them.
+    const swarms = this.game.swarms;
+    let chaser = null;
+    if (swarms.count && swarms.on(p)) {
+      this.swarmT ||= t;
+      if (this.skillName !== 'easy' && t - this.swarmT > this.skill.reaction && p.meleeT <= 0) s.press('melee');
+    } else {
+      this.swarmT = 0;
+      if (swarms.count && this.skillName === 'easy') chaser = swarms.after(p);
+    }
+
+    if (chaser) this.flee(chaser, dt);
+    else if (sees) this.fight(dt);
     else if (this.target && t - this.lastSeenT < MEMORY) this.chase(dt);
     else this.roam(dt);
 
@@ -282,7 +300,7 @@ export class BotBrain {
     p.eyePosition(_e);
     const dx = Math.hypot(point.x - _e.x, point.z - _e.z);
     if (dx < 0.5) return null;
-    const g = LOB_GRAVITY;
+    const g = def.projectile.gravity ?? LOB_GRAVITY;
     const k = def.projectile.damping ?? 0;
     const up = def.launchUp ?? 0;
     let t = dx / def.launchSpeed;
@@ -297,7 +315,7 @@ export class BotBrain {
       theta = Math.atan((s * s - Math.sqrt(disc)) / (g * dx));
       t = dx / (s * Math.cos(theta));
     }
-    if (t > def.projectile.fuse * 0.95) return null;
+    if (t > (def.projectile.fuse ?? def.projectile.life ?? Infinity) * 0.95) return null;
     this.lobTime = t;
     return theta - Math.atan2(point.y - _e.y, dx);
   }
@@ -353,6 +371,8 @@ export class BotBrain {
       }
       const a = this.lobArc(_t, w);
       lobOk = a !== null;
+      // No arc reaches them from here: close in, or let chooseWeapon swap to the other gun.
+      this.lobFail = !lobOk;
       arc = a ?? 0;
     } else {
       // Chest height, or the head for Hard bots with a precision gun.
@@ -366,11 +386,12 @@ export class BotBrain {
       this.burstOn = !this.burstOn;
       this.burstT = (this.burstOn ? sk.burst[0] : sk.burst[1]) * (0.7 + Math.random() * 0.6);
     }
-    const inRange = dist >= w.bot.min && dist <= w.bot.max * 1.2;
+    // A little past the band is fine, but never past what the gun reaches (the Brander's beam).
+    const inRange = dist >= w.bot.min && dist <= Math.min(w.bot.max * 1.2, w.range ?? Infinity);
     const cone = (sk.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist))) * (w.bot.careful ?? 1);
     const onTarget = w.bot.lob ? lobOk && this.aimOff() < cone : this.aimError(_t) < cone;
     // Spin-up guns keep the trigger down through the whole fight so the barrels stay hot.
-    if (w.bot.hold && inRange && this.reactT <= 0 && this.throwT <= 0) s.held.fire = true;
+    if (w.spinUp && w.bot.hold && inRange && this.reactT <= 0 && this.throwT <= 0) s.held.fire = true;
     if (this.reactT <= 0 && this.throwT <= 0 && inRange && onTarget) {
       if (w.auto) {
         if (this.burstOn || w.bot.hold) s.held.fire = true;
@@ -413,7 +434,7 @@ export class BotBrain {
     }
     const pref = w.bot.pref;
     s.moveX = this.strafe * sk.strafe;
-    s.moveY = dist > pref * 1.5 ? 1 : dist < pref * 0.5 ? -0.7 : 0;
+    s.moveY = dist > pref * 1.5 || (w.bot.lob && this.lobFail) ? 1 : dist < pref * 0.5 ? -0.7 : 0;
     if (Math.random() < sk.jumpRate * dt) s.press('jump');
     // Don't let go halfway up a net or rope.
     if (p.mode === 'net' || p.mode === 'rope' || p.mode === 'bars') {
@@ -447,7 +468,8 @@ export class BotBrain {
       this.switchWeapon();
       return;
     }
-    const cur = bandFit(w, dist);
+    // A lob gun that can't reach them from here counts as out of its band.
+    const cur = w.def.bot.lob && this.lobFail ? -1 : bandFit(w, dist);
     const alt = bandFit(other, dist);
     if (other.def.bot.power && Math.random() > 0.02) return;
     if (alt > cur + 0.25) this.switchWeapon();
@@ -493,7 +515,47 @@ export class BotBrain {
       this.chaseReplanT = 1.5;
       this.planTo(this.lastSeen, 'chase');
     }
-    if (!this.followPath(dt, true)) this.target = null;
+    // A gun that doesn't need a sighting (the Swarm Jar): lob it where they were last seen,
+    // walking the route meanwhile.
+    const w = this.player.weapon;
+    const lobbing = w.def.bot.noSight && w.mag > 0 && !w.reloading && this.lobAtLastSeen(dt);
+    if (!this.followPath(dt, !lobbing, lobbing)) this.target = null;
+  }
+
+  // One jar per sighting: the swarm it lets out hunts that spot on its own.
+  lobAtLastSeen(dt) {
+    const p = this.player;
+    const w = p.weapon.def;
+    if (this.lobbedAtSeenT === this.lastSeenT) return false;
+    const dist = p.center.distanceTo(this.lastSeen);
+    if (dist < w.bot.min || dist > w.bot.max * 1.2) return false;
+    _t.copy(this.lastSeen);
+    _t.y -= 0.8;
+    // The launch adds half our own velocity: aim off that much.
+    if (this.lobArc(_t, w) === null) return false;
+    _t.addScaledVector(p.vel, -0.5 * this.lobTime);
+    const arc = this.lobArc(_t, w);
+    if (arc === null) return false;
+    this.aimAt(_t, dt, arc);
+    const cone = this.skill.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist));
+    if (this.aimOff() < cone && p.weapon.cooldown <= 0 && this.tapT <= 0 && p.switchT <= 0) {
+      this.state.press('fire');
+      this.tapT = 1 / (w.fireRate * this.skill.semiRate);
+      this.lobbedAtSeenT = this.lastSeenT;
+    }
+    return true;
+  }
+
+  // Easy bots run from a swarm that's after them: face away and sprint.
+  flee(swarm, dt) {
+    const p = this.player;
+    const s = this.state;
+    const ax = p.center.x - swarm.pos.x;
+    const az = p.center.z - swarm.pos.z;
+    const h = Math.hypot(ax, az) || 1;
+    this.faceToward(p.center.x + (ax / h) * 5, p.center.z + (az / h) * 5, dt);
+    s.moveY = 1;
+    s.held.sprint = true;
   }
 
   roam(dt) {

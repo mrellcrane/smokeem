@@ -74,6 +74,44 @@ const SOUNDS = {
       const saw = (s.phase % 1) * 2 - 1;
       return 0.25 * saw * Math.exp(-t * 2.2) * Math.min(1, (1 - t) / 0.1);
     }),
+  // Brander: a band of hissing noise over a mains-like hum (re-triggered while firing, pitched
+  // up as it heats), and the vent hiss on reload.
+  sizzle: (ctx) =>
+    synth(ctx, 0.3, (t, s, rate) => {
+      s.prev += (noise() - s.prev) * 0.45;
+      s.phase2 += (s.prev - s.phase2) * 0.06;
+      s.phase += (120 * Math.PI * 2) / rate;
+      const env = Math.min(1, t / 0.02) * Math.min(1, (0.3 - t) / 0.05);
+      return env * (0.9 * (s.prev - s.phase2) + 0.22 * Math.sin(s.phase) + 0.06 * Math.sign(Math.sin(s.phase)));
+    }),
+  vent: (ctx) =>
+    synth(ctx, 0.8, (t, s) => {
+      s.prev += (noise() - s.prev) * (0.7 - 0.55 * (t / 0.8));
+      return 0.55 * s.prev * Math.min(1, t / 0.03) * Math.exp(-t * 2.6);
+    }),
+  // Swarm Jar: a cork pop on the throw, glass smashing, the swarm's buzz, and a swat.
+  pop: (ctx) => synth(ctx, 0.09, (t) => 0.6 * click(t, 0, 420, 55) + 0.35 * noise() * Math.exp(-t * 90)),
+  smash: (ctx) =>
+    synth(
+      ctx,
+      0.35,
+      (t) =>
+        0.55 * noise() * Math.exp(-t * 16) +
+        0.3 * click(t, 0, 3200, 90) +
+        0.25 * click(t, 0.025, 4700, 110) +
+        0.22 * click(t, 0.06, 5900, 120) +
+        0.2 * click(t, 0.1, 3800, 100),
+    ),
+  buzz: (ctx) =>
+    synth(ctx, 0.4, (t, s, rate) => {
+      const f = 195 + 35 * Math.sin(t * Math.PI * 2 * 3);
+      s.phase += f / rate;
+      const saw = (s.phase % 1) * 2 - 1;
+      const trem = 0.6 + 0.4 * Math.sin(t * Math.PI * 2 * 18);
+      const env = Math.min(1, t / 0.05) * Math.min(1, (0.4 - t) / 0.05);
+      return 0.3 * saw * trem * env;
+    }),
+  swat: (ctx) => synth(ctx, 0.14, (t) => 0.5 * noise() * Math.exp(-t * 40) + 0.4 * click(t, 0, 300, 40)),
   // Last seconds of the match clock, and time's up.
   tick: (ctx) => synth(ctx, 0.09, (t) => 0.35 * Math.sin(t * 1320 * Math.PI * 2) * Math.exp(-t * 40)),
   horn: (ctx) =>
@@ -106,6 +144,12 @@ const MIX = {
   rotisserie: { volume: 0.85, ref: 18, wet: 0.35, voices: 8 },
   spinUp: { volume: 0.5, ref: 10, voices: 4 },
   spinDown: { volume: 0.45, ref: 10, voices: 4 },
+  sizzle: { volume: 0.55, ref: 12, voices: 8 },
+  vent: { volume: 0.5, ref: 6, voices: 4 },
+  pop: { volume: 0.7, ref: 10, voices: 4 },
+  smash: { volume: 0.8, ref: 14, wet: 0.25, voices: 4 },
+  buzz: { volume: 0.5, ref: 8, voices: 8 },
+  swat: { volume: 0.6, ref: 8, voices: 4 },
   pump: { volume: 0.6, ref: 6, voices: 4 },
   launch: { volume: 0.7, ref: 20, wet: 0.35, voices: 4 },
   boom: { volume: 0.95, ref: 28, wet: 0.5, voices: 6 },

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DEG } from '../util/math.js';
 import { dealDamage } from './damage.js';
 import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
+import { SWARM } from './swarms.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
 // reload, weapon switching, grenades, melee, launching and detonating the Smoke Signal.
@@ -17,6 +18,8 @@ const _c = new THREE.Vector3();
 const _vf = new THREE.Vector3();
 const _pt = new THREE.Vector3();
 const _n = new THREE.Vector3();
+const _col = new THREE.Color();
+const _hot = new THREE.Color();
 
 // Pellet hits are summed per target so one shotgun blast is one damage event.
 const pelletHits = new Map();
@@ -185,6 +188,7 @@ function fire(game, p) {
   p.sprinting = false;
   p.sprintLock = d.sprintLock ?? 0.35;
   p.viewmodel?.fired();
+  if (d.kind === 'beam') return fireBeam(game, p);
   // Fast guns can play their sound every so often instead of on every round.
   if (!d.soundEvery || game.time - w.lastSoundT >= d.soundEvery) {
     game.sfx.play(d.sound, { rate: (d.soundRate ?? 1) * (0.97 + Math.random() * 0.06), at: p.center, source: p });
@@ -202,6 +206,22 @@ function fire(game, p) {
     _d.copy(_f).multiplyScalar(d.launchSpeed).addScaledVector(p.vel, 0.5);
     _d.y += d.launchUp ?? 0;
     game.grenades.throw(p, _muzzle, _d, d.projectile, d);
+    return;
+  }
+
+  if (d.kind === 'bolt') {
+    // Lobbed the same way, but it flies as a bolt (no physics body) and breaks on contact.
+    _muzzle.copy(_o).addScaledVector(_f, 0.55).addScaledVector(_r, 0.16).addScaledVector(_u, -0.05);
+    // Facing a wall: launch from just in front of it, never from inside it.
+    _c.subVectors(_muzzle, _o);
+    const reach = _c.length();
+    _c.divideScalar(reach);
+    const block = game.castShot(_o, _c, reach, p.collider);
+    if (block.hit && !block.entity) _muzzle.copy(_o).addScaledVector(_c, Math.max(0, block.distance - 0.05));
+    _d.copy(_f).multiplyScalar(d.launchSpeed).addScaledVector(p.vel, 0.5);
+    _d.y += d.launchUp ?? 0;
+    game.bolts.fire(p, _muzzle, _d, d.projectile, d);
+    game.sfx.play('clink', { at: p.center, source: p, delay: 0.04 });
     return;
   }
 
@@ -225,6 +245,8 @@ function fire(game, p) {
     _d.copy(_f).addScaledVector(_r, Math.cos(a) * rr).addScaledVector(_u, Math.sin(a) * rr).normalize();
     const hit = game.castShot(_o, _d, d.range, p.collider);
     _end.copy(_o).addScaledVector(_d, hit.hit ? hit.distance : d.range);
+    // Bugs in the line of fire get hit too (the round carries on).
+    if (game.swarms.count) game.swarms.shot(_o, _d, hit.hit ? hit.distance : d.range, d.damage, p);
     // Fast guns draw a tracer on every few rounds (always the first) so several of them never
     // flood the pool.
     if (rays === 1 ? (w.shots - 1) % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
@@ -286,6 +308,11 @@ function melee(game, p) {
   p.viewmodel?.bash();
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
+  // Bugs on you: the swing swats them instead.
+  if (game.swarms.count && game.swarms.swat(p, _f)) {
+    game.sfx.play('swing', { at: p.center, source: p });
+    return;
+  }
 
   // Closest living body roughly in front of us, in reach, not behind a wall.
   let target = null;
@@ -330,4 +357,54 @@ function melee(game, p) {
   game.fx.impactBody(_pt, _n, target.vitals.shield > 0 && !backstab);
   game.sfx.play('bash', { at: p.center, source: p });
   if (res) p.onHitConfirmed(res, false);
+}
+
+// The Brander: one exact ray per pulse, heating up while it stays on the same target.
+function fireBeam(game, p) {
+  const w = p.weapon;
+  const d = w.def;
+  const now = game.time;
+  aimBasis(p, _f, _r, _u);
+  p.eyePosition(_o);
+  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.12);
+  const hit = game.castShot(_o, _f, d.range, p.collider);
+  const dist = hit.hit ? hit.distance : d.range;
+  _end.copy(_o).addScaledVector(_f, dist);
+
+  // Heat is how long we've stayed on this target; slipping off for up to rampGrace keeps it,
+  // a longer gap or a different target starts over.
+  const kept = now - w.beamHitT <= d.rampGrace;
+  if (hit.entity) {
+    // Only time on the target heats it; a short slip just holds the heat.
+    if (hit.entity === w.beamTarget && kept) w.beamHeat += Math.min(now - w.beamHitT, 1 / d.fireRate);
+    else w.beamHeat = 0;
+    w.beamTarget = hit.entity;
+    w.beamHitT = now;
+  } else if (!kept) {
+    w.beamTarget = null;
+    w.beamHeat = 0;
+  }
+  const dps = Math.min(d.rampMax, d.rampStart + d.rampRate * w.beamHeat);
+  const glow = (dps - d.rampStart) / (d.rampMax - d.rampStart);
+  _col.set(d.beamColor).lerp(_hot.set(d.beamHot), glow);
+  game.fx.beam(_muzzle, _end, _col, d.beamWidth * (1 + glow * 0.5));
+
+  if (game.swarms.count) game.swarms.shot(_o, _f, dist, SWARM.hp / (SWARM.beamKillTime * d.fireRate), p);
+
+  // A sizzle every so often, pitched up in three steps as it heats.
+  if (now - w.lastSoundT >= d.soundEvery) {
+    game.sfx.play(d.sound, { rate: glow < 0.34 ? 1 : glow < 0.67 ? 1.18 : 1.4, at: p.center, source: p });
+    w.lastSoundT = now;
+    game.noise(p, 30);
+  }
+
+  if (!hit.hit) return;
+  if (w.shots % 2 === 0) game.fx.burst(hit.point, hit.normal, _col.getHex(), 2, 3, 0.06);
+  if (!hit.entity) return;
+  const res = dealDamage(game, hit.entity, dps / d.fireRate, { attacker: p, weapon: d, point: hit.point, dir: _f });
+  if (!res) return;
+  // Twenty pulses a second would bury the hit tick; play it every quarter second (and on kills).
+  const tick = res.killed || now - w.hitSoundT >= 0.25;
+  if (tick) w.hitSoundT = now;
+  p.onHitConfirmed(res, false, tick);
 }
