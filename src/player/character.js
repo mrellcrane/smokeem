@@ -8,6 +8,9 @@ import { GLOW, SCREEN } from '../combat/weaponModels.js';
 // Built from boxes, rigidly skinned to a 12-bone body skeleton plus one bone per gun in the
 // match's set, so each body is a single draw call (plus its shadow) no matter how it's posed.
 // Faces -z like the camera; its right side is +x.
+// Body language (update): the legs run toward where the body is going while the torso and gun
+// stay on the aim, feet plant, jumps tuck and land with a squash, and the gun rides at the hip,
+// at the shoulder when firing or zoomed, or across the chest when sprinting.
 
 const JOINTS = {
   root: [0, 0, 0],
@@ -62,19 +65,43 @@ function aim(x, y, z) {
 function relative(parent, child) {
   return parent.clone().invert().multiply(child);
 }
+// Three holds: at the hip (walking around), at the shoulder (firing or zoomed), and across the
+// chest (sprinting); plus arms up for climbing.
 const ARM_POSE = (() => {
-  const holdUR = aim(-0.3, -0.75, -0.6);
-  const holdUL = aim(0.5, -0.5, -0.7);
+  const pose = (ur, lr, ul, ll) => {
+    const UR = aim(...ur);
+    const UL = aim(...ul);
+    return { UR, LR: relative(UR, aim(...lr)), UL, LL: relative(UL, aim(...ll)) };
+  };
   const up = aim(0.05, 1, -0.25);
   return {
-    holdUR,
-    holdLR: relative(holdUR, aim(-0.15, 0.05, -1)),
-    holdUL,
-    holdLL: relative(holdUL, aim(0.3, 0.1, -0.95)),
-    upU: up,
-    upL: new THREE.Quaternion(),
+    hold: pose([-0.3, -0.75, -0.6], [-0.15, 0.05, -1], [0.5, -0.5, -0.7], [0.3, 0.1, -0.95]),
+    aim: pose([-0.25, -0.55, -0.8], [-0.1, 0.2, -1], [0.55, -0.4, -0.75], [0.25, 0.28, -0.95]),
+    sprint: pose([-0.1, -0.85, -0.45], [-0.75, 0.25, -0.6], [0.35, -0.8, -0.4], [0.7, 0.45, -0.55]),
+    up: { UR: up, LR: new THREE.Quaternion(), UL: up, LL: new THREE.Quaternion() },
   };
 })();
+// Where the held gun sits for each hold, relative to its carry point (meters) and turned
+// (radians, x then y then z).
+const GUN_POSE = {
+  aim: { pos: [-0.05, 0.15, -0.04], rot: [0.04, 0, 0] },
+  sprint: { pos: [-0.07, -0.04, 0.06], rot: [-0.45, 0.85, 0.35] },
+};
+
+// Gait: one stride (half a leg cycle) covers this many meters, from walking to sprinting, so
+// the feet plant instead of sliding.
+const STRIDE_MIN = 0.9;
+const STRIDE_MAX = 1.6;
+// The hips turn toward where the body is going (at most this far off the aim) while the spine
+// turns back, so the torso and gun stay on the aim.
+const HIP_TURN = 70 * (Math.PI / 180);
+const LEAN_MAX = 8 * (Math.PI / 180);
+
+const ARM_BONES = [['UR', 'armUR'], ['LR', 'armLR'], ['UL', 'armUL'], ['LL', 'armLL']];
+const _qa = new THREE.Quaternion();
+const _qb = new THREE.Quaternion();
+const _e = new THREE.Euler();
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // The undersuit is mid charcoal, so the armor's color and the body's shape read against dark
 // walls and shade.
@@ -119,9 +146,10 @@ function parts(r) {
     const x = 0.33 * s;
     const lx = 0.12 * s;
     P.push(
-      // Big shoulder pads with a light strip on the outside.
-      [`armU${side}`, [x + 0.01 * s, 1.45, 0], [0.22, 0.16, 0.28], 'armor'],
-      [`armU${side}`, [x + 0.121 * s, 1.45, 0], [0.012, 0.045, 0.22], 'strip'],
+      // Big shoulder pads with a light strip on the outside. They ride the torso, not the
+      // arm, so they stay on the shoulders when the gun comes up.
+      ['spine', [x + 0.01 * s, 1.45, 0], [0.22, 0.16, 0.28], 'armor'],
+      ['spine', [x + 0.121 * s, 1.45, 0], [0.012, 0.045, 0.22], 'strip'],
       [`armU${side}`, [x, 1.29, 0], [0.12, 0.28, 0.13], 'suit'],
       [`armL${side}`, [x, 0.99, 0], [0.13, 0.28, 0.14], 'armor'],
       [`armL${side}`, [x, 0.82, 0], [0.1, 0.09, 0.1], 'suit'],
@@ -255,6 +283,9 @@ export class CharacterModel {
       }
     }
 
+    // The spine turns (against the hips) before it pitches with the aim.
+    this.bones.spine.rotation.order = 'YXZ';
+
     this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r), bodyMaterial());
     this.mesh.add(this.bones.root);
     this.mesh.castShadow = true;
@@ -281,6 +312,9 @@ export class CharacterModel {
     this.group.add(this.shell);
 
     this.weaponId = null;
+    // Each gun bone's resting place, for the holds to move it from.
+    this.gunRest = {};
+    for (const [id, bone] of Object.entries(r.gunBones)) this.gunRest[id] = this.bones[bone].position.clone();
     this.setWeapon(guns[0]);
 
     this.shieldFlash = 0;
@@ -288,10 +322,34 @@ export class CharacterModel {
     this.crouch = 0;
     this.air = 0;
     this.climb = 0;
+    this.hipYaw = 0;
+    this.back = 0;
+    this.lean = 0;
+    this.prevSide = 0;
+    this.sideAcc = 0;
+    this.airT = 0;
+    this.lands = 0;
+    this.landT = 9;
+    this.landHard = 0;
+    this.airJumps = 0;
+    this.kickT = 9;
+    this.kickAmount = 0;
+    this.shotT = -1;
+    this.aimW = 0;
+    this.sprintW = 0;
+    this.djT = 9;
+    // Event counters start from the first state seen.
+    this.seen = false;
   }
 
   setWeapon(id) {
     if (id === this.weaponId) return;
+    // The old gun goes back to its rest (it's hidden, but its bone keeps the hold's offset).
+    const old = this.rig.gunBones[this.weaponId];
+    if (old) {
+      this.bones[old].position.copy(this.gunRest[this.weaponId]);
+      this.bones[old].rotation.set(0, 0, 0);
+    }
     this.weaponId = id;
     // A gun outside the match's set has no bone: the body just shows no gun.
     for (const [wid, bone] of Object.entries(this.rig.gunBones)) {
@@ -309,37 +367,130 @@ export class CharacterModel {
     this.shieldFlash = Math.max(this.shieldFlash, strength);
   }
 
-  // state: { x, y, z (feet), yaw, pitch, speed, grounded, crouched, climbing }
+  // state: { x, y, z (feet), yaw, pitch, speed, grounded, crouched, climbing } plus optional
+  // fwd and side (velocity along the facing and to the right), velY, sprinting, aiming, lands
+  // and airJumps (event counters), landSpeed, shotT (game time of the last shot), fireT (time
+  // since it) and kick (the gun's recoil). Training dummies pass only the basics.
   update(dt, s) {
     const g = this.group;
     g.position.set(s.x, s.y, s.z);
     g.rotation.y = s.yaw;
 
     const B = this.bones;
+    const speed = s.speed;
+    const fwd = s.fwd ?? speed;
+    const side = s.side ?? 0;
+    const velY = s.velY ?? 0;
+    // Events since the last frame.
+    if (!this.seen) {
+      this.seen = true;
+      this.lands = s.lands ?? 0;
+      this.airJumps = s.airJumps ?? 0;
+      this.shotT = s.shotT ?? -1;
+    }
+    if ((s.lands ?? 0) !== this.lands) {
+      this.lands = s.lands;
+      this.landT = 0;
+      this.landHard = clamp(((s.landSpeed ?? 0) - 3) / 10, 0, 1);
+    }
+    let kicked = false;
+    if ((s.airJumps ?? 0) !== this.airJumps) {
+      this.airJumps = s.airJumps;
+      kicked = true;
+    }
+    if ((s.shotT ?? -1) !== this.shotT) {
+      this.shotT = s.shotT;
+      this.kickT = 0;
+      this.kickAmount = s.kick ?? 1;
+    }
+    this.landT += dt;
+    this.kickT += dt;
+    this.djT = kicked ? 0 : this.djT + dt;
+
     this.crouch += ((s.crouched ? 1 : 0) - this.crouch) * damp(12, dt);
     this.air += ((s.grounded || s.climbing ? 0 : 1) - this.air) * damp(10, dt);
     this.climb += ((s.climbing ? 1 : 0) - this.climb) * damp(10, dt);
-    const run = Math.min(1, s.speed / 7);
-    this.phase += dt * (4 + s.speed * 1.1);
-    const sw = Math.sin(this.phase) * 0.75 * run * (1 - this.air);
+    this.airT = s.grounded || s.climbing ? 0 : this.airT + dt;
+    const ground = (1 - this.air) * (1 - this.climb);
 
-    B.hips.position.y = 0.95 - this.crouch * 0.32;
-    B.legUL.rotation.x = sw + this.air * 0.6 + this.crouch * 1.0;
-    B.legUR.rotation.x = -sw + this.air * 0.3 + this.crouch * 1.0;
-    B.legLL.rotation.x = -Math.max(0, -Math.sin(this.phase)) * 1.1 * run * (1 - this.air) - this.air * 0.9 - this.crouch * 1.7;
-    B.legLR.rotation.x = -Math.max(0, Math.sin(this.phase)) * 1.1 * run * (1 - this.air) - this.air * 0.5 - this.crouch * 1.7;
+    // Which way the legs run: the move direction off the facing (0 ahead, + to the right);
+    // backpedaling runs the legs backward, facing the aim.
+    let ang = Math.atan2(side, fwd);
+    const back = speed > 0.5 && Math.abs(ang) > 1.75;
+    if (back) ang -= Math.sign(ang) * Math.PI;
+    const turn = speed > 0.5 ? -clamp(ang, -HIP_TURN, HIP_TURN) : 0;
+    this.hipYaw += (turn * ground - this.hipYaw) * damp(9, dt);
+    this.back += ((back ? 1 : 0) - this.back) * damp(9, dt);
+    // Feet plant: the cycle advances with the distance covered.
+    const stride = clamp(0.55 + speed * 0.12, STRIDE_MIN, STRIDE_MAX);
+    this.phase += ((speed * dt) / stride) * Math.PI * (this.back > 0.5 ? -1 : 1);
+    const run = Math.min(1, speed / 5) * ground * (1 - this.crouch * 0.4);
+    const sn = Math.sin(this.phase);
+    const sw = sn * 0.75 * run;
 
-    // Spine carries the aim pitch, so the arms and rifle follow it together.
-    const pitch = s.pitch;
-    B.spine.rotation.x = pitch * 0.5 - this.crouch * 0.25;
-    B.head.rotation.x = pitch * 0.35;
+    // Air: a quick takeoff crouch, a tuck while rising, legs reaching down when falling, and a
+    // knee kick on the double jump.
+    const rising = clamp(velY / 6, 0, 1);
+    const falling = clamp(-velY / 8, 0, 1);
+    const takeoff = this.airT > 0 && this.airT < 0.08 ? 1 - this.airT / 0.08 : 0;
+    const dj = this.djT < 0.3 ? Math.sin((this.djT / 0.3) * Math.PI) : 0;
+    const tuck = this.air * (0.35 + rising * 0.45 + takeoff * 0.4 - falling * 0.25);
+    // Landing squash: the hips drop (up to 8 cm on a hard landing) and come back up.
+    const lt = this.landT;
+    const squash = this.landHard * 0.08 * (lt < 0.06 ? lt / 0.06 : Math.max(0, 1 - (lt - 0.06) / 0.2));
+    const bend = this.crouch + squash / 0.32;
 
-    // Arms hold the rifle; while climbing they reach up instead.
+    B.hips.position.y = 0.95 - this.crouch * 0.32 - squash - Math.abs(Math.cos(this.phase)) * 0.03 * run;
+    B.hips.rotation.y = this.hipYaw;
+    B.hips.rotation.z = sn * 0.07 * run;
+    B.legUL.rotation.x = sw + tuck * 1.2 + dj * 0.9 + bend * 1.0;
+    B.legUR.rotation.x = -sw + tuck * 0.8 + dj * 0.2 + bend * 1.0;
+    B.legLL.rotation.x = -Math.max(0, -sn) * 1.1 * run - tuck * 1.6 - dj * 0.3 - bend * 1.7;
+    B.legLR.rotation.x = -Math.max(0, sn) * 1.1 * run - tuck * 1.2 - dj * 1.3 - bend * 1.7;
+
+    // Lean into sideways acceleration, at most 8 degrees.
+    if (dt > 0) {
+      this.sideAcc += ((side - this.prevSide) / dt - this.sideAcc) * damp(6, dt);
+      this.prevSide = side;
+    }
+    const leanTo = clamp(-this.sideAcc * 0.012, -LEAN_MAX, LEAN_MAX) * ground;
+    this.lean += (leanTo - this.lean) * damp(8, dt);
+    B.root.rotation.z = this.lean;
+
+    // The spine turns back against the hips (so the torso faces the aim) and carries the aim
+    // pitch, so the arms and gun follow it together; each shot kicks it up a little.
+    const kick = this.kickT < 0.25 ? this.kickAmount * 0.035 * Math.exp(-this.kickT * 14) : 0;
+    B.spine.rotation.y = -this.hipYaw;
+    B.spine.rotation.x = s.pitch * 0.5 - this.crouch * 0.25 + kick;
+    B.head.rotation.x = s.pitch * 0.35;
+
+    // The gun: at the shoulder while firing or zoomed, across the chest while sprinting,
+    // otherwise at the hip; the arms reach up instead while climbing.
+    const aiming = s.aiming || (s.fireT ?? 99) < 0.6;
+    this.aimW += ((aiming ? 1 : 0) - this.aimW) * damp(14, dt);
+    this.sprintW += ((s.sprinting && !aiming && speed > 1 ? 1 : 0) - this.sprintW) * damp(8, dt);
     const k = this.climb;
-    B.armUR.quaternion.slerpQuaternions(ARM_POSE.holdUR, ARM_POSE.upU, k);
-    B.armLR.quaternion.slerpQuaternions(ARM_POSE.holdLR, ARM_POSE.upL, k);
-    B.armUL.quaternion.slerpQuaternions(ARM_POSE.holdUL, ARM_POSE.upU, k);
-    B.armLL.quaternion.slerpQuaternions(ARM_POSE.holdLL, ARM_POSE.upL, k);
+    for (const [seg, name] of ARM_BONES) {
+      _qa.slerpQuaternions(ARM_POSE.hold[seg], ARM_POSE.aim[seg], this.aimW);
+      _qb.copy(_qa).slerp(ARM_POSE.sprint[seg], this.sprintW);
+      B[name].quaternion.slerpQuaternions(_qb, ARM_POSE.up[seg], k);
+    }
+    const bone = this.rig.gunBones[this.weaponId];
+    if (bone) {
+      const gb = B[bone];
+      const rest = this.gunRest[this.weaponId];
+      const a = this.aimW * (1 - k);
+      const sp = this.sprintW * (1 - k);
+      const A = GUN_POSE.aim;
+      const S = GUN_POSE.sprint;
+      gb.position.set(
+        rest.x + A.pos[0] * a + S.pos[0] * sp,
+        rest.y + A.pos[1] * a + S.pos[1] * sp,
+        rest.z + A.pos[2] * a + S.pos[2] * sp + kick * 0.6,
+      );
+      _e.set(A.rot[0] * a + S.rot[0] * sp + kick * 0.5, A.rot[1] * a + S.rot[1] * sp, A.rot[2] * a + S.rot[2] * sp);
+      gb.rotation.copy(_e);
+    }
 
     if (this.shieldFlash > 0) {
       this.shell.visible = true;

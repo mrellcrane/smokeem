@@ -134,6 +134,13 @@ export class Player {
     this.throwT = 0;
     // When our last third-person muzzle flash went off (game time).
     this.flashT = -1;
+    // What the third-person body shows (CharacterModel.update), reused every frame. lands and
+    // airJumps count events, so the body can start a landing squash or a double-jump kick.
+    this.pose = {
+      x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 0, fwd: 0, side: 0, velY: 0,
+      grounded: true, crouched: false, climbing: false, sprinting: false, aiming: false,
+      lands: 0, landSpeed: 0, airJumps: 0, shotT: -1, fireT: 99, kick: 1,
+    };
     this.guiding = null;
     this.pickupPrompt = null;
     this.lungeT = 0;
@@ -572,6 +579,7 @@ export class Player {
     const v = this.vel;
     v.y = MOVE.doubleJumpSpeed;
     this.airJumpsLeft--;
+    this.pose.airJumps++;
     this.jumpBuffer = 0;
     if (wishLen > 0.1) {
       const cur = Math.max(Math.hypot(v.x, v.z), speed);
@@ -583,6 +591,8 @@ export class Player {
 
   land(fallSpeed) {
     this.landDip = Math.min(0.22, Math.max(0, -fallSpeed - 3) * 0.018);
+    this.pose.lands++;
+    this.pose.landSpeed = -fallSpeed;
   }
 
   // Remove velocity into walls and ceilings we hit, and note whether a wall is right ahead.
@@ -923,19 +933,31 @@ export class Player {
   // Body pose for other players' views, and the first-person rifle.
   updateVisuals(dt, alpha) {
     if (this.model.group.visible) {
-      this.model.setWeapon(this.weapon.def.id);
+      const w = this.weapon;
+      this.model.setWeapon(w.def.id);
       _c.lerpVectors(this.prevCenter, this.center, alpha);
-      this.model.update(dt, {
-        x: _c.x,
-        y: _c.y - this.halfHeight - BODY.radius,
-        z: _c.z,
-        yaw: this.yaw,
-        pitch: this.pitch,
-        speed: this.speed(),
-        grounded: this.grounded,
-        crouched: this.crouched,
-        climbing: this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars',
-      });
+      const s = this.pose;
+      s.x = _c.x;
+      s.y = _c.y - this.halfHeight - BODY.radius;
+      s.z = _c.z;
+      s.yaw = this.yaw;
+      s.pitch = this.pitch;
+      s.speed = this.speed();
+      // Velocity along our facing and to our right.
+      const sy = Math.sin(this.yaw);
+      const cy = Math.cos(this.yaw);
+      s.fwd = -this.vel.x * sy - this.vel.z * cy;
+      s.side = this.vel.x * cy - this.vel.z * sy;
+      s.velY = this.vel.y;
+      s.grounded = this.grounded;
+      s.crouched = this.crouched;
+      s.climbing = this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars';
+      s.sprinting = this.sprinting;
+      s.aiming = this.aimZoom > 1.05;
+      s.shotT = w.lastShotT;
+      s.fireT = this.game.time - w.lastShotT;
+      s.kick = GUNS[w.def.id].view.kick;
+      this.model.update(dt, s);
     }
     this.viewmodel?.update(dt, this, this.lastLookX, this.lastLookY);
     this.lastLookX = 0;

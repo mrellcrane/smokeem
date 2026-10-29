@@ -351,6 +351,9 @@ if (DEBUG) {
     gfx,
     // Every body color in a row ahead of player 1 (returns a function that removes them).
     lineup: (opts) => import('./render/lineup.js').then((m) => m.lineup(game, opts)),
+    // Bodies run through each movement state ahead of player 1 (returns a function that
+    // removes them). opts: { distance, time } (time: simulate that long and hold still).
+    poseViewer: (opts) => import('./render/poseViewer.js').then((m) => m.poseViewer(game, opts)),
     // For automated tests in browsers without pointer lock.
     playWithoutLock() {
       if (!game) return;

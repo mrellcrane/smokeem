@@ -208,6 +208,12 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   shadow.
 - Third-person guns are baked into the skinned body on their own bones; unheld guns are scaled
   to ~0, so switching weapons costs no draw calls.
+- Body language lives in `CharacterModel.update`, fed by `Player.pose` (one reused object:
+  velocity along the facing and to the right, air and crouch state, event counters for landings
+  and double jumps, time since the last shot). The hips turn toward the move direction while the
+  spine (Euler order YXZ) turns back and carries the aim pitch, so the torso and gun stay on the
+  aim. Keep poses inside the headshot band (lean 8 degrees or less, small hip drops).
+  `smokeem.poseViewer({ distance, time, turn })` (debug) runs bodies through every state.
 - `renderer.compile` skips hidden objects, so warm-up forces every effect, shield shell and
   muzzle flash visible for one compile + render. New spawnable things must hook into
   `Game.warmUp()` the same way.
