@@ -777,9 +777,36 @@ function shard(ctx, R) {
   ctx.fill();
 }
 
-// Additive effects. Cells: 0 soft dot, 1 to 3 stars, 4 ring, 5 streak, 6 shard.
+// A rolling lump of fire: overlapping hot blobs, densest in the middle, with a ragged edge.
+// White (particles.js colors it by its age); one variation per seed.
+function billow(seed) {
+  return (ctx, R) => {
+    const rand = mulberry32(seed);
+    for (let i = 0; i < 18; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = Math.pow(rand(), 0.7) * R * 0.45;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      const rad = R * (0.22 + rand() * 0.3) * (1 - r / (R * 0.9));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, 'rgba(255,255,255,0.75)');
+      g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+}
+
+// Additive effects. Cells: 0 soft dot, 1 to 3 stars, 4 ring, 5 streak, 6 shard, 8 to 11 fire
+// billows.
 function fxAtlas() {
-  return atlas([softDot, star(4, 0, 6), star(6, 0.3, 4), star(5, 0.7, 5), ring, streak, shard]);
+  return atlas([
+    softDot, star(4, 0, 6), star(6, 0.3, 4), star(5, 0.7, 5), ring, streak, shard, () => {},
+    billow(71), billow(72), billow(73), billow(74),
+  ]);
 }
 
 // Lumpy grey puff for death smoke and dust; one variation per seed.
@@ -804,9 +831,117 @@ function puff(seed) {
   };
 }
 
-// Alpha-blended effects. Cells: 0 to 3 puffs.
+// A chip of concrete or dirt: a solid lumpy polygon.
+function chip(ctx, R) {
+  const rand = mulberry32(61);
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.beginPath();
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const r = R * (0.45 + rand() * 0.4);
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+// A long thin splinter of wood, lighter along one edge.
+function splinter(ctx, R) {
+  ctx.rotate(0.6);
+  ctx.fillStyle = 'rgba(200,200,200,1)';
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.95, 0);
+  ctx.lineTo(-R * 0.2, -R * 0.16);
+  ctx.lineTo(R * 0.95, -R * 0.04);
+  ctx.lineTo(R * 0.3, R * 0.14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.9, -R * 0.02);
+  ctx.lineTo(-R * 0.2, -R * 0.15);
+  ctx.lineTo(R * 0.9, -R * 0.05);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// A gob of mud with a couple of droplets.
+function splat(ctx, R) {
+  const rand = mulberry32(63);
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = R * (0.55 + rand() * 0.3);
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * r, Math.sin(a) * r, R * (0.08 + rand() * 0.1), 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// A bullet mark: a dark hole in a fainter scuffed ring with a few hairline cracks. Black with
+// alpha only: marks darken whatever they lie on, so they keep its light and shade.
+function hole(ctx, R) {
+  const rand = mulberry32(64);
+  const rim = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.95);
+  rim.addColorStop(0, 'rgba(0,0,0,0.45)');
+  rim.addColorStop(0.55, 'rgba(0,0,0,0.2)');
+  rim.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(-R, -R, R * 2, R * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 5; i++) {
+    const a = rand() * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * R * 0.25, Math.sin(a) * R * 0.25);
+    ctx.lineTo(Math.cos(a + 0.2) * R * (0.6 + rand() * 0.3), Math.sin(a + 0.2) * R * (0.6 + rand() * 0.3));
+    ctx.stroke();
+  }
+  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.38);
+  core.addColorStop(0, 'rgba(0,0,0,1)');
+  core.addColorStop(0.7, 'rgba(0,0,0,0.95)');
+  core.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = core;
+  ctx.fillRect(-R, -R, R * 2, R * 2);
+}
+
+// A blast scorch: a dark blotch with a ragged edge and soot streaks thrown outward.
+function scorch(ctx, R) {
+  const rand = mulberry32(65);
+  for (let i = 0; i < 26; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = Math.pow(rand(), 0.8) * R * 0.5;
+    const rad = R * (0.18 + rand() * 0.25);
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, 'rgba(255,255,255,0.45)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  for (let i = 0; i < 22; i++) {
+    const a = rand() * Math.PI * 2;
+    const r0 = R * (0.3 + rand() * 0.2);
+    const r1 = R * (0.65 + rand() * 0.3);
+    ctx.lineWidth = 2 + rand() * 4;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+    ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+    ctx.stroke();
+  }
+}
+
+// Alpha-blended effects. Cells: 0 to 3 puffs, 4 chip, 5 splinter, 6 splat, 7 bullet mark,
+// 8 scorch.
 function smokeAtlas() {
-  return atlas([puff(91), puff(92), puff(93), puff(94)]);
+  return atlas([puff(91), puff(92), puff(93), puff(94), chip, splinter, splat, hole, scorch]);
 }
 
 // Four-point muzzle flash star.

@@ -46,6 +46,9 @@ class Missile {
     this.prevPitch = 0;
     this.steerYaw = 0;
     this.steerPitch = 0;
+    // The normal of the level surface it hit, if it hit one (the blast scorches it).
+    this.against = new THREE.Vector3();
+    this.hitWorld = false;
   }
 
   // Look input while flying it. Same sign convention as Player.applyLook.
@@ -106,6 +109,7 @@ export class Missiles {
     m.life = def.missileLife;
     m.age = 0;
     m.detonateNow = false;
+    m.hitWorld = false;
     m.mesh.visible = true;
     return m;
   }
@@ -139,6 +143,10 @@ export class Missiles {
     const hit = game.castShot(m.pos, m.dir, step + 0.2, exclude);
     if (hit.hit) {
       m.pos.copy(m.pos).addScaledVector(m.dir, Math.max(0, hit.distance - 0.15));
+      if (!hit.entity) {
+        m.hitWorld = true;
+        m.against.copy(hit.normal);
+      }
       return this.finish(m, true);
     }
     m.pos.addScaledVector(m.dir, step);
@@ -161,7 +169,7 @@ export class Missiles {
     m.active = false;
     m.mesh.visible = false;
     if (m.owner && m.owner.guiding === m) m.owner.guiding = null;
-    if (boom) explode(this.game, m.pos, m.def.explosion, { attacker: m.owner, weapon: m.def });
+    if (boom) explode(this.game, m.pos, m.def.explosion, { attacker: m.owner, weapon: m.def, against: m.hitWorld ? m.against : null });
   }
 
   // Interpolated pose for rendering and for the missile camera. `ahead` pushes the point

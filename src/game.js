@@ -43,6 +43,15 @@ const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => res
 
 const _sunDir = new THREE.Vector3();
 const _invQ = new THREE.Quaternion();
+const _fitT = new THREE.Vector3();
+const _fitB = new THREE.Vector3();
+const _fitO = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+// Marks shrink to these fractions of their width to fit the surface they lie on (fitDecal).
+const FIT_STEPS = [1, 0.7, 0.45, 0.3];
+// How far proud of a collider a trim can stand and still carry a hit's mark (trimFace).
+const TRIM_REACH = 0.1;
 
 // One match: renderer, scene, physics world, players and the fixed-step loop.
 // States: 'ready' (loaded, waiting for the player to click in), 'playing', 'paused', 'over'.
@@ -106,7 +115,9 @@ export class Game {
     this.entities = new Map();
     this.showDebug = false;
     this._frame = (now) => this.frame(now);
-    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false };
+    this._surface = { point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null };
+    // surface: what a world hit is made of (materials.js), null for bodies and unknown colliders.
+    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false, surface: null };
     // Per-frame render numbers for the FPS readout and ?bench.
     this.stats = { renderMs: 0, shadowCalls: 0, views: 1, viewCalls: [0, 0, 0, 0] };
   }
@@ -154,7 +165,7 @@ export class Game {
     });
     this.bake = this.arena.bake;
     this.zones = this.arena.zones;
-    this.fx = new Effects(scene, this.textures);
+    this.fx = new Effects(scene, this.textures, { decals: gfx.decals ? preset.decals : 0, fxScale: preset.fxScale });
     this.missiles = new Missiles(this, this.materials.props, this.textures);
     this.grenades = new Grenades(this, this.materials.props);
     this.bolts = new Bolts(this, this.materials.props);
@@ -316,6 +327,8 @@ export class Game {
       }
       this.applyAnisotropy(preset);
       this.beacons?.setHalos(gfx.halos && preset.halos);
+      // (Room for marks is set at load: a new count applies from the next match.)
+      this.fx.fxScale = preset.fxScale;
     }
     this.needsRender = true;
   }
@@ -335,10 +348,25 @@ export class Game {
     ray.dir.y = dir.y;
     ray.dir.z = dir.z;
     const hit = this.physics.world.castRayAndGetNormal(ray, range, true, this.shotFilter, undefined, exclude);
+    const entity = hit ? this.entities.get(hit.collider.handle) ?? null : null;
+    // The mud has no collider (you wade through it), so a shot, projectile or bug flying into it
+    // stops at its surface. (A body under it can still be hit, as before.)
+    const mud = entity ? null : this.zones.mudAlong(origin, dir, hit ? hit.timeOfImpact : range);
+    if (mud !== null) {
+      r.hit = true;
+      r.distance = mud;
+      r.point.copy(origin).addScaledVector(dir, mud);
+      r.normal.set(0, 1, 0);
+      r.entity = null;
+      r.headshot = false;
+      r.surface = 'mud';
+      return r;
+    }
     if (!hit) {
       r.hit = false;
       r.entity = null;
       r.headshot = false;
+      r.surface = null;
       r.distance = range;
       return r;
     }
@@ -346,9 +374,104 @@ export class Game {
     r.distance = hit.timeOfImpact;
     r.point.copy(origin).addScaledVector(dir, hit.timeOfImpact);
     r.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
-    r.entity = this.entities.get(hit.collider.handle) ?? null;
+    r.entity = entity;
     r.headshot = !!r.entity && r.point.y >= r.entity.headLineY();
+    r.surface = r.entity ? null : this.arena.surfaces.get(hit.collider.handle) ?? null;
     return r;
+  }
+
+  // The level surface within maxDist of pos along dir (a unit vector), as { point, normal,
+  // surface } written into out (a reused object by default), or null. Bodies and grenades
+  // don't count.
+  surfaceNear(pos, dir, maxDist, out = this._surface) {
+    const ray = this.ray;
+    ray.origin.x = pos.x;
+    ray.origin.y = pos.y;
+    ray.origin.z = pos.z;
+    ray.dir.x = dir.x;
+    ray.dir.y = dir.y;
+    ray.dir.z = dir.z;
+    const hit = this.physics.world.castRayAndGetNormal(ray, maxDist, true, this.shotFilter, undefined, undefined, undefined, this.notBody);
+    // (Starting inside a solid gives no usable normal.)
+    if (!hit || hit.timeOfImpact <= 0) return null;
+    const s = out;
+    s.point.copy(pos).addScaledVector(dir, hit.timeOfImpact);
+    s.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
+    s.surface = this.arena.surfaces.get(hit.collider.handle) ?? null;
+    return s;
+  }
+
+  // A shot stops at a collider, but a thin trim with no collider of its own (hazard bands, glow
+  // strips, pickup pads, drum rings) can stand a few cm proud of it. Moves a hit out to the face
+  // of a trim covering it, so marks and debris sit on what you see, and returns the surface there
+  // (null on glow strips, which take no marks). Only trims whose face is within TRIM_REACH of the
+  // hit count: a long band runs past the end of a buttress's side, which it doesn't cover.
+  trimFace(point, normal, surface) {
+    const k = Math.abs(normal.x) > 0.99 ? 0 : Math.abs(normal.y) > 0.99 ? 1 : Math.abs(normal.z) > 0.99 ? 2 : -1;
+    const up = k >= 0 && normal.getComponent(k) > 0;
+    const i = (k + 1) % 3;
+    const j = (k + 2) % 3;
+    for (const t of this.arena.trims) {
+      if (t.cyl) {
+        const dx = point.x - t.x;
+        const dz = point.z - t.z;
+        const d2 = dx * dx + dz * dz;
+        if (k === 1 && up) {
+          // On top of a pad.
+          if (point.y < t.y0 - 0.01 || point.y >= t.y1 || t.y1 - point.y > TRIM_REACH || d2 > t.r * t.r) continue;
+          point.y = t.y1;
+          surface = t.surface;
+        } else if (Math.abs(normal.y) < 0.2 && point.y >= t.y0 && point.y <= t.y1) {
+          // On the side of a ring around a pole or drum.
+          const d = Math.sqrt(d2);
+          if (d < 1e-3 || d > t.r + 0.01 || t.r - d > TRIM_REACH) continue;
+          point.x = t.x + (dx / d) * t.r;
+          point.z = t.z + (dz / d) * t.r;
+          surface = t.surface;
+        }
+        continue;
+      }
+      if (k < 0) continue;
+      const pi = point.getComponent(i);
+      const pj = point.getComponent(j);
+      if (pi < t.min[i] - 1e-3 || pi > t.max[i] + 1e-3 || pj < t.min[j] - 1e-3 || pj > t.max[j] + 1e-3) continue;
+      const pk = point.getComponent(k);
+      const face = up ? t.max[k] : t.min[k];
+      if (up ? pk < t.min[k] - 0.01 || pk >= face : pk <= face || pk > t.max[k] + 0.01) continue;
+      if (Math.abs(face - pk) > TRIM_REACH) continue;
+      point.setComponent(k, face);
+      surface = t.surface;
+    }
+    return surface;
+  }
+
+  // How wide a mark centered on a surface (from surfaceNear) can be, up to width, and still lie
+  // on it without hanging over an edge into the air: probes just off the surface at four points
+  // near the mark's edge, shrinking it until they all find the same flat surface. 0 if none fits.
+  fitDecal(surface, width) {
+    const n = surface.normal;
+    _fitT.crossVectors(n, Math.abs(n.y) < 0.99 ? UP : X_AXIS).normalize();
+    _fitB.crossVectors(n, _fitT);
+    const ray = this.ray;
+    for (const k of FIT_STEPS) {
+      const r = width * k * 0.42;
+      let fits = true;
+      for (let i = 0; i < 4 && fits; i++) {
+        const a = i === 0 ? 1 : i === 1 ? -1 : 0;
+        const c = i === 2 ? 1 : i === 3 ? -1 : 0;
+        _fitO.copy(surface.point).addScaledVector(n, 0.1).addScaledVector(_fitT, a * r).addScaledVector(_fitB, c * r);
+        ray.origin.x = _fitO.x;
+        ray.origin.y = _fitO.y;
+        ray.origin.z = _fitO.z;
+        ray.dir.x = -n.x;
+        ray.dir.y = -n.y;
+        ray.dir.z = -n.z;
+        const hit = this.physics.world.castRayAndGetNormal(ray, 0.25, true, this.shotFilter, undefined, undefined, undefined, this.notBody);
+        fits = !!hit && Math.abs(hit.timeOfImpact - 0.1) < 0.05 && hit.normal.x * n.x + hit.normal.y * n.y + hit.normal.z * n.z > 0.95;
+      }
+      if (fits) return width * k;
+    }
+    return 0;
   }
 
   // True when solid level geometry sits between a and b (bodies and grenades don't count).
@@ -498,7 +621,7 @@ export class Game {
   }
 
   updateVisuals(dt, alpha) {
-    this.arena.update(dt, this.time);
+    this.arena.update(dt, this.time, this.fx);
     for (const p of this.players) p.updateVisuals(dt, alpha);
     for (const d of this.dummies) d.updateVisual(dt, alpha);
     this.missiles.updateVisuals(alpha);

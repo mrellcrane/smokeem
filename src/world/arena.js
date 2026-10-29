@@ -65,6 +65,12 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   }));
 
   const mudMap = M.mud.map;
+  // Embers and smoke wisps rising off the fire troughs (per second each, before fxScale).
+  const EMBERS = 3;
+  const WISPS = 1;
+  const troughFx = fireTroughs.map(() => ({ embers: Math.random(), wisps: Math.random() }));
+  const troughX = (tr) => tr.x + (Math.random() - 0.5) * 0.7;
+  const troughZ = (tr) => tr.z0 + Math.random() * (tr.z1 - tr.z0);
 
   return {
     meshes,
@@ -72,11 +78,22 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     zones,
     spawnPoints,
     halos: B.halos,
-    update(dt, time) {
+    surfaces: B.surfaces,
+    trims: B.trims,
+    // fx: the match's Effects (embers and wisps off the fire troughs).
+    update(dt, time, fx) {
       fire.update(time);
       // Slow drift so the mud looks a little alive.
       mudMap.offset.x = Math.sin(time * 0.05) * 0.2;
       mudMap.offset.y = time * 0.004;
+      for (let i = 0; i < fireTroughs.length; i++) {
+        const tr = fireTroughs[i];
+        const acc = troughFx[i];
+        acc.embers += dt * EMBERS * fx.fxScale;
+        acc.wisps += dt * WISPS * fx.fxScale;
+        for (; acc.embers >= 1; acc.embers--) fx.fireEmber(troughX(tr), tr.y + 0.3 + Math.random() * 0.6, troughZ(tr));
+        for (; acc.wisps >= 1; acc.wisps--) fx.fireWisp(troughX(tr), tr.y + tr.height * 0.8, troughZ(tr));
+      }
     },
   };
 }
@@ -214,7 +231,7 @@ function mudPitAndBars(B, M, zones) {
     ],
     { castShadow: false },
   );
-  zones.addMud([PIT.x0, -1.5, PIT.z0], [PIT.x1, PIT.mudY + 0.05, PIT.z1]);
+  zones.addMud([PIT.x0, -1.5, PIT.z0], [PIT.x1, PIT.mudY + 0.05, PIT.z1], PIT.mudY);
   // Hazard trim around the pit lip.
   // Flat trims cast no real shadow, but casting keeps them in the same merged mesh as every
   // other hazard box (one draw instead of two).

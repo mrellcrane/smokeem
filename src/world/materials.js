@@ -35,9 +35,24 @@ export function createMaterials(tex) {
     net: 1.2,
     rope: 0.5,
   };
+  // What a bullet hitting each one kicks up and leaves behind (effects.js).
+  const surfaces = {
+    ground: 'dirt',
+    metal: 'metal',
+    metalDark: 'metal',
+    hazard: 'metal',
+    steel: 'metal',
+    plank: 'wood',
+    crate: 'wood',
+    concrete: 'concrete',
+    mud: 'mud',
+    net: 'cloth',
+    rope: 'cloth',
+  };
   for (const [name, mat] of Object.entries(m)) {
     mat.name = name;
     mat.userData.tile = tiles[name] ?? 0;
+    mat.userData.surface = surfaces[name] ?? null;
   }
   // A little grime low down on tall faces (StaticBuilder).
   for (const name of ['metal', 'metalDark', 'concrete']) m[name].userData.grime = true;

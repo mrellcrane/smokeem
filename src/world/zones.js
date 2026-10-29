@@ -15,8 +15,9 @@ export class Zones {
     this.bars = [];
   }
 
-  addMud(min, max) {
-    this.mud.push({ min, max });
+  // surface: the height of the mud's top (a visual quad with no collider), for shots.
+  addMud(min, max, surface = max[1]) {
+    this.mud.push({ min, max, surface });
   }
 
   addFire(min, max) {
@@ -91,6 +92,32 @@ export class Zones {
         Math.abs(hand.y - b.y) < 0.4
       ) {
         return b;
+      }
+    }
+    return null;
+  }
+
+  // Where a ray from origin along dir (a unit vector) first enters a mud surface, as a distance,
+  // if that's before maxDist; otherwise null.
+  mudAlong(origin, dir, maxDist) {
+    if (dir.y >= 0) return null;
+    let best = null;
+    for (const z of this.mud) {
+      if (origin.y <= z.surface) continue;
+      const t = (z.surface - origin.y) / dir.y;
+      if (t >= maxDist || (best !== null && t >= best)) continue;
+      const x = origin.x + dir.x * t;
+      const zz = origin.z + dir.z * t;
+      if (x > z.min[0] && x < z.max[0] && zz > z.min[2] && zz < z.max[2]) best = t;
+    }
+    return best;
+  }
+
+  // The height of the mud's surface when p is in the mud or less than reach above it, else null.
+  mudTop(p, reach) {
+    for (const z of this.mud) {
+      if (p.x > z.min[0] && p.x < z.max[0] && p.z > z.min[2] && p.z < z.max[2] && p.y > z.min[1] && p.y < z.surface + reach) {
+        return z.surface;
       }
     }
     return null;

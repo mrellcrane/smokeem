@@ -289,7 +289,10 @@ function fire(game, p) {
       acc.normal.copy(hit.normal);
       if (rays === 1 || i % 3 === 0) game.fx.impactBody(hit.point, hit.normal, acc.shields);
     } else if (rays === 1 || i % 3 === 0) {
-      game.fx.impactWorld(hit.point, hit.normal);
+      const surface = game.trimFace(hit.point, hit.normal, hit.surface);
+      game.fx.impactWorld(hit.point, hit.normal, surface);
+      // Marks come at most about 5 a second per gun (every shot of a slow one).
+      if ((w.shots - 1) % Math.ceil(d.fireRate / 5) === 0) game.fx.mark(hit.point, hit.normal, surface);
     }
   }
   for (const [target, acc] of pelletHits) {

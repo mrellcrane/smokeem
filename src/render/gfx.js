@@ -14,4 +14,6 @@ export const gfx = {
   beacons: true,
   // Soft halos around the glowing strips (medium and high presets only).
   halos: true,
+  // Bullet marks and blast scorches (medium and high presets only).
+  decals: true,
 };

@@ -30,7 +30,7 @@ export default {
     missileLife: 7,
     missileTurnRate: 2.8, // radians per second, caps how hard you can steer
     // Full damage inside `inner` meters, so a direct hit always smokes.
-    explosion: { radius: 5.5, inner: 1.6, damage: 210, knockback: 14 },
+    explosion: { radius: 5.5, inner: 1.6, damage: 210, knockback: 14, tint: 0xffd27a },
     // Range band bots like to use it in, meters.
     bot: { min: 9, max: 80, pref: 22, power: true },
   },

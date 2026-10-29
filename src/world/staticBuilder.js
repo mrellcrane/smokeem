@@ -170,6 +170,11 @@ export class StaticBuilder {
     this.stains = [];
     // Glowing strips that get a halo (beacons.js).
     this.halos = [];
+    // Collider handle to what it's made of (materials.js surface), for bullet impacts.
+    this.surfaces = new Map();
+    // Visible boxes and cylinders with no collider (trims standing proud of a collider), so
+    // bullet marks can sit on their face (Game.trimFace).
+    this.trims = [];
   }
 
   // shade: whether build() shades the vertices (quads and glows don't get it).
@@ -239,6 +244,10 @@ export class StaticBuilder {
       }
       geom.applyMatrix4(_m.compose(_p, q, _s));
       this._add(mat, geom, castShadow, tint, true, bakeLight);
+      if (!collide && !quat && !rotY) {
+        const min = [center[0] - w / 2, center[1] - h / 2, center[2] - d / 2];
+        this.trims.push({ min, max: [min[0] + w, min[1] + h, min[2] + d], surface: mat.userData.surface ?? null });
+      }
       if (halo && !quat && !rotY) {
         const min = [center[0] - w / 2, center[1] - h / 2, center[2] - d / 2];
         this.halos.push({ min, max: [min[0] + w, min[1] + h, min[2] + d], normal: halo, color: tint ?? 0xffffff });
@@ -248,7 +257,8 @@ export class StaticBuilder {
       }
     }
     if (collide) {
-      this._collider(this.RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2), _p, q);
+      const c = this._collider(this.RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2), _p, q);
+      if (mat?.userData.surface) this.surfaces.set(c.handle, mat.userData.surface);
     }
   }
 
@@ -280,10 +290,12 @@ export class StaticBuilder {
     }
     geom.translate(base[0], base[1] + height / 2, base[2]);
     this._add(mat, geom, castShadow, tint);
+    if (!collide) this.trims.push({ cyl: true, x: base[0], z: base[2], r: radius, y0: base[1], y1: base[1] + height, surface: mat.userData.surface ?? null });
     if (collide) {
       this.solids.push({ cyl: true, x: base[0], y: base[1] + height / 2, z: base[2], r: radius, hy: height / 2 });
       _p.set(base[0], base[1] + height / 2, base[2]);
-      this._collider(this.RAPIER.ColliderDesc.cylinder(height / 2, radius), _p, null);
+      const c = this._collider(this.RAPIER.ColliderDesc.cylinder(height / 2, radius), _p, null);
+      if (mat.userData.surface) this.surfaces.set(c.handle, mat.userData.surface);
     }
   }
 
