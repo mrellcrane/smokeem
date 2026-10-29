@@ -1,13 +1,14 @@
 import { DEG } from '../util/math.js';
 import { currentSpread } from '../combat/shooting.js';
 import { RESPAWN_DELAY } from '../player/player.js';
+import { controlsHtml } from './controls.js';
 
 // Per-player HUD laid over that player's viewport. Plain DOM; every write is cached so the
 // DOM is only touched when a value actually changes.
 
 const KEY_LABELS = {
-  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R' },
-  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X' },
+  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse' },
+  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick' },
 };
 
 const HITMARKER_TIME = 0.18;
@@ -30,12 +31,21 @@ export class Hud {
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
       <div class="kill-msg"></div>
       <div class="ammo">
+        <div class="other"></div>
+        <div class="nades"></div>
         <div class="wname"></div>
         <div class="count"><span class="mag"></span><span class="reserve"></span></div>
         <div class="ammo-note"></div>
       </div>
+      <div class="missile-cam">
+        <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
+        <div class="mc-label">SMOKE SIGNAL</div>
+        <div class="mc-fuel"><b></b></div>
+        <div class="mc-reticle"></div>
+      </div>
       <div class="death"><h3>SMOKED</h3><p class="cause"></p><p class="timer"></p></div>
       <div class="hud-hint"></div>
+      <div class="hud-controls">${controlsHtml(inputKind)}</div>
       <div class="hud-debug"></div>
     `;
     root.appendChild(this.el);
@@ -57,6 +67,10 @@ export class Hud {
       mag: q('.mag'),
       reserve: q('.reserve'),
       ammoNote: q('.ammo-note'),
+      other: q('.other'),
+      nades: q('.nades'),
+      missile: q('.missile-cam'),
+      fuel: q('.mc-fuel b'),
       death: q('.death'),
       cause: q('.cause'),
       timer: q('.timer'),
@@ -101,6 +115,9 @@ export class Hud {
       default:
         break;
     }
+    if (player.guiding) return `${k.steer} steer · ${k.fire} to blow it early`;
+    const prompt = player.pickupPrompt;
+    if (prompt) return `${k.interact}: swap ${player.weapon.def.name} for ${prompt.def.name}`;
     if (player.inFire) return 'Too hot!';
     if (player.inMud) return 'Mud: slow going, weak jumps';
     const w = player.weapon;
@@ -134,9 +151,21 @@ export class Hud {
     this.set('wname', w.def.name, (x) => (e.wname.textContent = x));
     this.set('mag', w.mag, (x) => (e.mag.textContent = x));
     this.set('reserve', w.reserve, (x) => (e.reserve.textContent = ` / ${x}`));
-    this.set('magLow', w.mag <= Math.ceil(w.def.mag * 0.25), (x) => e.ammo.classList.toggle('low', x));
+    const lowMag = w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25));
+    this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
     const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : '';
     this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
+    const o = player.slots[1 - player.slot];
+    this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
+    this.set('nades', player.grenades, (x) => (e.nades.textContent = `Briquettes ${'●'.repeat(x)}${'○'.repeat(Math.max(0, 4 - x))}`));
+
+    // Missile camera overlay.
+    const g = player.guiding;
+    this.set('guiding', !!g, (x) => {
+      e.missile.style.display = x ? 'block' : 'none';
+      e.vitals.style.opacity = x ? '0.5' : '';
+    });
+    if (g) this.set('fuel', (g.life / g.def.missileLife).toFixed(2), (x) => (e.fuel.style.transform = `scaleX(${x})`));
 
     // Crosshair: ticks spread with the weapon's current inaccuracy.
     const cam = player.camera;
@@ -151,7 +180,7 @@ export class Hud {
       right.style.transform = `translateX(${g}px)`;
     });
     this.set('enemy', !!player.aimTarget && alive, (x) => e.cross.classList.toggle('enemy', x));
-    this.set('crossVis', alive, (x) => (e.cross.style.display = x ? '' : 'none'));
+    this.set('crossVis', alive && !g, (x) => (e.cross.style.display = x ? '' : 'none'));
 
     // Hit marker.
     const hm = Math.max(0, 1 - (now - fb.hitT) / HITMARKER_TIME);
@@ -175,7 +204,7 @@ export class Hud {
       e.ammo.style.visibility = x ? 'hidden' : '';
     });
     if (!alive) {
-      this.set('cause', deathText(player.deathInfo), (x) => (e.cause.textContent = x));
+      this.set('cause', deathText(player.deathInfo, player), (x) => (e.cause.textContent = x));
       const left = Math.max(0, Math.ceil(RESPAWN_DELAY - player.deathT));
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
     }
@@ -203,10 +232,15 @@ export class Hud {
   }
 }
 
-function deathText(info) {
+function deathText(info, victim) {
   if (!info) return '';
   if (info.cause === 'fire') return 'Cooked by the fire jump';
   if (info.cause === 'fell') return 'Fell out of the world';
+  if (info.cause === 'explosion' && info.attacker === victim) {
+    return `Smoked yourself with your own ${info.weapon?.name ?? 'explosion'}`;
+  }
+  if (info.cause === 'melee') return `Tenderized by ${info.attacker?.name ?? 'someone'}${info.backstab ? ' from behind' : ''}`;
+  if (info.cause === 'explosion') return `Blown up by ${info.attacker?.name ?? 'someone'}'s ${info.weapon?.name ?? 'boom'}`;
   if (info.attacker) return `Smoked by ${info.attacker.name}${info.headshot ? ' (headshot)' : ''}`;
   return 'Smoked';
 }

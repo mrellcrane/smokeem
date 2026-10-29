@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp } from '../util/math.js';
+import { GUN_PARTS } from '../combat/weaponModels.js';
 
 // The contestant body: chunky armor, a wide amber visor and a smoker canister on the back.
 // Built from boxes, rigidly skinned to a 13-bone skeleton so each body is a single draw call
@@ -19,7 +20,10 @@ const JOINTS = {
   legLL: [-0.12, 0.5, 0],
   legUR: [0.12, 0.92, 0],
   legLR: [0.12, 0.5, 0],
-  gun: [0.12, 1.28, -0.28],
+  // Grip points for each held weapon; the launcher rides on the right shoulder.
+  gunHickory: [0.12, 1.2, -0.3],
+  gunMesquite: [0.12, 1.2, -0.3],
+  gunSignal: [0.24, 1.32, -0.1],
 };
 const PARENT = {
   hips: 'root',
@@ -33,8 +37,11 @@ const PARENT = {
   legLL: 'legUL',
   legUR: 'hips',
   legLR: 'legUR',
-  gun: 'spine',
+  gunHickory: 'spine',
+  gunMesquite: 'spine',
+  gunSignal: 'spine',
 };
+const GUN_BONES = { hickory: 'gunHickory', mesquite: 'gunMesquite', smokeSignal: 'gunSignal' };
 const BONES = Object.keys(JOINTS);
 
 // Arm poses as rotations of the rest pose (arms hanging straight down). Each segment is aimed
@@ -94,14 +101,13 @@ function parts() {
       [`legL${side}`, [lx, 0.05, -0.03], [0.18, 0.1, 0.28], 'boot'],
     );
   }
-  // Rifle held at the chest.
-  P.push(
-    ['gun', [0.12, 1.28, -0.4], [0.08, 0.12, 0.46], 'metal'],
-    ['gun', [0.12, 1.25, -0.08], [0.07, 0.11, 0.2], 'wood'],
-    ['gun', [0.12, 1.27, -0.56], [0.09, 0.08, 0.2], 'wood'],
-    ['gun', [0.12, 1.29, -0.72], [0.04, 0.04, 0.16], 'metal'],
-    ['gun', [0.12, 1.17, -0.36], [0.06, 0.14, 0.08], 'metal'],
-  );
+  // Every weapon is baked in on its own bone; the ones not held are scaled to nothing.
+  for (const [id, bone] of Object.entries(GUN_BONES)) {
+    const j = JOINTS[bone];
+    for (const [c, size, color] of GUN_PARTS[id]) {
+      P.push([bone, [j[0] + c[0], j[1] + c[1], j[2] + c[2]], size, color ?? 'armor']);
+    }
+  }
   return P;
 }
 
@@ -115,7 +121,7 @@ function buildGeometry(colors, inflate) {
     g.translate(center[0], center[1], center[2]);
     const n = g.attributes.position.count;
     const col = new Float32Array(n * 3);
-    c.set(colors[key]);
+    c.set(typeof key === 'string' ? colors[key] : key);
     for (let i = 0; i < n; i++) c.toArray(col, i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const bi = BONES.indexOf(bone);
@@ -204,11 +210,23 @@ export class CharacterModel {
     this.shell.visible = false;
     this.group.add(this.shell);
 
+    this.weaponId = null;
+    this.setWeapon('hickory');
+
     this.shieldFlash = 0;
     this.phase = 0;
     this.crouch = 0;
     this.air = 0;
     this.climb = 0;
+  }
+
+  setWeapon(id) {
+    if (id === this.weaponId) return;
+    this.weaponId = id;
+    for (const [wid, bone] of Object.entries(GUN_BONES)) {
+      // Not exactly zero, so skinned normals never divide by zero.
+      this.bones[bone].scale.setScalar(wid === id ? 1 : 1e-4);
+    }
   }
 
   setLayer(layer) {

@@ -101,7 +101,7 @@ Fast, floaty, generous. Current tuning lives in `src/config.js`.
 
 ## Weapons
 
-Two weapons carried at once, swap with a pickup on the map (proposal). Ten eventually.
+Two weapon slots. You spawn with the Hickory and an empty slot. Ten weapons eventually.
 
 ### v1 weapons (names are proposals)
 
@@ -130,11 +130,36 @@ moving or airborne. A full-shield, full-health target takes about 1.8 s of body 
 - **Swarm Jar**: throws a jar of angry homing bugs.
 - **Wishbone**: boomerang blade that comes back.
 
+**Mesquite starting stats**: pump action, 10 pellets of 12 damage in a 6 degree cone (two
+point-blank blasts smoke a full-shield target), damage falls to 15% between 6 m and 18 m,
+6 shells plus 18 in reserve, loads one shell at a time and firing interrupts the reload.
+
+**Smoke Signal starting stats**: 1 rocket loaded plus 1 spare, 2.4 s reload. Firing switches
+your view to the rocket's nose camera; you steer it with look input (turn rate capped at
+2.8 rad/s), and the trigger blows it early. It speeds up from 15 to 25 m/s and blows up on
+contact, near a body (0.65 m proximity fuse) or after 7 s. Blast: 5.5 m radius, full 210
+damage within 1.6 m (a direct hit always smokes), less further out. While you fly it, your
+body stands still, defenseless, and you can see yourself from the rocket. It hurts you too.
+
+**Pickups**
+- Pads on the map: the Smoke Signal on top of the Summit (60 s respawn), Mesquites under the
+  Summit and in the southwest barrier field (30 s), and four grenade pads with 2 each (20 s):
+  the catwalk, the net block, the west monkey-bar platform and the northwest crates.
+- Walking over a pickup takes it when it fits: a gun goes into your empty slot, a gun you
+  already carry tops up its ammo, grenades fill up to the max. With both slots full you get a
+  prompt and press E (hold X on a controller) to swap, dropping your current gun.
+- When you get smoked you drop whatever you picked up (not the starting Hickory). Dropped guns
+  vanish after 25 s.
+- An empty gun swaps itself out for your other one.
+
 ### Grenades and melee
 
-- **Briquette** frag grenade (proposal name). Carry 2, pick up more on the map.
-- Melee bash: big damage, short range, quick lunge. Hits from behind are an instant kill
-  (proposal).
+- **Briquette** grenade: start with 2, carry up to 4. Thrown hard (17 m/s plus a lift), it
+  bounces, settles and blows up 2.4 s after the throw. Blast: 5 m radius, full 130 damage
+  within 1 m. Solid cover between you and a blast blocks it. Blasts shove people and other
+  grenades, shake nearby cameras, and hurt the thrower.
+- **Tenderizer** melee: 65 damage at up to 2.3 m. Anyone up to 3.6 m in front pulls you into a
+  quick lunge. Hits from behind smoke instantly. 0.9 s cooldown.
 
 ## Vehicle (later)
 
@@ -218,7 +243,7 @@ as combat terrain.
 | Pick up / interact | E |
 | Grenade | G |
 | Melee | Q or F |
-| Switch weapon | Mouse wheel or X |
+| Switch weapon | Mouse wheel or X, or 1 / 2 for a slot |
 | Scoreboard | Tab |
 | Pause | Esc |
 | Toggle FPS counter | ` (backquote) |
@@ -269,8 +294,9 @@ Placeholder sound effects are fine for v1 (generated with WebAudio).
    spread, reload and zoom; shields and health with regen; fire jump damage; death and
    respawn; HUD (vitals, ammo, hit markers, kill confirms, death screen); placeholder sounds;
    six training dummies (standing and strafing) as practice targets.
-3. **Full arsenal**: Mesquite shotgun, Smoke Signal guided missile (missile camera), weapon
-   pickups on the map, grenades, melee.
+3. **Full arsenal (done)**: Mesquite shotgun, Smoke Signal guided missile (missile camera),
+   weapon pickups on the map, grenades, melee, explosions with knockback and camera shake,
+   permanent on-screen controls.
 4. **Bots**: simple AI that roams the arena (including obstacles) and shoots. Bot count in menu.
 5. **Match flow**: free-for-all rules, 5-minute timer, kill feed, respawns, end-of-match
    scoreboard with smoked meat ranks.
@@ -301,3 +327,7 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Headshots deal 1.5x on every hit (shields up or down). Shooting allowed while
   climbing with extra spread; firing cancels sprint.
 - 2026-10-29: Training dummies stay in as practice targets for solo play until bots arrive.
+- 2026-10-29: All controls are shown permanently along the bottom of each view (owner's call).
+- 2026-10-29: Two weapon slots; auto pick up into an empty slot, E to swap when full; you drop
+  picked-up guns when smoked. Grenades: start 2, max 4.
+- 2026-10-29: Explosions hurt their owner, and a direct Smoke Signal hit always kills.

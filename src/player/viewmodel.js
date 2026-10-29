@@ -1,61 +1,20 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp, clamp } from '../util/math.js';
+import { GUN_PARTS, HAND_PARTS, MUZZLES, partsGeometry } from '../combat/weaponModels.js';
+import { SWITCH_TIME } from '../combat/weapons.js';
 
-// First-person Hickory rifle with gloved hands. Lives in its own scene, rendered after the
-// world with a cleared depth buffer and its own camera, so it never clips into walls and keeps
-// the same size in every split-screen view.
+// First-person weapon with gloved hands. Lives in its own scene, rendered after the world with a
+// cleared depth buffer and its own camera, so it never clips into walls and keeps the same size
+// in every split-screen view. One mesh per weapon; only the held one is visible.
 
-const METAL = 0x464c53;
-const METAL_LIGHT = 0x666e77;
-const WOOD = 0x8a5a33;
-const WOOD_DARK = 0x6e4526;
-const GLOVE = 0x24272c;
-const GLOW = 0xffa040;
+// Resting pose per weapon in viewmodel-camera space.
+const POSES = {
+  hickory: { pos: [0.21, -0.215, -0.48], rot: [0.025, 0.06, 0], scale: 0.72 },
+  mesquite: { pos: [0.21, -0.22, -0.46], rot: [0.025, 0.06, 0], scale: 0.72 },
+  smokeSignal: { pos: [0.27, -0.2, -0.56], rot: [0.02, 0.05, 0], scale: 0.6 },
+};
 
-// [center, size, color] in gun space: barrel along -z, origin at the grip.
-const GUN_PARTS = [
-  [[0, 0.02, -0.12], [0.07, 0.09, 0.34], METAL],
-  [[0, 0.073, -0.12], [0.03, 0.016, 0.26], METAL_LIGHT],
-  [[0, 0.092, -0.03], [0.032, 0.03, 0.05], METAL],
-  [[0, 0.092, -0.056], [0.012, 0.012, 0.004], GLOW],
-  [[0, 0.012, -0.37], [0.082, 0.072, 0.22], WOOD],
-  [[0, 0.02, -0.53], [0.03, 0.03, 0.14], METAL],
-  [[0, 0.02, -0.615], [0.048, 0.048, 0.05], METAL_LIGHT],
-  [[0, -0.01, 0.12], [0.06, 0.08, 0.2], WOOD],
-  [[0, -0.02, 0.225], [0.07, 0.11, 0.03], WOOD_DARK],
-  [[0, -0.07, -0.02], [0.045, 0.1, 0.05], METAL],
-  [[0, -0.085, -0.17], [0.05, 0.13, 0.07], METAL],
-  [[0, -0.07, -0.134], [0.052, 0.022, 0.003], GLOW],
-  // Right hand on the grip; the forearm runs back and down off screen.
-  [[0.005, -0.075, 0.0], [0.07, 0.085, 0.09], GLOVE],
-  [[0.04, -0.15, 0.1], [0.065, 0.07, 0.16], GLOVE],
-  [[0.045, -0.155, 0.1], [0.07, 0.03, 0.08], null],
-  // Left hand wrapped under the handguard.
-  [[-0.008, -0.03, -0.38], [0.075, 0.055, 0.1], GLOVE],
-  [[-0.035, -0.07, -0.33], [0.05, 0.05, 0.1], GLOVE],
-];
-
-export const MUZZLE = new THREE.Vector3(0, 0.02, -0.65);
-
-function buildGunGeometry(armorColor) {
-  const geoms = [];
-  const c = new THREE.Color();
-  for (const [center, size, color] of GUN_PARTS) {
-    const g = new THREE.BoxGeometry(size[0], size[1], size[2]);
-    g.deleteAttribute('uv');
-    g.translate(center[0], center[1], center[2]);
-    c.set(color ?? armorColor);
-    const n = g.attributes.position.count;
-    const col = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) c.toArray(col, i * 3);
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    geoms.push(g);
-  }
-  const merged = mergeGeometries(geoms, false);
-  for (const g of geoms) g.dispose();
-  return merged;
-}
+const KICK = { hickory: 1, mesquite: 2.2, smokeSignal: 2.6 };
 
 let sharedMaterial = null;
 
@@ -67,9 +26,15 @@ export class Viewmodel {
     }
     this.root = new THREE.Group();
     this.root.name = 'viewmodel';
-    this.gun = new THREE.Mesh(buildGunGeometry(armorColor), sharedMaterial);
-    this.gun.scale.setScalar(0.72);
-    this.root.add(this.gun);
+    this.guns = {};
+    for (const id of Object.keys(GUN_PARTS)) {
+      const geom = partsGeometry([...GUN_PARTS[id], ...HAND_PARTS[id]], armorColor);
+      const mesh = new THREE.Mesh(geom, sharedMaterial);
+      mesh.scale.setScalar(POSES[id].scale);
+      mesh.visible = false;
+      this.root.add(mesh);
+      this.guns[id] = mesh;
+    }
 
     this.flashMaterial = new THREE.MeshBasicMaterial({
       map: textures.flash,
@@ -80,18 +45,24 @@ export class Viewmodel {
     });
     this.flashMaterial.name = 'muzzleFlash';
     this.flash = new THREE.Group();
+    const flashGeom = new THREE.PlaneGeometry(0.2, 0.2);
     for (const ry of [0, Math.PI / 2]) {
       // Front-facing star plus a side-on streak.
-      const q = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), this.flashMaterial);
+      const q = new THREE.Mesh(flashGeom, this.flashMaterial);
       q.rotation.y = ry;
       this.flash.add(q);
     }
-    this.flash.position.copy(MUZZLE);
     this.flash.visible = false;
-    this.gun.add(this.flash);
+
+    this.current = null;
+    this.gun = null;
+    this.setWeapon('hickory');
 
     this.kick = 0;
     this.flashT = 0;
+    this.bashT = 0;
+    this.tossT = 0;
+    this.pumpT = 0;
     this.swayX = 0;
     this.swayY = 0;
     this.bobPhase = 0;
@@ -101,16 +72,39 @@ export class Viewmodel {
     this.vy = 0;
   }
 
+  setWeapon(id) {
+    if (id === this.current) return;
+    if (this.gun) this.gun.visible = false;
+    this.current = id;
+    this.gun = this.guns[id];
+    this.gun.visible = true;
+    this.gun.add(this.flash);
+    this.flash.position.copy(MUZZLES[id]);
+    this.flash.scale.setScalar(id === 'hickory' ? 1 : 1.8);
+  }
+
   fired() {
-    this.kick = 1;
+    this.kick = KICK[this.current] ?? 1;
     this.flashT = 0.05;
     this.flash.rotation.z = Math.random() * Math.PI;
-    const s = 0.8 + Math.random() * 0.4;
-    this.flash.scale.set(s, s, s);
+    if (this.current === 'mesquite') this.pumpT = 0.001;
+  }
+
+  bash() {
+    this.bashT = 0.001;
+  }
+
+  toss() {
+    this.tossT = 0.001;
   }
 
   // lookX / lookY: radians turned this frame.
   update(dt, p, lookX, lookY) {
+    this.root.visible = p.alive && !p.guiding;
+    const id = p.weapon.def.id;
+    this.setWeapon(id);
+    const pose = POSES[id];
+
     const run = p.grounded && p.mode === 'move' ? Math.min(1, p.speed() / 7) : 0;
     this.bobPhase += dt * (6 + p.speed() * 1.2) * (run > 0.05 ? 1 : 0);
     const k = damp(10, dt);
@@ -122,22 +116,35 @@ export class Viewmodel {
     const lowered = p.mode === 'mantle' ? 1 : p.mode === 'net' || p.mode === 'rope' || p.mode === 'bars' ? 0.35 : 0;
     this.lower += (lowered - this.lower) * damp(10, dt);
     this.vy += (clamp(-p.vel.y * 0.004, -0.035, 0.035) - this.vy) * damp(8, dt);
-    this.kick = Math.max(0, this.kick - dt * 14);
+    this.kick = Math.max(0, this.kick - dt * 12);
 
+    const curve = (t) => (t > 0 && t < 1 ? Math.sin(Math.PI * t) : 0);
+    const advance = (t, dur) => (t > 0 ? (t + dt / dur >= 1 ? 0 : t + dt / dur) : 0);
+    this.bashT = advance(this.bashT, 0.3);
+    this.tossT = advance(this.tossT, 0.45);
+    this.pumpT = advance(this.pumpT, 0.65);
+    const bash = curve(this.bashT);
+    const toss = curve(this.tossT);
+    const pump = this.pumpT > 0.25 ? curve((this.pumpT - 0.25) / 0.75) : 0;
     const reload = Math.sin(Math.PI * p.weapon.reloadProgress);
+    const sw = p.switchT > 0 ? Math.min(1, p.switchT / SWITCH_TIME) : 0;
+
     const bobX = Math.sin(this.bobPhase) * 0.012 * run;
     const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * run;
     const a = this.aim;
     const g = this.gun;
+    const [px, py, pz] = pose.pos;
+    const [rx, ry, rz] = pose.rot;
     g.position.set(
-      0.21 - 0.08 * a + bobX + this.swayX - 0.05 * this.sprint,
-      -0.215 + 0.035 * a + bobY + this.swayY + this.vy - 0.12 * reload - 0.05 * this.sprint - 0.2 * this.lower - p.landDip * 0.25,
-      -0.48 + 0.03 * this.kick + 0.05 * a,
+      px - 0.08 * a + bobX + this.swayX - 0.05 * this.sprint - 0.04 * bash,
+      py + 0.035 * a + bobY + this.swayY + this.vy - 0.12 * reload - 0.05 * this.sprint - 0.2 * this.lower -
+        p.landDip * 0.25 - 0.3 * sw - 0.16 * toss + 0.03 * bash,
+      pz + 0.012 * this.kick + 0.05 * a - 0.14 * bash + 0.04 * pump,
     );
     g.rotation.set(
-      0.025 + 0.06 * this.kick - 0.45 * reload - 0.25 * this.sprint - 0.5 * this.lower,
-      0.06 + 0.55 * this.sprint,
-      0.6 * reload + this.swayX * 2,
+      rx + 0.035 * this.kick - 0.45 * reload - 0.25 * this.sprint - 0.5 * this.lower - 0.9 * sw - 0.35 * toss + 0.12 * pump - 0.25 * bash,
+      ry + 0.55 * this.sprint + 0.3 * bash,
+      rz + 0.6 * reload + this.swayX * 2 + 0.5 * bash,
     );
 
     if (this.flashT > 0) {
@@ -150,11 +157,12 @@ export class Viewmodel {
 
   warmup(on) {
     this.flash.visible = on;
+    for (const m of Object.values(this.guns)) m.visible = on || m === this.gun;
   }
 
   dispose() {
-    this.gun.geometry.dispose();
-    for (const q of this.flash.children) q.geometry.dispose();
+    for (const m of Object.values(this.guns)) m.geometry.dispose();
+    this.flash.children[0].geometry.dispose();
     this.flashMaterial.dispose();
   }
 }

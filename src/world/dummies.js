@@ -59,6 +59,21 @@ export class Dummy {
     return this.feet.y + 1.48;
   }
 
+  centerPosition(out) {
+    return out.set(this.feet.x, this.feet.y + HALF_HEIGHT + RADIUS, this.feet.z);
+  }
+
+  facing(out) {
+    return out.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+  }
+
+  distanceToBody(p) {
+    const lo = this.feet.y + RADIUS;
+    const hi = lo + HALF_HEIGHT * 2;
+    const y = Math.max(lo, Math.min(hi, p.y));
+    return Math.hypot(p.x - this.feet.x, p.y - y, p.z - this.feet.z) - RADIUS;
+  }
+
   placeBody(teleport) {
     const c = { x: this.feet.x, y: this.feet.y + HALF_HEIGHT + RADIUS + 0.02, z: this.feet.z };
     if (teleport) this.body.setTranslation(c, true);

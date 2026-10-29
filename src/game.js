@@ -12,6 +12,8 @@ import { createSky, FOG_COLOR } from './world/sky.js';
 import { Dummy, DUMMY_POSTS } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
 import { dealDamage } from './combat/damage.js';
+import { Missiles, Grenades } from './combat/projectiles.js';
+import { Pickups } from './combat/pickups.js';
 import { Player } from './player/player.js';
 import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial } from './player/viewmodel.js';
@@ -65,7 +67,10 @@ export class Game {
     const preset = qualityPreset();
     this.renderer = createRenderer(this.stage, preset);
     this.renderer.autoClear = false;
-    this.physics = { RAPIER, world: new RAPIER.World({ x: 0, y: 0, z: 0 }) };
+    // Gravity only moves dynamic bodies (grenades); players run their own floaty gravity.
+    this.physics = { RAPIER, world: new RAPIER.World({ x: 0, y: -16, z: 0 }) };
+    this.shotFilter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
+    this.notBody = (c) => !this.entities.has(c.handle);
     this.physics.world.timestep = PHYSICS_DT;
     this.ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 });
 
@@ -90,6 +95,9 @@ export class Game {
     });
     this.zones = this.arena.zones;
     this.fx = new Effects(scene, this.textures);
+    this.missiles = new Missiles(this, this.materials.props, this.textures);
+    this.grenades = new Grenades(this, this.materials.props);
+    this.pickups = new Pickups(this, this.materials.props);
     this.setupViewmodelScene();
     // One step so scene queries see the static colliders before anyone spawns.
     this.physics.world.step();
@@ -170,6 +178,9 @@ export class Game {
     const cam = this.players[0].camera;
     this.players[0].updateCamera(1, 0, window.innerWidth / window.innerHeight);
     const fwd = new THREE.Vector3(0, 0, -3).applyQuaternion(cam.quaternion).add(cam.position);
+    this.missiles.warmup(true, fwd);
+    this.grenades.warmup(true, fwd);
+    this.fx.explosion(fwd, 5);
     this.fx.tracer(cam.position, fwd, 0xffffff);
     this.fx.impactWorld(fwd, new THREE.Vector3(0, 1, 0));
     this.fx.deathPuff(fwd.x, fwd.y - 1, fwd.z);
@@ -187,6 +198,8 @@ export class Game {
       p.viewmodel.warmup(false);
     }
     for (const d of this.dummies) d.model.warmup(false);
+    this.missiles.warmup(false);
+    this.grenades.warmup(false);
     this.fx.update(10);
     this.needsRender = true;
   }
@@ -220,14 +233,7 @@ export class Game {
     ray.dir.x = dir.x;
     ray.dir.y = dir.y;
     ray.dir.z = dir.z;
-    const hit = this.physics.world.castRayAndGetNormal(
-      ray,
-      range,
-      true,
-      RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
-      undefined,
-      exclude,
-    );
+    const hit = this.physics.world.castRayAndGetNormal(ray, range, true, this.shotFilter, undefined, exclude);
     if (!hit) {
       r.hit = false;
       r.entity = null;
@@ -242,6 +248,23 @@ export class Game {
     r.entity = this.entities.get(hit.collider.handle) ?? null;
     r.headshot = !!r.entity && r.point.y >= r.entity.headLineY();
     return r;
+  }
+
+  // True when solid level geometry sits between a and b (bodies and grenades don't count).
+  lineBlocked(a, b) {
+    const ray = this.ray;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dz = b.z - a.z;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-4) return false;
+    ray.origin.x = a.x;
+    ray.origin.y = a.y;
+    ray.origin.z = a.z;
+    ray.dir.x = dx / len;
+    ray.dir.y = dy / len;
+    ray.dir.z = dz / len;
+    return this.physics.world.castRay(ray, len, true, this.shotFilter, undefined, undefined, undefined, this.notBody) !== null;
   }
 
   onKill(victim, info) {
@@ -333,6 +356,9 @@ export class Game {
   tick(dt) {
     this.time += dt;
     for (const p of this.players) p.tick(dt);
+    this.missiles.tick(dt);
+    this.grenades.tick(dt);
+    this.pickups.tick(dt);
     for (const d of this.dummies) d.tick(dt);
     this.physics.world.step();
     for (const p of this.players) {
@@ -344,6 +370,9 @@ export class Game {
     this.arena.update(dt, this.time);
     for (const p of this.players) p.updateVisuals(dt, alpha);
     for (const d of this.dummies) d.updateVisual(dt, alpha);
+    this.missiles.updateVisuals(alpha);
+    this.grenades.updateVisuals(alpha);
+    this.pickups.updateVisuals(this.time);
     this.fx.update(dt);
   }
 
@@ -365,7 +394,7 @@ export class Game {
       r.clear(true, true, false);
       r.render(this.scene, p.camera);
 
-      if (p.alive) {
+      if (p.alive && !p.guiding) {
         for (const o of this.players) o.viewmodel.root.visible = o === p;
         const vc = this.vmCamera;
         if (vc.aspect !== rect.w / rect.h) {
@@ -391,6 +420,10 @@ export class Game {
     for (const h of this.huds) h.dispose();
     for (const p of this.players) p.dispose();
     for (const d of this.dummies) d.dispose();
+    this.grenades.clear();
+    this.grenades.dispose();
+    this.missiles.dispose();
+    this.pickups.dispose();
     this.fx.dispose();
     this.scene.traverse((o) => {
       if (!o.isSkinnedMesh) o.geometry?.dispose();

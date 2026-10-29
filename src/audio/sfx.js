@@ -66,6 +66,35 @@ const SOUNDS = {
       s.phase += (f * Math.PI * 2) / rate;
       return 0.5 * Math.sin(s.phase) * Math.exp(-t * 3) + 0.35 * noise() * Math.exp(-t * 5);
     }),
+  shotgun: (ctx) =>
+    synth(ctx, 0.35, (t, s, rate) => {
+      const f = 110 * Math.exp(-t * 9) + 40;
+      s.phase += (f * Math.PI * 2) / rate;
+      const n = noise();
+      return 0.75 * n * Math.exp(-t * 16) + 0.9 * Math.sin(s.phase) * Math.exp(-t * 11);
+    }),
+  shell: (ctx) => synth(ctx, 0.12, (t) => 0.5 * click(t, 0, 900, 70) + 0.3 * click(t, 0.05, 1500, 90)),
+  launch: (ctx) =>
+    synth(ctx, 0.7, (t, s, rate) => {
+      const f = 180 + 500 * Math.min(1, t * 3);
+      s.phase += (f * Math.PI * 2) / rate;
+      return 0.5 * noise() * Math.exp(-t * 4) + 0.3 * Math.sin(s.phase) * Math.exp(-t * 5);
+    }),
+  boom: (ctx) =>
+    synth(ctx, 1.3, (t, s, rate) => {
+      const f = 70 * Math.exp(-t * 2.5) + 28;
+      s.phase += (f * Math.PI * 2) / rate;
+      const n = noise();
+      s.prev = s.prev * 0.92 + n * 0.08; // low-passed rumble
+      return 1.1 * Math.sin(s.phase) * Math.exp(-t * 3.5) + 0.8 * n * Math.exp(-t * 9) + 2.2 * s.prev * Math.exp(-t * 2);
+    }),
+  throw: (ctx) => synth(ctx, 0.25, (t) => 0.35 * noise() * Math.sin((Math.PI * t) / 0.25) * Math.exp(-t * 4)),
+  clink: (ctx) => synth(ctx, 0.12, (t) => 0.35 * click(t, 0, 620, 45) + 0.2 * click(t, 0, 1450, 60)),
+  swing: (ctx) => synth(ctx, 0.22, (t) => 0.3 * noise() * Math.sin((Math.PI * t) / 0.22)),
+  bash: (ctx) =>
+    synth(ctx, 0.2, (t) => 0.9 * Math.sin(t * 120 * Math.PI * 2) * Math.exp(-t * 22) + 0.4 * noise() * Math.exp(-t * 30)),
+  pickup: (ctx) => synth(ctx, 0.2, (t) => 0.3 * click(t, 0, 880, 25) + 0.3 * click(t, 0.07, 1320, 25)),
+  swap: (ctx) => synth(ctx, 0.18, (t) => 0.4 * click(t, 0, 700, 60) + 0.35 * click(t, 0.09, 1100, 80)),
   burn: (ctx) =>
     synth(ctx, 0.3, (t) => {
       const pop = Math.random() < 0.004 ? 1 : 0;
@@ -74,7 +103,7 @@ const SOUNDS = {
 };
 
 // Minimum seconds between two plays of the same sound, so rapid events don't pile up.
-const MIN_GAP = { hit: 0.025, head: 0.04, burn: 0.22, hurt: 0.12, shieldCharge: 0.5 };
+const MIN_GAP = { hit: 0.025, head: 0.04, burn: 0.22, hurt: 0.12, shieldCharge: 0.5, clink: 0.06, boom: 0.05 };
 
 export class Sfx {
   constructor() {
