@@ -173,16 +173,19 @@ export class StaticBuilder {
   }
 
   // shade: whether build() shades the vertices (quads and glows don't get it).
-  _add(mat, geom, castShadow, tint = null, shade = true) {
+  // light: whether a glow tint also adds its glow pool to the floor bake.
+  _add(mat, geom, castShadow, tint = null, shade = true, light = true) {
     if (tint !== null) {
       _col.set(tint);
       const n = geom.attributes.position.count;
       const col = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) _col.toArray(col, i * 3);
       geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
-      geom.computeBoundingBox();
-      _box.copy(geom.boundingBox);
-      this.light(_box.min.toArray(), _box.max.toArray(), tint);
+      if (light) {
+        geom.computeBoundingBox();
+        _box.copy(geom.boundingBox);
+        this.light(_box.min.toArray(), _box.max.toArray(), tint);
+      }
     }
     const key = `${mat.uuid}|${castShadow ? 1 : 0}`;
     let g = this.groups.get(key);
@@ -213,11 +216,12 @@ export class StaticBuilder {
   // Box by center and size. Options: rotY (radians) or quat, uv ('world' | 'fit'),
   // collide (default true), visible (default true), castShadow (default true), floor (it's
   // walkable ground: the bake measures heights from it), halo (a glowing strip's open face as
-  // an axis normal like [0, 0, 1]: beacons.js draws a soft glow around it there).
+  // an axis normal like [0, 0, 1]: beacons.js draws a soft glow around it there), bakeLight
+  // (default true: a glow tint lights the floor bake; false to place that light with light()).
   box(matOrTint, center, size, opts = {}) {
     const [mat, tint] = resolve(matOrTint);
     const [w, h, d] = size;
-    const { rotY = 0, quat = null, uv = 'world', collide = true, visible = true, castShadow = true, floor = false, halo = null } = opts;
+    const { rotY = 0, quat = null, uv = 'world', collide = true, visible = true, castShadow = true, floor = false, halo = null, bakeLight = true } = opts;
     const q = quat ? _q.copy(quat) : _q.setFromAxisAngle(UP, rotY);
     _p.set(center[0], center[1], center[2]);
     if (visible && mat) {
@@ -234,7 +238,7 @@ export class StaticBuilder {
         worldUvBox(geom, w, h, d, mat.userData.tile, ws, hs, ds, !quat, min);
       }
       geom.applyMatrix4(_m.compose(_p, q, _s));
-      this._add(mat, geom, castShadow, tint);
+      this._add(mat, geom, castShadow, tint, true, bakeLight);
       if (halo && !quat && !rotY) {
         const min = [center[0] - w / 2, center[1] - h / 2, center[2] - d / 2];
         this.halos.push({ min, max: [min[0] + w, min[1] + h, min[2] + d], normal: halo, color: tint ?? 0xffffff });

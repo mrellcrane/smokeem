@@ -11,7 +11,7 @@ import { PICKUP_REACH, PICKUP_REACH_Y } from '../combat/pickups.js';
 //   the power gun (it clears the walls), mid-height for field guns, short for grenades. It
 //   turns about the vertical to face the camera, fades out when you stand next to it, and
 //   fades away when the pickup is taken. While someone stands on the pad, its lower part fades
-//   so their armor color still reads through it.
+//   (all of the short grenade column) so their armor color still reads through it.
 // - Rings: while a pad is empty, a ring on it fills like a clock until the pickup is back;
 //   then it pulses.
 // - Halos: a rounded-rectangle glow just in front of every strip built with a `halo` face
@@ -232,7 +232,8 @@ export class Beacons {
     this.mesh.frustumCulled = false;
     // Before smoke (4), with its own order: three would otherwise sort the two by their bounding
     // spheres, which flips with the camera's pitch. Halos and rings sit on surfaces, so smoke
-    // over them is always in front.
+    // over them is always in front. A column stands in the open, so smoke behind one dims it;
+    // drawing columns after smoke would take a mesh (and a draw call per view) of their own.
     this.mesh.renderOrder = 3;
     this.mesh.visible = index.length > 0;
   }

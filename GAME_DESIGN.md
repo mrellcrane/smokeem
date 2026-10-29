@@ -277,7 +277,7 @@ synthesized.
   see across the arena which ones are ready: a tall orange one for the power gun that clears
   the walls, a mid-height cyan one for field guns, a short ember one for grenades. Columns fade
   out when you stand next to them, and their lower part fades while someone stands on the pad
-  (so that player's armor color still reads). An empty pad shows a ring that fills like a clock
+  (so that player's armor color still reads; the short grenade column goes out). An empty pad shows a ring that fills like a clock
   until its pickup is back, then pulses.
 
 ### Grenades and melee
