@@ -1,6 +1,6 @@
 import { DEG } from '../util/math.js';
 import { currentSpread } from '../combat/shooting.js';
-import { RESPAWN_DELAY } from '../player/player.js';
+import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
 import { controlsHtml } from './controls.js';
 import { clockText, ordinal } from '../match.js';
 
@@ -8,8 +8,8 @@ import { clockText, ordinal } from '../match.js';
 // DOM is only touched when a value actually changes.
 
 const KEY_LABELS = {
-  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse' },
-  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick' },
+  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D' },
+  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick' },
 };
 
 const HITMARKER_TIME = 0.18;
@@ -21,6 +21,11 @@ const hex = (c) => (c == null ? 'inherit' : `#${c.toString(16).padStart(6, '0')}
 const nameHtml = (p) => `<b style="color:${hex(p.color)}">${p.name}</b>`;
 
 // One kill feed line: "Killer weapon Victim", or "Victim how" when nobody else did it.
+// Zoomed far enough with a scoped gun to look through the scope.
+export function scopedIn(player) {
+  return !!player.weapon.def.scope && player.aimZoom > SCOPE_ZOOM;
+}
+
 export function feedRow(f) {
   const how = `<span>${f.how}${f.headshot ? ' · head' : ''}</span>`;
   return `<div>${f.killer ? `${nameHtml(f.killer)} ${how} ${nameHtml(f.victim)}` : `${nameHtml(f.victim)} ${how}`}</div>`;
@@ -43,6 +48,7 @@ export class Hud {
     this.el = document.createElement('div');
     this.el.className = 'hud-view';
     this.el.innerHTML = `
+      <div class="scope"><i></i><i></i></div>
       <div class="hud-burn"></div>
       <div class="hud-hurt"></div>
       <div class="dmg-arrow"><i></i></div>
@@ -70,7 +76,7 @@ export class Hud {
         <div class="mc-fuel"><b></b></div>
         <div class="mc-reticle"></div>
       </div>
-      <div class="death"><h3>SMOKED</h3><p class="cause"></p><p class="timer"></p></div>
+      <div class="death"><h3>SMOKED</h3><p class="cause"></p><p class="timer"></p><p class="loadout"></p></div>
       <div class="hud-hint"></div>
       <div class="hud-controls">${controlsHtml(inputKind)}</div>
       <div class="hud-debug"></div>
@@ -87,6 +93,7 @@ export class Hud {
       health: q('.health'),
       healthFill: q('.health i'),
       cross: q('.crosshair'),
+      scope: q('.scope'),
       tag: q('.hud-tag'),
       clock: q('.hud-clock'),
       place: q('.hud-place'),
@@ -109,6 +116,7 @@ export class Hud {
       death: q('.death'),
       cause: q('.cause'),
       timer: q('.timer'),
+      loadout: q('.death .loadout'),
       hint: q('.hud-hint'),
       debug: q('.hud-debug'),
     };
@@ -243,7 +251,10 @@ export class Hud {
       e.tag.style.display = x ? 'block' : 'none';
       this.el.classList.toggle('split', x);
     });
-    this.set('crossVis', alive && !g, (x) => (e.cross.style.display = x ? '' : 'none'));
+    // Through a scope: the scope's own reticle replaces the crosshair.
+    const scoped = alive && !g && scopedIn(player);
+    this.set('scoped', scoped, (x) => (e.scope.style.display = x ? 'block' : 'none'));
+    this.set('crossVis', alive && !g && !scoped, (x) => (e.cross.style.display = x ? '' : 'none'));
 
     // Hit marker.
     const hm = Math.max(0, 1 - (now - fb.hitT) / HITMARKER_TIME);
@@ -270,6 +281,9 @@ export class Hud {
       this.set('cause', deathText(player.deathInfo, player), (x) => (e.cause.textContent = x));
       const left = Math.max(0, Math.ceil(RESPAWN_DELAY - player.deathT));
       this.set('timer', left, (x) => (e.timer.textContent = x > 0 ? `Back in ${x}` : ''));
+      // Pick the loadout for the next life (labels are built once per match).
+      const labels = game.arsenal.labels;
+      this.set('loadout', player.loadout, (i) => (e.loadout.textContent = labels.length > 1 ? `◀ ${labels[i]} ▶  (${this.keys.pick})` : ''));
     }
 
     this.updateMatch(player, game);

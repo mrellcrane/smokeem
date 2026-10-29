@@ -1,25 +1,18 @@
 import * as THREE from 'three';
 import { damp, clamp } from '../util/math.js';
-import { GUN_PARTS, HAND_PARTS, MUZZLES, partsGeometry } from '../combat/weaponModels.js';
+import { partsGeometry } from '../combat/weaponModels.js';
+import { GUNS } from '../combat/guns/index.js';
 import { SWITCH_TIME } from '../combat/weapons.js';
 
 // First-person weapon with gloved hands. Lives in its own scene, rendered after the world with a
 // cleared depth buffer and its own camera, so it never clips into walls and keeps the same size
-// in every split-screen view. One mesh per weapon; only the held one is visible.
-
-// Resting pose per weapon in viewmodel-camera space.
-const POSES = {
-  hickory: { pos: [0.21, -0.215, -0.48], rot: [0.025, 0.06, 0], scale: 0.72 },
-  mesquite: { pos: [0.21, -0.22, -0.46], rot: [0.025, 0.06, 0], scale: 0.72 },
-  smokeSignal: { pos: [0.27, -0.2, -0.56], rot: [0.02, 0.05, 0], scale: 0.6 },
-};
-
-const KICK = { hickory: 1, mesquite: 2.2, smokeSignal: 2.6 };
+// in every split-screen view. One mesh per weapon in the match's set; only the held one is
+// visible. Each gun's resting pose, kick and flash size come from its module (`view`).
 
 let sharedMaterial = null;
 
 export class Viewmodel {
-  constructor(textures, armorColor) {
+  constructor(textures, armorColor, guns) {
     if (!sharedMaterial) {
       sharedMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
       sharedMaterial.name = 'viewmodel';
@@ -27,14 +20,9 @@ export class Viewmodel {
     this.root = new THREE.Group();
     this.root.name = 'viewmodel';
     this.guns = {};
-    for (const id of Object.keys(GUN_PARTS)) {
-      const geom = partsGeometry([...GUN_PARTS[id], ...HAND_PARTS[id]], armorColor);
-      const mesh = new THREE.Mesh(geom, sharedMaterial);
-      mesh.scale.setScalar(POSES[id].scale);
-      mesh.visible = false;
-      this.root.add(mesh);
-      this.guns[id] = mesh;
-    }
+    this.muzzles = {};
+    this.armorColor = armorColor;
+    for (const id of guns) this.addGun(id);
 
     this.flashMaterial = new THREE.MeshBasicMaterial({
       map: textures.flash,
@@ -56,7 +44,7 @@ export class Viewmodel {
 
     this.current = null;
     this.gun = null;
-    this.setWeapon('hickory');
+    this.setWeapon(guns[0]);
 
     this.kick = 0;
     this.flashT = 0;
@@ -72,22 +60,35 @@ export class Viewmodel {
     this.vy = 0;
   }
 
+  addGun(id) {
+    const g = GUNS[id];
+    const mesh = new THREE.Mesh(partsGeometry([...g.parts, ...g.hands], this.armorColor), sharedMaterial);
+    mesh.scale.setScalar(g.view.scale);
+    mesh.visible = false;
+    this.muzzles[id] = new THREE.Vector3(...g.muzzle);
+    this.root.add(mesh);
+    this.guns[id] = mesh;
+  }
+
   setWeapon(id) {
     if (id === this.current) return;
     if (this.gun) this.gun.visible = false;
     this.current = id;
+    // Only the match's set is built up front; anything else (debug, tests) is built on demand.
+    if (!this.guns[id]) this.addGun(id);
     this.gun = this.guns[id];
     this.gun.visible = true;
     this.gun.add(this.flash);
-    this.flash.position.copy(MUZZLES[id]);
-    this.flash.scale.setScalar(id === 'hickory' ? 1 : 1.8);
+    this.flash.position.copy(this.muzzles[id]);
+    this.flash.scale.setScalar(GUNS[id].view.flash);
   }
 
   fired() {
-    this.kick = KICK[this.current] ?? 1;
+    const g = GUNS[this.current];
+    this.kick = g.view.kick;
     this.flashT = 0.05;
     this.flash.rotation.z = Math.random() * Math.PI;
-    if (this.current === 'mesquite') this.pumpT = 0.001;
+    if (g.def.pump) this.pumpT = 0.001;
   }
 
   bash() {
@@ -100,10 +101,10 @@ export class Viewmodel {
 
   // lookX / lookY: radians turned this frame.
   update(dt, p, lookX, lookY) {
-    this.root.visible = p.alive && !p.guiding;
+    this.root.visible = p.showsViewmodel();
     const id = p.weapon.def.id;
     this.setWeapon(id);
-    const pose = POSES[id];
+    const pose = GUNS[id].view;
 
     const run = p.grounded && p.mode === 'move' ? Math.min(1, p.speed() / 7) : 0;
     this.bobPhase += dt * (6 + p.speed() * 1.2) * (run > 0.05 ? 1 : 0);
@@ -127,7 +128,7 @@ export class Viewmodel {
     const toss = curve(this.tossT);
     const pump = this.pumpT > 0.25 ? curve((this.pumpT - 0.25) / 0.75) : 0;
     const reload = Math.sin(Math.PI * p.weapon.reloadProgress);
-    const sw = p.switchT > 0 ? Math.min(1, p.switchT / SWITCH_TIME) : 0;
+    const sw = p.switchT > 0 ? Math.min(1, p.switchT / (p.weapon.def.switchTime ?? SWITCH_TIME)) : 0;
 
     const bobX = Math.sin(this.bobPhase) * 0.012 * run;
     const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * run;

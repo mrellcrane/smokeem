@@ -178,3 +178,16 @@ launch = mix(
     (sub_thump(0.5, 80, 40, 0.18), -6, 0),
 )
 write('launch', master(cut(launch, 0.0, 1.3, pre=0, fade=0.5)))
+
+# Toothpick: Walther PPQ 9mm pistol. Kindling: Carl Gustav M45 9mm SMG. Cold Smoke: SKS.
+for name, path, onsets, length in [
+    ('pistol', 'Walther PPQ/X_39P.wav', [1.405, 6.44, 10.66], 0.45),
+    ('smg', 'Carl Gustav M45/G_31P.wav', [0.31, 3.5, 6.725], 0.45),
+    ('marksman', 'SKS/U_14P.wav', [3.575, 6.755, 10.21], 0.75),
+]:
+    x = load(f'{L}/{path}')
+    for i, t in enumerate(onsets):
+        write(f'{name}-{i + 1}', master(cut(x, onset_near(x, t), length, fade=length * 0.5)))
+
+# Pistol reload: the whole short reload (mag out, mag in, slide) from the reload pack.
+write('reloadPistol', master(cut(gr, 0.05, 1.5, pre=0, fade=0.15), -4))

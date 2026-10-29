@@ -3,7 +3,7 @@ import { BODY, MOVE, CAMERA } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
-import { WEAPONS, WeaponState, GRENADE, STARTING_WEAPON } from '../combat/weapons.js';
+import { WEAPONS, WeaponState, GRENADE, SWITCH_TIME } from '../combat/weapons.js';
 import { InputState } from '../input/inputState.js';
 import { updateShooting, cancelReload } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
@@ -23,6 +23,8 @@ import { Viewmodel } from './viewmodel.js';
 
 export const RESPAWN_DELAY = 3;
 const FIRE_DPS = 45;
+// Zoomed past this with a scoped gun, you look through the scope.
+export const SCOPE_ZOOM = 1.6;
 // Controller aim slows to this fraction while the crosshair is on someone.
 const AIM_FRICTION = 0.6;
 export const PLAYER_COLORS = [0x3d7bd9, 0xd9443d, 0x3dbd5a, 0xe0b53a];
@@ -45,7 +47,8 @@ const NO_PRESSES = NEUTRAL_INPUT.consumePressed();
 
 export class Player {
   // brain: set for bots (an AI writing `input`); bots have no camera view or viewmodel.
-  constructor(game, { id, input, name, brain = null, color = null }) {
+  // loadout: index into the match's weapon set loadouts (bots roll a new one every life).
+  constructor(game, { id, input, name, brain = null, color = null, loadout = 0 }) {
     this.game = game;
     this.kind = 'player';
     this.id = id;
@@ -112,15 +115,18 @@ export class Player {
     this.eyeOff = EYE_OFF_STAND;
     this.landDip = 0;
     this.fovBoost = 0;
-    this._fovKey = '';
+    this._fovH = this._fovA = this._fovZ = NaN;
     this.deathRoll = 0;
     this.lastLookX = 0;
     this.lastLookY = 0;
 
     // Combat.
     this.vitals = new Vitals();
-    this.slots = [new WeaponState(WEAPONS[STARTING_WEAPON]), null];
+    this.slots = [null, null];
     this.slot = 0;
+    this.loadout = loadout;
+    // Last left/right direction on the respawn screen, for picking the next loadout.
+    this.pickDir = 0;
     this.grenades = GRENADE.start;
     this.switchT = 0;
     this.meleeT = 0;
@@ -145,7 +151,7 @@ export class Player {
     // and the first-person rifle.
     const armor = color ?? PLAYER_COLORS[id % PLAYER_COLORS.length];
     this.color = armor;
-    this.model = new CharacterModel({ armor });
+    this.model = new CharacterModel({ armor, guns: game.arsenal.guns });
     if (this.isBot) {
       // Everyone sees bots; they have no view of their own.
       this.viewmodel = null;
@@ -153,8 +159,37 @@ export class Player {
       this.model.setLayer(1 + id);
       this.camera.layers.enableAll();
       this.camera.layers.disable(1 + id);
-      this.viewmodel = new Viewmodel(game.textures, armor);
+      this.viewmodel = new Viewmodel(game.textures, armor, game.arsenal.guns);
     }
+    this.armLoadout();
+  }
+
+  // Both guns of the chosen loadout, full ammo. They stay with you when you're smoked.
+  armLoadout() {
+    const loadouts = this.game.arsenal.loadouts;
+    this.loadout = ((this.loadout % loadouts.length) + loadouts.length) % loadouts.length;
+    loadouts[this.loadout].guns.forEach((id, i) => {
+      const w = new WeaponState(WEAPONS[id]);
+      w.spawnGun = true;
+      this.slots[i] = w;
+    });
+    this.slot = 0;
+  }
+
+  // On the respawn screen, left/right picks the loadout for the next life.
+  pickLoadout() {
+    const x = this.input.moveX;
+    const dir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
+    if (dir && dir !== this.pickDir) {
+      const n = this.game.arsenal.loadouts.length;
+      this.loadout = (this.loadout + dir + n) % n;
+    }
+    this.pickDir = dir;
+  }
+
+  // First-person gun on screen: not while dead, flying a missile or looking through a scope.
+  showsViewmodel() {
+    return this.alive && !this.guiding && !(this.weapon.def.scope && this.aimZoom > SCOPE_ZOOM);
   }
 
   get alive() {
@@ -188,7 +223,7 @@ export class Player {
     const slot = this.slots[0] && this.slots[1] ? this.slot : this.slots[0] ? 1 : 0;
     this.slots[slot] = state;
     this.slot = slot;
-    this.switchT = 0.25;
+    this.switchT = def.switchTime ?? SWITCH_TIME;
     return slot;
   }
 
@@ -259,8 +294,8 @@ export class Player {
     this.sprintLock = 0;
     this.input.clear();
     this.vitals.reset();
-    this.slots[0] = new WeaponState(WEAPONS[STARTING_WEAPON]);
-    this.slots[1] = null;
+    if (this.isBot) this.loadout = this.brain.pickLoadout();
+    this.armLoadout();
     this.slot = 0;
     this.grenades = GRENADE.start;
     this.switchT = this.meleeT = this.throwT = this.lungeT = this.knockT = 0;
@@ -302,6 +337,7 @@ export class Player {
     this.prevCenter.copy(this.center);
     if (this.mode === 'dead') {
       this.deathT += dt;
+      if (!this.isBot) this.pickLoadout();
       if (this.deathT >= RESPAWN_DELAY) this.game.respawn(this);
       return;
     }
@@ -389,6 +425,9 @@ export class Player {
     this.deathInfo = info;
     this.aimTarget = null;
     cancelReload(this.game, this.weapon);
+    // A direction already held when you're smoked (mid-strafe) isn't a loadout pick.
+    const x = this.input.moveX;
+    this.pickDir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
     this.stats.deaths++;
     this.vel.set(0, 0, 0);
     this.sprinting = false;
@@ -863,7 +902,7 @@ export class Player {
 
     const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed * settings.moveSpeed + 0.5;
     this.fovBoost += ((fast ? CAMERA.sprintFovBoost : 0) - this.fovBoost) * damp(8, dt);
-    this.setFov((settings.fov + this.fovBoost) / this.aimZoom, aspect);
+    this.setFov(settings.fov + this.fovBoost, aspect, this.aimZoom);
   }
 
   // Body pose for other players' views, and the first-person rifle.
@@ -888,15 +927,17 @@ export class Player {
     this.lastLookY = 0;
   }
 
-  // Horizontal FOV from settings, converted to vertical for this viewport's aspect.
-  setFov(hfovDeg, aspect) {
-    const key = `${hfovDeg.toFixed(2)}|${aspect.toFixed(4)}`;
-    if (key === this._fovKey) return;
-    this._fovKey = key;
+  // Horizontal FOV from settings, converted to vertical for this viewport's aspect and clamped,
+  // then magnified by the aim zoom (after the clamp, so wide split views still zoom).
+  setFov(hfovDeg, aspect, zoom = 1) {
+    if (hfovDeg === this._fovH && aspect === this._fovA && zoom === this._fovZ) return;
+    this._fovH = hfovDeg;
+    this._fovA = aspect;
+    this._fovZ = zoom;
     const h = hfovDeg * DEG;
-    let v = 2 * Math.atan(Math.tan(h / 2) / aspect) / DEG;
-    v = clamp(v, CAMERA.minVerticalFov, CAMERA.maxVerticalFov);
-    this.camera.fov = v;
+    let v = 2 * Math.atan(Math.tan(h / 2) / aspect);
+    v = clamp(v / DEG, CAMERA.minVerticalFov, CAMERA.maxVerticalFov) * DEG;
+    this.camera.fov = (2 * Math.atan(Math.tan(v / 2) / zoom)) / DEG;
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
   }

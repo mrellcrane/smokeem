@@ -5,7 +5,7 @@ import { PAD, buttonDown } from '../input/gamepad.js';
 // steppers and segmented choices. Screen-level buttons (B, Menu) are reported back to the
 // caller, which knows what they mean on each screen.
 
-const FOCUSABLE = 'button:not([disabled]), input[type="range"], input[type="checkbox"]';
+const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), input[type="range"], input[type="checkbox"]';
 const STICK = 0.55;
 const REPEAT_DELAY = 0.38;
 const REPEAT_EVERY = 0.09;

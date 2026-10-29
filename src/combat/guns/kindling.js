@@ -1,0 +1,63 @@
+import { GLOVE, GLOW, METAL, METAL_LIGHT, ORANGE } from '../weaponModels.js';
+
+// Kindling: SMG. The fastest close-range kill of the loadout guns, useless past about 25 m.
+export default {
+  def: {
+    id: 'kindling',
+    name: 'Kindling',
+    blurb: 'SMG. Melts up close and stays accurate on the move; weak past 25 m.',
+    kind: 'hitscan',
+    auto: true,
+    fireRate: 14,
+    damage: 10,
+    headshotMul: 1.5,
+    falloffStart: 10,
+    falloffEnd: 28,
+    falloffMin: 0.4,
+    range: 100,
+    mag: 40,
+    reserve: 200,
+    reloadTime: 1.5,
+    spreadBase: 1.2,
+    spreadMax: 2.4,
+    spreadPerShot: 0.12,
+    spreadRecovery: 10,
+    spreadMoveAdd: 0.25,
+    spreadAirAdd: 0.35,
+    aimSpreadMul: 0.75,
+    crouchSpreadMul: 0.85,
+    climbSpreadMul: 1.2,
+    zoom: 1.15,
+    switchTime: 0.35,
+    // Sprint again sooner after firing than with the Hickory.
+    sprintLock: 0.15,
+    tracerEvery: 2,
+    tracerColor: 0xffb070,
+    sound: 'smg',
+    reloadRate: 1.1,
+    bot: { min: 0, max: 22, pref: 8, mobile: true },
+  },
+  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
+  parts: [
+    [[0, 0.02, -0.08], [0.07, 0.09, 0.26], METAL],
+    [[0, -0.06, -0.14], [0.08, 0.08, 0.08], ORANGE],
+    [[0, 0.03, -0.29], [0.05, 0.05, 0.16], METAL_LIGHT],
+    [[0.026, 0.03, -0.25], [0.003, 0.012, 0.014], GLOW],
+    [[0.026, 0.03, -0.29], [0.003, 0.012, 0.014], GLOW],
+    [[0.026, 0.03, -0.33], [0.003, 0.012, 0.014], GLOW],
+    [[0, 0.035, 0.12], [0.012, 0.012, 0.2], METAL],
+    [[0, -0.025, 0.12], [0.012, 0.012, 0.2], METAL],
+    [[0, -0.07, 0.0], [0.04, 0.09, 0.045], null],
+  ],
+  // Gloves and forearms: right hand on the grip, left hand on the drum.
+  hands: [
+    [[0.005, -0.075, 0.0], [0.07, 0.085, 0.09], GLOVE],
+    [[0.04, -0.15, 0.1], [0.065, 0.07, 0.16], GLOVE],
+    [[0.045, -0.155, 0.1], [0.07, 0.03, 0.08], null],
+    [[-0.01, -0.09, -0.15], [0.07, 0.06, 0.09], GLOVE],
+    [[-0.04, -0.12, -0.1], [0.05, 0.05, 0.1], GLOVE],
+  ],
+  muzzle: [0, 0.03, -0.38],
+  view: { pos: [0.2, -0.2, -0.44], rot: [0.025, 0.06, 0], scale: 0.8, kick: 0.7, flash: 0.8 },
+  carry: [0.12, 1.2, -0.3],
+};

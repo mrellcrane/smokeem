@@ -17,8 +17,8 @@ export class Effects {
     scene.add(this.tracerPool.mesh, this.sparks.mesh, this.smoke.mesh);
   }
 
-  tracer(a, b, color) {
-    this.tracerPool.spawn(a, b, color);
+  tracer(a, b, color, width, life) {
+    this.tracerPool.spawn(a, b, color, width, life);
   }
 
   // Sparks thrown out of a surface around its normal.

@@ -40,6 +40,8 @@ const DEFAULTS = {
   botSkill: 'normal',
   // Match length in minutes; 0 means no limit.
   timeLimit: 5,
+  // Weapon set: 'default' (the map's), a set id, or 'mystery' (random).
+  weaponSet: 'default',
   // Multiplier on horizontal movement and climbing speed for everyone (players and bots).
   moveSpeed: 0.7,
 };
@@ -69,6 +71,7 @@ function load() {
   out.bots = Number.isInteger(out.bots) ? Math.max(0, Math.min(MAX_BOTS, out.bots)) : DEFAULTS.bots;
   if (!BOT_SKILLS[out.botSkill]) out.botSkill = DEFAULTS.botSkill;
   if (!(String(out.timeLimit) in TIME_LIMITS)) out.timeLimit = DEFAULTS.timeLimit;
+  if (typeof out.weaponSet !== 'string') out.weaponSet = DEFAULTS.weaponSet;
   if (!Number.isFinite(out.moveSpeed)) out.moveSpeed = DEFAULTS.moveSpeed;
   out.moveSpeed = Math.max(MOVE_SPEED_RANGE.min, Math.min(MOVE_SPEED_RANGE.max, out.moveSpeed));
   return out;

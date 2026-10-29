@@ -23,6 +23,7 @@ import { disposeViewmodelMaterial } from './player/viewmodel.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
+import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts, loadoutLabel } from './combat/arsenal.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -49,11 +50,16 @@ export class Game {
     botSkill = 'normal',
     practiceTargets = true,
     timeLimit = 5,
+    weaponSet = DEFAULT_SET,
     onProgress = () => {},
   }) {
     onProgress('Lighting the smoker', 0.05);
     await initRapier();
     const game = new Game(stage, hudRoot, fps, sfx);
+    const id = WEAPON_SETS[weaponSet] ? weaponSet : DEFAULT_SET;
+    const set = WEAPON_SETS[id];
+    const loadouts = setLoadouts(set);
+    game.arsenal = { id, set, guns: setGuns(set), loadouts, labels: loadouts.map((_, i) => loadoutLabel(set, i)) };
     game.match = new Match(game, timeLimit);
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
@@ -133,7 +139,7 @@ export class Game {
     }
 
     playerDefs.forEach((def, i) => {
-      const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}` });
+      const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}`, loadout: def.loadout ?? 0 });
       def.source.player = p;
       this.players.push(p);
       this.humans.push(p);
@@ -466,7 +472,7 @@ export class Game {
       r.clear(true, true, false);
       r.render(this.scene, p.camera);
 
-      if (p.alive && !p.guiding) {
+      if (p.showsViewmodel()) {
         for (const o of this.humans) o.viewmodel.root.visible = o === p;
         const vc = this.vmCamera;
         if (vc.aspect !== rect.w / rect.h) {

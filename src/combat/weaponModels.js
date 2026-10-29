@@ -1,89 +1,20 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Box-built gun shapes shared by the first-person viewmodel, third-person bodies and map
-// pickups. Gun space: barrel along -z, origin at the grip, meters.
+// Shared helpers and colors for the box-built guns (each gun's parts live in its module under
+// src/combat/guns/). Gun space: barrel along -z, origin at the grip, meters.
 // Each part: [center, size, color]. A null color means "the owner's armor color".
 
-const METAL = 0x464c53;
-const METAL_LIGHT = 0x666e77;
-const WOOD = 0x8a5a33;
-const WOOD_DARK = 0x6e4526;
-const GLOW = 0xffa040;
-const OLIVE = 0x5e6b48;
-const ORANGE = 0xff7a1a;
-const SHELL_RED = 0xb02a20;
-const SCREEN = 0x63f2ff;
+export const METAL = 0x464c53;
+export const METAL_LIGHT = 0x666e77;
+export const WOOD = 0x8a5a33;
+export const WOOD_DARK = 0x6e4526;
+export const GLOW = 0xffa040;
+export const OLIVE = 0x5e6b48;
+export const ORANGE = 0xff7a1a;
+export const SHELL_RED = 0xb02a20;
+export const SCREEN = 0x63f2ff;
 export const GLOVE = 0x24272c;
-
-export const GUN_PARTS = {
-  hickory: [
-    [[0, 0.02, -0.12], [0.07, 0.09, 0.34], METAL],
-    [[0, 0.073, -0.12], [0.03, 0.016, 0.26], METAL_LIGHT],
-    [[0, 0.092, -0.03], [0.032, 0.03, 0.05], METAL],
-    [[0, 0.092, -0.056], [0.012, 0.012, 0.004], GLOW],
-    [[0, 0.012, -0.37], [0.082, 0.072, 0.22], WOOD],
-    [[0, 0.02, -0.53], [0.03, 0.03, 0.14], METAL],
-    [[0, 0.02, -0.615], [0.048, 0.048, 0.05], METAL_LIGHT],
-    [[0, -0.01, 0.12], [0.06, 0.08, 0.2], WOOD],
-    [[0, -0.02, 0.225], [0.07, 0.11, 0.03], WOOD_DARK],
-    [[0, -0.07, -0.02], [0.045, 0.1, 0.05], METAL],
-    [[0, -0.085, -0.17], [0.05, 0.13, 0.07], METAL],
-    [[0, -0.07, -0.134], [0.052, 0.022, 0.003], GLOW],
-  ],
-  mesquite: [
-    [[0, 0.02, -0.1], [0.075, 0.085, 0.28], METAL],
-    [[0, 0.045, -0.44], [0.05, 0.05, 0.42], METAL_LIGHT],
-    [[0, -0.008, -0.4], [0.04, 0.04, 0.36], METAL],
-    [[0, -0.01, -0.36], [0.075, 0.065, 0.17], WOOD],
-    [[0, 0.075, -0.645], [0.012, 0.014, 0.012], GLOW],
-    [[0, -0.02, 0.12], [0.065, 0.09, 0.22], WOOD],
-    [[0, -0.03, 0.235], [0.072, 0.12, 0.03], WOOD_DARK],
-    [[0, -0.07, 0], [0.045, 0.1, 0.05], WOOD_DARK],
-    [[0.041, 0.02, -0.12], [0.008, 0.045, 0.11], SHELL_RED],
-  ],
-  smokeSignal: [
-    [[0, 0.07, -0.2], [0.14, 0.14, 0.9], OLIVE],
-    [[0, 0.07, -0.67], [0.17, 0.17, 0.06], METAL],
-    [[0, 0.07, 0.27], [0.16, 0.16, 0.05], METAL],
-    [[0, 0.142, -0.45], [0.143, 0.006, 0.08], ORANGE],
-    [[0, 0.142, 0.05], [0.143, 0.006, 0.08], ORANGE],
-    [[-0.105, 0.1, -0.12], [0.06, 0.08, 0.09], METAL],
-    [[-0.105, 0.1, -0.075], [0.045, 0.055, 0.003], SCREEN],
-    [[0, -0.03, 0], [0.045, 0.1, 0.05], METAL],
-    [[0, -0.02, -0.32], [0.04, 0.09, 0.05], METAL],
-  ],
-};
-
-// Gloves and forearms for the first-person view.
-export const HAND_PARTS = {
-  hickory: [
-    [[0.005, -0.075, 0.0], [0.07, 0.085, 0.09], GLOVE],
-    [[0.04, -0.15, 0.1], [0.065, 0.07, 0.16], GLOVE],
-    [[0.045, -0.155, 0.1], [0.07, 0.03, 0.08], null],
-    [[-0.008, -0.03, -0.38], [0.075, 0.055, 0.1], GLOVE],
-    [[-0.035, -0.07, -0.33], [0.05, 0.05, 0.1], GLOVE],
-  ],
-  mesquite: [
-    [[0.005, -0.075, 0.0], [0.07, 0.085, 0.09], GLOVE],
-    [[0.04, -0.15, 0.1], [0.065, 0.07, 0.16], GLOVE],
-    [[0.045, -0.155, 0.1], [0.07, 0.03, 0.08], null],
-    [[-0.008, -0.04, -0.36], [0.08, 0.055, 0.1], GLOVE],
-    [[-0.04, -0.08, -0.31], [0.05, 0.05, 0.1], GLOVE],
-  ],
-  smokeSignal: [
-    [[0.005, -0.06, 0.0], [0.07, 0.085, 0.09], GLOVE],
-    [[0.04, -0.14, 0.1], [0.065, 0.07, 0.16], GLOVE],
-    [[0.045, -0.145, 0.1], [0.07, 0.03, 0.08], null],
-    [[-0.005, -0.05, -0.32], [0.075, 0.08, 0.09], GLOVE],
-  ],
-};
-
-export const MUZZLES = {
-  hickory: new THREE.Vector3(0, 0.02, -0.65),
-  mesquite: new THREE.Vector3(0, 0.045, -0.67),
-  smokeSignal: new THREE.Vector3(0, 0.07, -0.72),
-};
 
 // Merge parts into one vertex-colored geometry. `extra` adds skinning or other attributes per
 // vertex: extra(geometry, vertexCount).

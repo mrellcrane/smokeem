@@ -132,56 +132,99 @@ obstacle works at any setting.
 
 ## Weapons
 
-Two weapon slots. You spawn with the Hickory and an empty slot. Ten weapons eventually.
+Two weapon slots, both full at spawn. 15 guns in all (7 normal, 8 wacky), but a match only
+ever uses one **weapon set** of 5, so nobody has to learn the whole roster at once. Each gun's
+numbers live in its own module under `src/combat/guns/`; the full design (every gun's stats,
+model, sound, bot use and counterplay) came out of a design workflow with three competing
+rosters and three judges.
 
-### v1 weapons (names are proposals)
+### Weapon sets and loadouts
 
-| Weapon | Role |
-| --- | --- |
-| **Hickory** rifle | Full-auto mid-range workhorse. Spawn weapon. |
-| **Mesquite** shotgun | Pump shotgun. Brutal up close, useless far away. |
-| **Smoke Signal** | Signature weapon. Fires a guided missile and switches your view to the missile's camera; you steer it in real time. You are defenseless while flying it. Map pickup only, low ammo. |
+- Every set is "3 to start, 2 to find": two primaries and a sidearm for loadouts, one gun on
+  the field pads and one on the power pad (Mudlark: the Summit is the power pad, orange rim,
+  60 s; the pads under the Summit and in the southwest barrier field are field pads, cyan
+  rim, 30 s). Power guns never go in loadouts.
+- A loadout is one primary plus the set's sidearm, so every set has two. You pick on the
+  drop-in screen (arrows, or left/right on your controller) and on every respawn screen
+  (A / D or the left stick); the pick sticks between lives and matches. Bots roll a loadout
+  every life (Hard bots lean toward the longer-range primary).
+- Loadout guns stay with you when you're smoked and vanish if you swap one for a pickup;
+  picked-up guns drop when you're smoked (gone after 25 s).
+- Heat labels say how much a set asks you to learn: Mild (the default), Medium (no wacky
+  guns in loadouts), Hot, Extra Hot (anything goes; opt-in only).
+- The title screen gets a Guns choice (Map default, each set, or Mystery Meat: a random set
+  that's never Extra Hot and never the one just played) once more than one set is built. A
+  set only appears once all five of its guns exist.
+- The drop-in screen lists the set's five guns with a line on what each does.
 
-**Hickory starting stats** (tune in playtests): 9 shots per second, 13 damage, headshots x1.5,
-damage falls off to 60% between 35 m and 80 m, 32-round magazine with 160 in reserve, 1.7 s
-reload, right mouse zooms 1.35x and tightens spread. Spread blooms while firing and grows when
-moving or airborne. A full-shield, full-health target takes about 1.8 s of body shots.
+| Set | Heat | Primaries | Sidearm | Field | Power | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Backyard** (default) | Mild | Hickory, Kindling | Toothpick | Mesquite | Smoke Signal | built |
+| Competition Cut | Medium | Kindling, Cold Smoke | Toothpick | Chimney | Rotisserie | next |
+| Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | planned |
+| Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
+| Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | planned |
+| Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | planned |
 
+Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n Fast**
+(Kindling + Toothpick).
+
+### The guns
+
+| Gun | Kind | Role | Built |
+| --- | --- | --- | --- |
+| **Hickory** | normal | Full-auto rifle, the mid-range workhorse. Long sprays bloom. | yes |
+| **Mesquite** | normal | Pump shotgun: brutal up close, useless far away. | yes |
+| **Smoke Signal** | wacky | Guided rocket flown from its nose camera; the power weapon. | yes |
+| **Toothpick** | normal | Sidearm pistol, quick to draw: finish people off instead of reloading. | yes |
+| **Kindling** | normal | SMG: fastest close-range kill, accurate on the move, weak past 25 m. | yes |
+| **Cold Smoke** | normal | Marksman rifle with a 2.5x scope; three headshots smoke anyone. | yes (plays once Competition Cut is in) |
+| **Rotisserie** | normal | Spin-up rotary gun (power pad): huge sustained damage, slow to move. | next |
+| **Chimney** | normal | Bouncing coal launcher: small, fast blasts that flush campers. | next |
+| **Cast Iron** | wacky | Ricochet hand cannon: slugs bank off walls. | planned |
+| **Skewer** | wacky | Harpoon gun: two hits kill, and a hit near a wall pins you to it. | planned |
+| **Sauce Boss** | wacky | Goo lobber: slippery, slowing puddles. | planned |
+| **Gust** | wacky | Leaf blower: shoves people, grenades and rockets with wind. | planned |
+| **Swarm Jar** | wacky | Jar of homing bugs that chase the nearest enemy. | planned |
+| **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
+| **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | planned |
+
+**Shooting rules for every gun**
+- Hold the trigger to repeat at the gun's own rate (semi-autos too, so nobody has to mash).
+- Spread blooms while firing and only starts recovering 0.15 s after the last shot, so a
+  long spray really widens and short bursts stay tight.
+- Each gun can set its own switch time (the Toothpick comes up in 0.25 s, the default is
+  0.4 s), how long firing blocks sprint, and its tracers.
 - Firing cancels sprint. You can shoot while climbing nets, ropes and monkey bars (with extra
-  spread), but not mid-mantle.
-- Bullets pass through cargo nets.
+  spread), but not mid-mantle. Bullets pass through cargo nets.
+- An empty gun swaps itself out for your other one.
 
-### Future weapons (ideas, not committed)
+**Built gun stats** (tune in playtests; time to kill is against 100 shields + 100 health):
+- **Hickory**: 9/s, 13 damage, heads x1.5, falls to 60% between 35 and 80 m, 32 + 160,
+  1.7 s reload, 1.35x zoom. Bloom caps at 3.1 degrees hip-fire after about 13 rounds.
+  1.67 s body, 1.11 s heads.
+- **Mesquite**: pump, 10 pellets x 12 in a 6 degree cone, falls to 15% between 6 and 18 m,
+  6 + 18, one shell at a time. Two point-blank blasts smoke.
+- **Smoke Signal**: 1 + 1 rockets, 2.4 s reload; 15 to 25 m/s, turn cap 2.8 rad/s, 7 s life;
+  blast 5.5 m, full 210 inside 1.6 m (a direct hit always smokes); hurts you too.
+- **Toothpick**: 4/s, 20 damage (30 heads), falls to 65% between 25 and 55 m, 12 + 48,
+  1.2 s reload, 1.25x zoom, 0.25 s draw. 2.25 s body, 1.5 s heads.
+- **Kindling**: 14/s, 10 damage, falls to 40% between 10 and 28 m, 40 + 200, 1.5 s reload,
+  barely affected by moving or jumping, sprint again 0.15 s after firing. 1.36 s inside 10 m.
+- **Cold Smoke**: 2/s, 45 damage (67.5 heads), 8 + 32, 2.1 s reload, 2.5x scope (no gun on
+  screen, a scope reticle instead), 2.6 degrees from the hip, 0.21 scoped and standing, much
+  worse in the air. Long icy tracers point back at the shooter. 2.0 s body, 1.0 s heads.
 
-- **Cold Smoke**: precision long rifle with zoom.
-- **Toothpick**: sidearm pistol.
-- **Skewer**: harpoon gun that pins people to walls.
-- **Sauce Boss**: lobs sticky goo puddles that slow and make floors slippery.
-- **Gust**: leaf-blower cone that shoves players and grenades.
-- **Swarm Jar**: throws a jar of angry homing bugs.
-- **Wishbone**: boomerang blade that comes back.
-
-**Mesquite starting stats**: pump action, 10 pellets of 12 damage in a 6 degree cone (two
-point-blank blasts smoke a full-shield target), damage falls to 15% between 6 m and 18 m,
-6 shells plus 18 in reserve, loads one shell at a time and firing interrupts the reload.
-
-**Smoke Signal starting stats**: 1 rocket loaded plus 1 spare, 2.4 s reload. Firing switches
-your view to the rocket's nose camera; you steer it with look input (turn rate capped at
-2.8 rad/s), and the trigger blows it early. It speeds up from 15 to 25 m/s and blows up on
-contact, near a body (0.65 m proximity fuse) or after 7 s. Blast: 5.5 m radius, full 210
-damage within 1.6 m (a direct hit always smokes), less further out. While you fly it, your
-body stands still, defenseless, and you can see yourself from the rocket. It hurts you too.
+**Sounds**: real CC0 recordings: AK-47 (Hickory), Benelli Nova (Mesquite), Walther PPQ
+(Toothpick), Carl Gustav M45 (Kindling), SKS (Cold Smoke). See `src/audio/samples/CREDITS.md`.
 
 **Pickups**
-- Pads on the map: the Smoke Signal on top of the Summit (60 s respawn), Mesquites under the
-  Summit and in the southwest barrier field (30 s), and four grenade pads with 2 each (20 s):
-  the catwalk, the net block, the west monkey-bar platform and the northwest crates.
-- Walking over a pickup takes it when it fits: a gun goes into your empty slot, a gun you
-  already carry tops up its ammo, grenades fill up to the max. With both slots full you get a
-  prompt and press E (hold X on a controller) to swap, dropping your current gun.
-- When you get smoked you drop whatever you picked up (not the starting Hickory). Dropped guns
-  vanish after 25 s.
-- An empty gun swaps itself out for your other one.
+- Weapon pads hold the set's field gun and power gun (see above), plus four grenade pads with
+  2 each (20 s): the catwalk, the net block, the west monkey-bar platform and the northwest
+  crates.
+- Walking over a pickup takes it when it fits: a gun you already carry tops up its ammo,
+  grenades fill up to the max. A different gun gets a prompt: press E (hold X on a
+  controller) to swap it for the gun in your hands.
 
 ### Grenades and melee
 
@@ -364,7 +407,8 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 ### Phase 2: More game
 
-- More weapons (up to 10), abilities, the motorcycle, more maps, team modes.
+- More weapons: 15 guns in 6 weapon sets (in progress, one set per PR; see Weapons).
+- Abilities, the motorcycle, more maps, team modes.
 
 ### Phase 3: Online
 
@@ -412,3 +456,19 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Owner wants everyone to spawn with two guns and to pick loadouts. Next PR:
   three new guns (Toothpick pistol, Cold Smoke marksman rifle, Kindling SMG), a default
   loadout of Hickory + Toothpick, and loadouts picked per player on the respawn screen.
+- 2026-10-29: Weapon roster (owner asked for about 15 guns, normal and wacky, but a small
+  set per map): 15 guns in 6 sets of 5, Backyard the default; loadouts are a primary plus
+  the set's sidearm; spawn with both slots full; loadout guns never drop. Built in one PR
+  per set. Proposals still waiting on the owner: kill credit for hazard deaths within 4 s of
+  being hit, Cast Iron ricochets hurting their shooter, the Gust glide, the "Basted" status,
+  all gun and set names.
+- 2026-10-29: Every gun repeats when the trigger is held; bloom waits 0.15 s after the last
+  shot before recovering (it never built up before), and the Hickory is retuned to match.
+- 2026-10-29: Review fixes for the weapons framework: fire cooldowns carry leftover time
+  between ticks so every gun fires at its stated rate (fast guns were rounding down to whole
+  ticks); the Smoke Signal needs a fresh pull (a trigger held through an auto-swap no longer
+  launches it); a direction held when you're smoked doesn't change your respawn loadout;
+  aim zoom is applied after the field-of-view clamp, so the 2.5x scope really is 2.5x and
+  zoom works in 2-player split views. Bots reload guns they put away dry once a fight is
+  over, pick guns by meters from each gun's preferred range (so they swap both ways, shotgun
+  up close included), and give up their sidearm rather than their primary at pickups.

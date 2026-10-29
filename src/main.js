@@ -8,6 +8,8 @@ import { KeyboardMouseInput } from './input/keyboardMouse.js';
 import { Gamepads, GamepadInput } from './input/gamepad.js';
 import { Sfx } from './audio/sfx.js';
 import { settings, updateSettings, onSettingsChange } from './settings.js';
+import { loadoutLabel, chooseSet, DEFAULT_SET } from './combat/arsenal.js';
+import { WEAPONS } from './combat/weapons.js';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
@@ -24,6 +26,8 @@ const pads = new Gamepads();
 const sfx = new Sfx();
 let game = null;
 let loading = false;
+// The last weapon set played, so Mystery Meat never repeats it.
+let lastSet = null;
 
 // Local players in seat order (player 1 first). Each seat is an input source: the keyboard
 // and mouse, or a GamepadInput. Seats change only on the title screen and carry over between
@@ -40,8 +44,17 @@ const menu = new Menu(uiRoot, {
   onLeave: (i) => leave(seats[i]),
   inMatch: () => !!game,
   lobby: () => ({ seats: seats.map(seatInfo), padsSeen: pads.seen }),
+  onLoadout: (i, dir) => cycleLoadout(i, dir),
+  loadoutRows: () => (game && game.arsenal.loadouts.length > 1 ? game.humans.map((p) => loadoutLabel(game.arsenal.set, p.loadout)) : []),
   matchKinds: () => seats.map((s) => s.kind),
   audioLocked: () => sfx.ctx?.state !== 'running',
+  setInfo: () => {
+    if (!game) return null;
+    const { set } = game.arsenal;
+    const where = (id) => (id === set.power ? 'power pad' : id === set.field ? 'field pads' : id === set.sidearm ? 'sidearm' : 'primary');
+    const ids = [...set.primaries, set.sidearm, set.field, set.power];
+    return { name: set.name, heat: set.heat, guns: ids.map((id) => ({ name: WEAPONS[id].name, blurb: WEAPONS[id].blurb, where: where(id) })) };
+  },
 });
 const nav = new PadNav(uiRoot);
 
@@ -154,11 +167,12 @@ async function startMatch() {
       hudRoot,
       fps,
       sfx,
-      players: seats.map((source, i) => ({ source, name: `Player ${i + 1}` })),
+      players: seats.map((source, i) => ({ source, name: `Player ${i + 1}`, loadout: source.loadout ?? 0 })),
       bots: settings.bots,
       botSkill: settings.botSkill,
       practiceTargets: settings.bots === 0,
       timeLimit: settings.timeLimit,
+      weaponSet: (lastSet = chooseSet(settings.weaponSet === 'default' ? DEFAULT_SET : settings.weaponSet, lastSet)),
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;
@@ -180,11 +194,25 @@ async function startMatch() {
   }
 }
 
+// Before the first drop-in: change a local player's spawn loadout.
+function cycleLoadout(i, dir) {
+  const p = game?.humans[i];
+  if (!p || game.state !== 'ready') return;
+  p.loadout += dir;
+  p.armLoadout();
+  game.needsRender = true;
+  menu.renderLoadouts();
+}
+
 function endGame() {
   kbm.setEnabled(false);
   lock.exit();
   document.body.classList.remove('in-match');
   if (game) {
+    // Remember each player's loadout for the next match.
+    game.humans.forEach((p, i) => {
+      if (seats[i]) seats[i].loadout = p.loadout;
+    });
     game.dispose();
     game = null;
   }
@@ -231,7 +259,10 @@ function padMenu(gp, e, seat) {
       return;
     }
   }
-  if (e.dir) nav.move(e.dir);
+  // On the ready screen, left/right changes that controller's own loadout.
+  if (screen === 'ready' && seat && (e.dir === 'left' || e.dir === 'right')) {
+    cycleLoadout(seats.indexOf(seat), e.dir === 'right' ? 1 : -1);
+  } else if (e.dir) nav.move(e.dir);
   if (e.a) {
     menu.lastInput = 'pad';
     nav.activate();

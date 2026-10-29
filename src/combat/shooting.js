@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DEG } from '../util/math.js';
 import { dealDamage } from './damage.js';
-import { GRENADE, MELEE, SWITCH_TIME } from './weapons.js';
+import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
 // reload, weapon switching, grenades, melee, launching and detonating the Smoke Signal.
@@ -49,7 +49,9 @@ export function updateShooting(game, p, dt, pressed) {
   const inp = p.input;
   p.meleeT = Math.max(0, p.meleeT - dt);
   p.throwT = Math.max(0, p.throwT - dt);
-  for (const w of p.slots) if (w) w.cooldown = Math.max(0, w.cooldown - dt);
+  // A cooldown that runs out mid-tick keeps the leftover (below 0), so a held trigger fires
+  // at the gun's real rate instead of rounding up to whole ticks; a gun already ready sits at 0.
+  for (const w of p.slots) if (w) w.cooldown = w.cooldown > 0 ? w.cooldown - dt : 0;
 
   // Flying a missile: the trigger blows it up early; nothing else works meanwhile.
   if (p.guiding) {
@@ -68,14 +70,15 @@ export function updateShooting(game, p, dt, pressed) {
   if (want >= 0) {
     cancelReload(game, p.weapon);
     p.slot = want;
-    p.switchT = SWITCH_TIME;
+    p.switchT = p.weapon.def.switchTime ?? SWITCH_TIME;
     game.sfx.play('swap', { at: p.center, source: p });
   }
   if (p.switchT > 0) p.switchT = Math.max(0, p.switchT - dt);
 
   const w = p.weapon;
   const d = w.def;
-  w.bloom = Math.max(0, w.bloom - d.spreadRecovery * dt);
+  // Spread recovers only once you stop firing for a moment, so a long spray really blooms.
+  if (game.time - w.lastShotT > (d.bloomDelay ?? BLOOM_DELAY)) w.bloom = Math.max(0, w.bloom - d.spreadRecovery * dt);
   tickReload(game, p, w, dt, inp.held.fire);
 
   const busy = p.mode === 'mantle' || p.switchT > 0;
@@ -83,7 +86,10 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.grenade && !busy && p.throwT <= 0 && p.grenades > 0) throwGrenade(game, p);
   if (pressed.reload && w.canReload()) startReload(game, p);
 
-  const trigger = d.auto ? inp.held.fire || pressed.fire : pressed.fire;
+  // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
+  // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
+  // held through an auto-swap never launches it by surprise.
+  const trigger = d.kind === 'missile' ? pressed.fire : inp.held.fire || pressed.fire;
   // Shotguns fire straight out of a shell-by-shell reload.
   if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
   if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
@@ -131,7 +137,8 @@ function startReload(game, p) {
   const w = p.weapon;
   w.reloadT = w.def.reloadTime;
   p.sprintLock = Math.max(p.sprintLock, 0.2);
-  w.reloadSfx = game.sfx.play(w.def.reloadPerShell ? 'shell' : 'reload', { at: p.center, source: p });
+  const sound = w.def.reloadSound ?? (w.def.reloadPerShell ? 'shell' : 'reload');
+  w.reloadSfx = game.sfx.play(sound, { at: p.center, source: p, rate: w.def.reloadRate ?? 1 });
 }
 
 // Stop a reload part way (switching guns, getting smoked), sound included.
@@ -146,8 +153,10 @@ function fire(game, p) {
   const w = p.weapon;
   const d = w.def;
   w.mag--;
+  w.shots++;
+  w.lastShotT = game.time;
   p.sprinting = false;
-  p.sprintLock = 0.35;
+  p.sprintLock = d.sprintLock ?? 0.35;
   p.viewmodel?.fired();
   game.sfx.play(d.sound, { rate: 0.97 + Math.random() * 0.06, at: p.center, source: p });
   if (d.pump) game.sfx.play('pump', { delay: 0.18, at: p.center, source: p });
@@ -176,7 +185,11 @@ function fire(game, p) {
     _d.copy(_f).addScaledVector(_r, Math.cos(a) * rr).addScaledVector(_u, Math.sin(a) * rr).normalize();
     const hit = game.castShot(_o, _d, d.range, p.collider);
     _end.copy(_o).addScaledVector(_d, hit.hit ? hit.distance : d.range);
-    if (rays === 1 || i % 2 === 0) game.fx.tracer(_muzzle, _end, d.tracerColor);
+    // Fast guns draw a tracer on every few rounds (always the first) so several of them never
+    // flood the pool.
+    if (rays === 1 ? (w.shots - 1) % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
+      game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, d.tracerLife);
+    }
     if (!hit.hit) continue;
     if (hit.entity) {
       let dmg = d.damage;
