@@ -51,6 +51,19 @@ export function briquetteGeometry() {
   );
 }
 
+// Chimney coal: a smaller briquette with brighter seams.
+export function coalGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0], [0.11, 0.07, 0.11], 0x2a2420],
+      [[0, 0, 0.056], [0.08, 0.012, 0.002], 0xffa040],
+      [[0.056, 0, 0], [0.002, 0.012, 0.08], 0xffa040],
+      [[0, 0.036, 0], [0.06, 0.002, 0.06], 0xff7a1a],
+    ],
+    0x2a2420,
+  );
+}
+
 // Smoke Signal rocket: fat body, nose, four fins. Points along -z.
 export function missileGeometry() {
   return partsGeometry(

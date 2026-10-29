@@ -24,6 +24,7 @@ import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
 import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts, loadoutLabel } from './combat/arsenal.js';
+import { WEAPONS } from './combat/weapons.js';
 
 let rapierReady = null;
 function initRapier() {
@@ -59,7 +60,16 @@ export class Game {
     const id = WEAPON_SETS[weaponSet] ? weaponSet : DEFAULT_SET;
     const set = WEAPON_SETS[id];
     const loadouts = setLoadouts(set);
-    game.arsenal = { id, set, guns: setGuns(set), loadouts, labels: loadouts.map((_, i) => loadoutLabel(set, i)) };
+    const guns = setGuns(set);
+    game.arsenal = {
+      id,
+      set,
+      guns,
+      loadouts,
+      labels: loadouts.map((_, i) => loadoutLabel(set, i)),
+      // Whether the controls lists mention flying the Smoke Signal.
+      missile: guns.some((g) => WEAPONS[g].kind === 'missile'),
+    };
     game.match = new Match(game, timeLimit);
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
@@ -74,6 +84,8 @@ export class Game {
     this.state = 'ready';
     this.disposed = false;
     this.time = 0;
+    // Fixed ticks so far (for things that happen every few ticks).
+    this.tickCount = 0;
     this.acc = 0;
     this.last = 0;
     this.needsRender = true;
@@ -144,7 +156,8 @@ export class Game {
       this.players.push(p);
       this.humans.push(p);
       this.inputs.push(def.source);
-      this.huds.push(new Hud(this.hudRoot, def.source, { index: i, color: `#${p.color.toString(16).padStart(6, '0')}` }));
+      const { missile } = this.arsenal;
+      this.huds.push(new Hud(this.hudRoot, def.source, { index: i, color: `#${p.color.toString(16).padStart(6, '0')}`, missile }));
       scene.add(p.model.group);
       this.vmScene.add(p.viewmodel.root);
       this.respawn(p, i);
@@ -428,6 +441,7 @@ export class Game {
 
   tick(dt) {
     this.time += dt;
+    this.tickCount++;
     for (const p of this.bots) {
       p.brain.think(dt);
       p.applyLook();

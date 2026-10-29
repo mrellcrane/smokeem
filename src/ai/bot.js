@@ -15,18 +15,23 @@ import { WEAPONS } from '../combat/weapons.js';
 //   highGround  share of roam goals picked above ground level
 //   mobile      push in more often while fighting
 //   power       a power weapon: used now and then, always worth a swap
-// semiRate: share of a semi-auto gun's full fire rate a bot taps at.
+//   hold        keep the trigger down through the fight (spin-up guns)
+//   lob         aim a ballistic arc at the target's feet (launchers)
+// semiRate: share of a semi-auto gun's full fire rate a bot taps at; lead: how much of a
+// moving target's travel a bot leads lobbed shots by.
 
 export const BOT_SKILL = {
-  easy: { reaction: 0.75, aimError: 5, turnRate: 3.2, fireCone: 6, burst: [0.45, 0.9], grenadeChance: 0.15, jumpRate: 0.2, strafe: 0.6, advance: 0.3, semiRate: 0.55 },
-  normal: { reaction: 0.42, aimError: 2.6, turnRate: 5.5, fireCone: 4, burst: [0.7, 0.5], grenadeChance: 0.3, jumpRate: 0.45, strafe: 0.85, advance: 0.45, semiRate: 0.8 },
-  hard: { reaction: 0.22, aimError: 1.4, turnRate: 8.5, fireCone: 2.8, burst: [1.0, 0.3], grenadeChance: 0.45, jumpRate: 0.7, strafe: 1, advance: 0.55, semiRate: 1 },
+  easy: { reaction: 0.75, aimError: 5, turnRate: 3.2, fireCone: 6, burst: [0.45, 0.9], grenadeChance: 0.15, jumpRate: 0.2, strafe: 0.6, advance: 0.3, semiRate: 0.55, lead: 0.3 },
+  normal: { reaction: 0.42, aimError: 2.6, turnRate: 5.5, fireCone: 4, burst: [0.7, 0.5], grenadeChance: 0.3, jumpRate: 0.45, strafe: 0.85, advance: 0.45, semiRate: 0.8, lead: 0.6 },
+  hard: { reaction: 0.22, aimError: 1.4, turnRate: 8.5, fireCone: 2.8, burst: [1.0, 0.3], grenadeChance: 0.45, jumpRate: 0.7, strafe: 1, advance: 0.55, semiRate: 1, lead: 0.9 },
 };
 
 export const BOT_NAMES = ['Gristle', 'Dry Rub', 'Rib Tip', 'Pit Boss', 'Low n Slow', 'Charcoal', 'Flare-Up', 'Mop Sauce'];
 export const BOT_COLORS = [0xe0702a, 0x9b59d0, 0x2fb8a8, 0xe06aa8, 0xd8d8d8, 0x6a8f3a, 0x8a5a3a, 0x4a6ad0];
 
 const SIGHT_RANGE = 75;
+// Gravity on launched projectiles (Rapier world gravity).
+const LOB_GRAVITY = 16;
 const HEAR_RANGE = 7;
 const MEMORY = 6;
 const PERCEIVE_EVERY = 0.15;
@@ -257,7 +262,44 @@ export class BotBrain {
     const dz = point.z - _e.z;
     const yaw = Math.atan2(-dx, -dz) + this.errX;
     const pitch = Math.atan2(point.y - _e.y, Math.hypot(dx, dz)) + this.errY + extraPitch;
+    // Where we mean to aim, without the wobble (lobbed shots check against this).
+    this.wantYaw = yaw - this.errX;
+    this.wantPitch = pitch - this.errY;
     this.turnToward(yaw, pitch, this.skill.turnRate, dt);
+  }
+
+  // Angle between where we look and where aimAt meant to point.
+  aimOff() {
+    const p = this.player;
+    return Math.hypot(wrap(p.yaw - this.wantYaw) * Math.cos(p.pitch), p.pitch - this.wantPitch);
+  }
+
+  // Extra pitch for a lob from launcher `def` that lands on `point` (low arc), or null if it
+  // can't get there before the fuse. Solves the drag-free arc, then corrects a few times for
+  // the launch's extra lift and the projectile's damping (both depend on the flight time).
+  lobArc(point, def) {
+    const p = this.player;
+    p.eyePosition(_e);
+    const dx = Math.hypot(point.x - _e.x, point.z - _e.z);
+    if (dx < 0.5) return null;
+    const g = LOB_GRAVITY;
+    const k = def.projectile.damping ?? 0;
+    const up = def.launchUp ?? 0;
+    let t = dx / def.launchSpeed;
+    let theta = 0;
+    for (let i = 0; i < 3; i++) {
+      // Average share of the launch speed kept over the flight.
+      const slow = k > 0 ? (1 - Math.exp(-k * t)) / (k * t) : 1;
+      const s = def.launchSpeed * slow;
+      const dy = point.y - _e.y - up * slow * t;
+      const disc = s ** 4 - g * (g * dx * dx + 2 * dy * s * s);
+      if (disc < 0) return null;
+      theta = Math.atan((s * s - Math.sqrt(disc)) / (g * dx));
+      t = dx / (s * Math.cos(theta));
+    }
+    if (t > def.projectile.fuse * 0.95) return null;
+    this.lobTime = t;
+    return theta - Math.atan2(point.y - _e.y, dx);
   }
 
   // Angle between where we look and the true direction to a point.
@@ -293,10 +335,29 @@ export class BotBrain {
     this.errX = clamp(this.errX + (Math.random() - 0.5) * maxErr * 5 * dt, -maxErr, maxErr);
     this.errY = clamp(this.errY + (Math.random() - 0.5) * maxErr * 5 * dt, -maxErr, maxErr);
     const w = p.weapon.def;
-    // Chest height, or the head for Hard bots with a precision gun.
-    _t.y = w.bot.headshots && this.skillName === 'hard' ? tg.headLineY() + 0.12 : _t.y + 0.35;
     let arc = 0;
-    if (this.throwT > 0) arc = 0.16 + dist * 0.008;
+    let lobOk = true;
+    if (this.throwT > 0) {
+      // Winding up a grenade: its arc is tuned for the chest, whatever gun is in hand.
+      _t.y += 0.35;
+      arc = 0.16 + dist * 0.008;
+    } else if (w.bot.lob) {
+      // At their feet (or their chest if low cover hides the feet), leading a moving target by
+      // the flight time, minus the half of our own velocity the launch adds.
+      _t.y -= 0.8;
+      p.eyePosition(_e);
+      if (this.game.lineBlocked(_e, _t)) _t.y += 1.15;
+      if (this.lobArc(_t, w) !== null) {
+        if (tg.vel) _t.addScaledVector(tg.vel, this.lobTime * sk.lead);
+        _t.addScaledVector(p.vel, -0.5 * this.lobTime);
+      }
+      const a = this.lobArc(_t, w);
+      lobOk = a !== null;
+      arc = a ?? 0;
+    } else {
+      // Chest height, or the head for Hard bots with a precision gun.
+      _t.y = w.bot.headshots && this.skillName === 'hard' ? tg.headLineY() + 0.12 : _t.y + 0.35;
+    }
     this.aimAt(_t, dt, arc);
     if (w.bot.zoomAt && dist > w.bot.zoomAt) s.held.aim = true;
 
@@ -307,9 +368,12 @@ export class BotBrain {
     }
     const inRange = dist >= w.bot.min && dist <= w.bot.max * 1.2;
     const cone = (sk.fireCone * DEG + Math.atan(0.45 / Math.max(1, dist))) * (w.bot.careful ?? 1);
-    if (this.reactT <= 0 && this.throwT <= 0 && inRange && this.aimError(_t) < cone) {
+    const onTarget = w.bot.lob ? lobOk && this.aimOff() < cone : this.aimError(_t) < cone;
+    // Spin-up guns keep the trigger down through the whole fight so the barrels stay hot.
+    if (w.bot.hold && inRange && this.reactT <= 0 && this.throwT <= 0) s.held.fire = true;
+    if (this.reactT <= 0 && this.throwT <= 0 && inRange && onTarget) {
       if (w.auto) {
-        if (this.burstOn) s.held.fire = true;
+        if (this.burstOn || w.bot.hold) s.held.fire = true;
       } else if (p.weapon.cooldown <= 0 && this.tapT <= 0) {
         // Semi-autos: tap at the skill's share of the full rate.
         s.press('fire');

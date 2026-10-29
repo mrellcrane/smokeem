@@ -16,3 +16,5 @@ and mastered with `tools/build_sounds.py`; the sub-bass thumps and the rocket ro
 | `smg-1` to `smg-3` | Carl Gustav M45 9mm SMG, near (G_31P), same library |
 | `marksman-1` to `marksman-3` | Norinco SKS, near (U_14P), same library |
 | `reloadPistol` | gunreload1, Gun reload sounds |
+| `chimney-1`, `chimney-2` | Mossberg 190 bolt-action shotgun, near (N_30P), The Free Firearm Sound Library |
+| `rotisserie-1` to `rotisserie-3` | PPSh-41, near (P_34P), sliced from one long burst, same library |

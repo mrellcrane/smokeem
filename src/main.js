@@ -47,6 +47,7 @@ const menu = new Menu(uiRoot, {
   onLoadout: (i, dir) => cycleLoadout(i, dir),
   loadoutRows: () => (game && game.arsenal.loadouts.length > 1 ? game.humans.map((p) => loadoutLabel(game.arsenal.set, p.loadout)) : []),
   matchKinds: () => seats.map((s) => s.kind),
+  hasMissile: () => !game || game.arsenal.missile,
   audioLocked: () => sfx.ctx?.state !== 'running',
   setInfo: () => {
     if (!game) return null;

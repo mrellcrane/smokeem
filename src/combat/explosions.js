@@ -7,10 +7,11 @@ import { dealDamage } from './damage.js';
 const _c = new THREE.Vector3();
 const _d = new THREE.Vector3();
 
-// cfg: { radius, inner, damage, knockback }  info: { attacker, weapon }
+// cfg: { radius, inner, damage, knockback, volume?, rate? }  info: { attacker, weapon }
+// volume and rate let small blasts (Chimney coals) sound smaller.
 export function explode(game, pos, cfg, info) {
   game.fx.explosion(pos, cfg.radius);
-  game.sfx.play('boom', { at: pos });
+  game.sfx.play('boom', { at: pos, volume: cfg.volume ?? 1, rate: cfg.rate ?? 1 });
   game.grenades.shove(pos, cfg);
 
   // Each body registers exactly one collider, so every entity appears once here.

@@ -61,6 +61,11 @@ export class Effects {
     this.burst(point, normal, shield ? 0x7ff0ff : 0xff4a2a, 5, 5, 0.09);
   }
 
+  // A glowing ember drifting off something hot (Chimney coals in flight).
+  ember(p) {
+    this.sparks.spawn(p.x, p.y, p.z, (Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.6, 0xff8a2a, 0.06, 0.35);
+  }
+
   // The "you got smoked" puff: rising grey smoke with a few embers.
   deathPuff(x, y, z) {
     for (let i = 0; i < 26; i++) {

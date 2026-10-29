@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WEAPONS, GRENADE } from './weapons.js';
 import { partsGeometry, briquetteGeometry } from './weaponModels.js';
-import { GUNS } from './guns/index.js';
+import { allParts } from './guns/index.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Weapon and grenade pickups: fixed spawners on pads that come back on a timer, plus weapons
@@ -31,7 +31,7 @@ export class Pickups {
     this.material = material;
     const { set, guns } = game.arsenal;
     this.geoms = {};
-    for (const id of guns) this.geoms[id] = partsGeometry(GUNS[id].parts, 0x888888, { scale: 1.3 });
+    for (const id of guns) this.geoms[id] = partsGeometry(allParts(id), 0x888888, { scale: 1.3 });
     // Two briquettes side by side, merged so each grenade pickup is one draw call.
     const a = briquetteGeometry().rotateY(-0.4).translate(-0.11, 0, 0);
     const b = briquetteGeometry().rotateY(0.4).translate(0.11, 0, 0);
@@ -52,7 +52,8 @@ export class Pickups {
         def: gun ? WEAPONS[gun] : null,
         count: spot.count ?? 0,
         pos,
-        respawn: spot.respawn,
+        // A gun can set its own pad time (the Chimney comes back slower).
+        respawn: (gun && WEAPONS[gun].padRespawn) || spot.respawn,
         spawner: true,
         active: true,
         timer: 0,

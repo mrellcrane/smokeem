@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp } from '../util/math.js';
-import { GUNS } from '../combat/guns/index.js';
+import { GUNS, allParts } from '../combat/guns/index.js';
 
 // The contestant body: chunky armor, a wide amber visor and a smoker canister on the back.
 // Built from boxes, rigidly skinned to a 12-bone body skeleton plus one bone per gun in the
@@ -112,7 +112,7 @@ function parts(r) {
   // Every weapon is baked in on its own bone; the ones not held are scaled to nothing.
   for (const [id, bone] of Object.entries(r.gunBones)) {
     const j = r.joints[bone];
-    for (const [c, size, color] of GUNS[id].parts) {
+    for (const [c, size, color] of allParts(id)) {
       P.push([bone, [j[0] + c[0], j[1] + c[1], j[2] + c[2]], size, color ?? 'armor']);
     }
   }

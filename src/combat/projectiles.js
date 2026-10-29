@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp } from '../util/math.js';
 import { GRENADE } from './weapons.js';
 import { explode } from './explosions.js';
-import { briquetteGeometry, missileGeometry } from './weaponModels.js';
+import { briquetteGeometry, coalGeometry, missileGeometry } from './weaponModels.js';
 
 // Smoke Signal missiles and Briquette grenades. Meshes are pooled and created at load.
 
@@ -14,7 +14,21 @@ const _m = new THREE.Matrix4();
 const _s = new THREE.Vector3(1, 1, 1);
 
 const MAX_MISSILES = 4;
-const MAX_GRENADES = 16;
+// Briquettes and Chimney coals share this cap.
+const MAX_GRENADES = 24;
+
+// How each thrown thing behaves: the Briquette by default; guns that launch things (the
+// Chimney) pass their own `projectile` block.
+const BRIQUETTE = {
+  look: 'briquette',
+  fuse: GRENADE.fuse,
+  contact: 0,
+  ownerGrace: 0,
+  damping: 0.8,
+  restitution: 0.35,
+  ember: false,
+  explosion: GRENADE.explosion,
+};
 // Missiles ignore their shooter for this long so they don't pop on launch.
 const ARM_TIME = 0.25;
 const PROXIMITY = 0.65;
@@ -189,19 +203,30 @@ export class Grenades {
     this.game = game;
     this.list = [];
     this.handles = new Set();
-    this.mesh = new THREE.InstancedMesh(briquetteGeometry(), material, MAX_GRENADES);
-    this.mesh.name = 'grenades';
-    this.mesh.castShadow = true;
-    this.mesh.frustumCulled = false;
-    this.mesh.count = 0;
-    game.scene.add(this.mesh);
+    // One instanced mesh per look, so every grenade in flight is one draw call per look.
+    this.meshes = {};
+    this.meshList = [];
+    for (const [look, geom] of [
+      ['briquette', briquetteGeometry()],
+      ['coal', coalGeometry()],
+    ]) {
+      const m = new THREE.InstancedMesh(geom, material, MAX_GRENADES);
+      m.name = `grenades:${look}`;
+      m.castShadow = true;
+      m.frustumCulled = false;
+      m.count = 0;
+      game.scene.add(m);
+      this.meshes[look] = m;
+      this.meshList.push(m);
+    }
   }
 
   get count() {
     return this.list.length;
   }
 
-  throw(owner, origin, velocity) {
+  // kind: a projectile block (see BRIQUETTE); weapon: what the kill feed names.
+  throw(owner, origin, velocity, kind = BRIQUETTE, weapon = GRENADE) {
     if (this.list.length >= MAX_GRENADES) this.detonate(this.list[0]);
     const { RAPIER, world } = this.game.physics;
     const body = world.createRigidBody(
@@ -210,12 +235,12 @@ export class Grenades {
         .setLinvel(velocity.x, velocity.y, velocity.z)
         .setAngvel({ x: (Math.random() - 0.5) * 14, y: (Math.random() - 0.5) * 14, z: (Math.random() - 0.5) * 14 })
         // Enough drag that a grenade settles near where it lands instead of rolling away.
-        .setLinearDamping(0.8)
+        .setLinearDamping(kind.damping)
         .setAngularDamping(1.5)
         .setCcdEnabled(true),
     );
     const collider = world.createCollider(
-      RAPIER.ColliderDesc.cuboid(0.08, 0.05, 0.08).setRestitution(0.35).setFriction(0.9).setDensity(2),
+      RAPIER.ColliderDesc.cuboid(0.08, 0.05, 0.08).setRestitution(kind.restitution).setFriction(0.9).setDensity(2),
       body,
     );
     this.handles.add(collider.handle);
@@ -223,7 +248,10 @@ export class Grenades {
       body,
       collider,
       owner,
-      fuse: GRENADE.fuse,
+      kind,
+      weapon,
+      age: 0,
+      fuse: kind.fuse,
       pos: new THREE.Vector3(origin.x, origin.y, origin.z),
       prev: new THREE.Vector3(origin.x, origin.y, origin.z),
       rot: new THREE.Quaternion(),
@@ -246,9 +274,22 @@ export class Grenades {
       _v.set(lv.x, lv.y, lv.z);
       if (_v.distanceTo(g.vel) > 3 && g.vel.length() > 2.5) this.game.sfx.play('clink', { at: g.pos });
       g.vel.copy(_v);
+      g.age += dt;
       g.fuse -= dt;
-      if (g.fuse <= 0 || g.pos.y < -20) this.detonate(g);
+      if (g.kind.ember && (this.game.tickCount & 1) === 0) this.game.fx.ember(g.pos);
+      if (g.fuse <= 0 || g.pos.y < -20 || this.touching(g)) this.detonate(g);
     }
+  }
+
+  // Contact fuse: anyone (the shooter only after a moment) within reach of the projectile.
+  touching(g) {
+    const reach = g.kind.contact;
+    if (!reach) return false;
+    for (const e of this.game.entities.values()) {
+      if (!e.alive || (e === g.owner && g.age < g.kind.ownerGrace)) continue;
+      if (e.distanceToBody(g.pos) < reach) return true;
+    }
+    return false;
   }
 
   detonate(g) {
@@ -257,7 +298,7 @@ export class Grenades {
     this.list.splice(i, 1);
     this.handles.delete(g.collider.handle);
     this.game.physics.world.removeRigidBody(g.body);
-    if (g.pos.y > -20) explode(this.game, g.pos, GRENADE.explosion, { attacker: g.owner, weapon: GRENADE });
+    if (g.pos.y > -20) explode(this.game, g.pos, g.kind.explosion, { attacker: g.owner, weapon: g.weapon });
   }
 
   // Blasts push live grenades around.
@@ -272,23 +313,25 @@ export class Grenades {
   }
 
   updateVisuals(alpha) {
-    const n = this.list.length;
-    for (let i = 0; i < n; i++) {
-      const g = this.list[i];
+    for (const m of this.meshList) m.count = 0;
+    for (const g of this.list) {
+      const m = this.meshes[g.kind.look];
       _c.lerpVectors(g.prev, g.pos, alpha);
       _q.slerpQuaternions(g.prevRot, g.rot, alpha);
-      this.mesh.setMatrixAt(i, _m.compose(_c, _q, _s));
+      m.setMatrixAt(m.count++, _m.compose(_c, _q, _s));
     }
-    this.mesh.count = n;
-    if (n) this.mesh.instanceMatrix.needsUpdate = true;
+    for (const m of this.meshList) if (m.count) m.instanceMatrix.needsUpdate = true;
   }
 
   warmup(on, at) {
-    if (on) {
-      this.mesh.setMatrixAt(0, _m.compose(at, _q.identity(), _s));
-      this.mesh.instanceMatrix.needsUpdate = true;
+    for (const m of this.meshList) {
+      if (on) {
+        m.setMatrixAt(0, _m.compose(at, _q.identity(), _s));
+        m.instanceMatrix.needsUpdate = true;
+      }
+      m.count = on ? 1 : 0;
     }
-    this.mesh.count = on ? 1 : this.list.length;
+    if (!on) this.updateVisuals(1);
   }
 
   clear() {
@@ -297,10 +340,10 @@ export class Grenades {
       this.game.physics.world.removeRigidBody(g.body);
     }
     this.list.length = 0;
-    this.mesh.count = 0;
+    for (const m of this.meshList) m.count = 0;
   }
 
   dispose() {
-    this.mesh.geometry.dispose();
+    for (const m of this.meshList) m.geometry.dispose();
   }
 }

@@ -75,10 +75,12 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/combat/`: vitals (shields/health), one module per gun under `guns/` (stats, box model,
   first-person hands and pose, muzzle, third-person grip; registered in `guns/index.js`),
   weapon sets and loadouts (`arsenal.js`: a match builds only its set's guns), weapon state
-  (`weapons.js`), shared box helpers and colors (`weaponModels.js`), the per-tick weapon controller (`shooting.js`:
-  trigger, pellets, missile launch, grenades, melee, switching, reloads), projectiles
-  (`projectiles.js`: Smoke Signal missiles, grenades as Rapier dynamic bodies), area damage
-  (`explosions.js`), pickups, and `dealDamage`, the single path all damage goes through.
+  (`weapons.js`), shared box helpers and colors (`weaponModels.js`), the per-tick weapon
+  controller (`shooting.js`: trigger, spin-up, pellets, missile and launcher shots, grenades,
+  melee, switching, reloads), projectiles (`projectiles.js`: Smoke Signal missiles; grenades
+  and Chimney coals as Rapier dynamic bodies, one instanced mesh per look, with optional
+  contact fuses), area damage (`explosions.js`), pickups, and `dealDamage`, the single path
+  all damage goes through.
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system.
 - `src/audio/`: sound effects (unlocked by the drop-in click). Guns, reloads and explosions
   are CC0 recordings in `src/audio/samples/` (`name-N.wav` files are variations of `name`;

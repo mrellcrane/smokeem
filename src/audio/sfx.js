@@ -59,6 +59,21 @@ const SOUNDS = {
   swing: (ctx) => synth(ctx, 0.22, (t) => 0.3 * noise() * Math.sin((Math.PI * t) / 0.22)),
   bash: (ctx) =>
     synth(ctx, 0.2, (t) => 0.9 * Math.sin(t * 120 * Math.PI * 2) * Math.exp(-t * 22) + 0.4 * noise() * Math.exp(-t * 30)),
+  // Rotisserie barrels winding up (a rising whine) and down.
+  spinUp: (ctx) =>
+    synth(ctx, 0.5, (t, s, rate) => {
+      const f = 70 + 190 * (t / 0.5) * (t / 0.5);
+      s.phase += f / rate;
+      const saw = (s.phase % 1) * 2 - 1;
+      return 0.28 * saw * Math.min(1, t / 0.05) + 0.06 * noise() * (t / 0.5);
+    }),
+  spinDown: (ctx) =>
+    synth(ctx, 1.0, (t, s, rate) => {
+      const f = 260 * Math.exp(-t * 1.8) + 40;
+      s.phase += f / rate;
+      const saw = (s.phase % 1) * 2 - 1;
+      return 0.25 * saw * Math.exp(-t * 2.2) * Math.min(1, (1 - t) / 0.1);
+    }),
   // Last seconds of the match clock, and time's up.
   tick: (ctx) => synth(ctx, 0.09, (t) => 0.35 * Math.sin(t * 1320 * Math.PI * 2) * Math.exp(-t * 40)),
   horn: (ctx) =>
@@ -87,6 +102,10 @@ const MIX = {
   smg: { volume: 0.75, ref: 14, wet: 0.3, voices: 12 },
   marksman: { volume: 1, ref: 22, wet: 0.45, voices: 6 },
   reloadPistol: { volume: 0.5, ref: 5, voices: 4 },
+  chimney: { volume: 0.9, ref: 16, wet: 0.35, voices: 6 },
+  rotisserie: { volume: 0.85, ref: 18, wet: 0.35, voices: 8 },
+  spinUp: { volume: 0.5, ref: 10, voices: 4 },
+  spinDown: { volume: 0.45, ref: 10, voices: 4 },
   pump: { volume: 0.6, ref: 6, voices: 4 },
   launch: { volume: 0.7, ref: 20, wet: 0.35, voices: 4 },
   boom: { volume: 0.95, ref: 28, wet: 0.5, voices: 6 },
@@ -261,6 +280,7 @@ export class Sfx {
       w.gain.value = volume * (mix.volume ?? 1) * wet * (1 / (1 + Math.pow(dist / (ref * 2.5), 1.3)));
       node.connect(w).connect(this.echoIn);
     }
+    voice.name = name;
     voices.push(voice);
     src.onended = () => {
       const i = voices.indexOf(voice);

@@ -40,7 +40,7 @@ export function visibleFeed(match, now) {
 
 export class Hud {
   // source: the player's input source (keyboard/mouse or a controller).
-  constructor(root, source, { index = 0, color = '#ffffff' } = {}) {
+  constructor(root, source, { index = 0, color = '#ffffff', missile = true } = {}) {
     const inputKind = source.kind;
     this.source = source;
     this.index = index;
@@ -78,7 +78,7 @@ export class Hud {
       </div>
       <div class="death"><h3>SMOKED</h3><p class="cause"></p><p class="timer"></p><p class="loadout"></p></div>
       <div class="hud-hint"></div>
-      <div class="hud-controls">${controlsHtml(inputKind)}</div>
+      <div class="hud-controls">${controlsHtml(inputKind, { missile })}</div>
       <div class="hud-debug"></div>
     `;
     root.appendChild(this.el);
