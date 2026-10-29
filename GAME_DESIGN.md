@@ -71,16 +71,17 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
     their route while shooting, swap to the shotgun up close, throw grenades, melee, and steer
     their own Smoke Signals.
   - Bot names: Gristle, Dry Rub, Rib Tip, Pit Boss, Low n Slow, Charcoal, Flare-Up, Mop Sauce.
-- **Rocky Mountain Oysters** (owner idea, 2026-10-29, planned right after movement; PG-13 cartoon,
-  truck-nuts style). A mode toggle on top of free-for-all, inspired by teabagging:
-  - Each kill grows a cartoon two-lobed sack hanging from the back of your belt (nothing else is
-    shown). It jiggles, and once it's big enough it drags and bounces along the ground behind you.
-  - Hits on it count against you at 1.5x (a low blow). Each size slows you a little and lowers
-    your jumps, and a big one sticks out from behind cover.
-  - Bounty: smoking someone bigger than you is worth bonus points.
-  - Crouch three times over someone you just smoked (within 3 s) and the kill feed shouts
-    "SAUCED!" for a little extra growth.
-  - Dying pops it back to small.
+- **Rocky Mountain Oysters** (owner idea, 2026-10-29; PG-13 cartoon, truck-nuts style). Pick it
+  under Mode on the title screen; it's free-for-all with this on top, inspired by teabagging:
+  - Each kill grows a cartoon two-lobed sack hanging off the back of your belt (nothing else is
+    shown), up to 12 sizes. It sways and sags as you move, and from about 9 kills it's big
+    enough to drag along the floor behind you.
+  - Hits on it count against you at 1.5x (a low blow). Each size slows you 3.5% (down to 72%)
+    and lowers your jumps 2.5% (down to 80%), and a big one is a big target.
+  - Bounty: smoking someone bigger than you is worth a bonus point ("bounty" in the kill feed).
+  - Crouch three times over someone you just smoked (within 3 s, within 2.6 m) and the kill feed
+    shouts "SAUCED!" and you grow a size.
+  - Dying pops it in a puff, back to small. Bots don't sauce anyone (yet).
 - **Later:** team modes, online play between separate houses.
 
 ## Characters
@@ -750,3 +751,10 @@ Need answers before the step that uses them gets built.
   chain behind the net block still reaches its top). Bots don't slide or kick on purpose
   yet; a Hard bot's random jump next to a wall kicks now and then, with no effect on their
   routes in testing. The body has a sliding flag and a wall-kick counter to animate later.
+- 2026-10-29: Rocky Mountain Oysters built. A first look hung big sacks on a long stretched cord,
+  which read as something else entirely, so the sack now always hangs straight off the belt
+  and just gets bigger and saggier (dragging comes from size). It's one draw call per view.
+- 2026-10-29: Owner approved a Halo feel pass, next after Oysters: bullet magnetism for
+  controllers only (overriding the earlier "no magnetism or auto-aim" rule), stronger aim
+  slowdown, a retuned stick curve, snappier ground acceleration and chasing the one 42 ms hitch
+  seen on the Mac bench.

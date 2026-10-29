@@ -17,7 +17,7 @@ export class InfoPanel {
     this.el = document.createElement('div');
     this.el.className = 'info-panel';
     this.el.innerHTML = `
-      <div class="ip-head"><b>Mudlark Gauntlet</b><span class="ip-mode">Free-for-all</span><span class="ip-clock"></span></div>
+      <div class="ip-head"><b>Mudlark Gauntlet</b><span class="ip-mode">${game.mode === 'oysters' ? 'Rocky Mountain Oysters' : 'Free-for-all'}</span><span class="ip-clock"></span></div>
       <div class="ip-body">
         <canvas class="ip-map"></canvas>
         <div class="ip-side">

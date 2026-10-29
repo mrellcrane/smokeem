@@ -16,6 +16,7 @@ import { Dummy, DUMMY_POSTS } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
 import { Beacons } from './world/beacons.js';
 import { renderGunIcons } from './ui/gunIcons.js';
+import { Oysters } from './modes/oysters.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -67,6 +68,7 @@ export class Game {
     botSkill = 'normal',
     practiceTargets = true,
     timeLimit = 5,
+    mode = 'ffa',
     weaponSet = DEFAULT_SET,
     onProgress = () => {},
   }) {
@@ -87,6 +89,7 @@ export class Game {
       missile: guns.some((g) => WEAPONS[g].kind === 'missile'),
     };
     game.match = new Match(game, timeLimit);
+    game.mode = mode;
     game.match.onEnd = (results) => game.endMatch(results);
     await game.build(players, { bots, botSkill, practiceTargets }, onProgress);
     return game;
@@ -118,7 +121,8 @@ export class Game {
     this._frame = (now) => this.frame(now);
     this._surface = { point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null };
     // surface: what a world hit is made of (materials.js), null for bodies and unknown colliders.
-    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false, surface: null };
+    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false, lowBlow: false, surface: null };
+    this._sack = { distance: 0 };
     // Per-frame render numbers for the FPS readout and ?bench.
     this.stats = { renderMs: 0, shadowCalls: 0, views: 1, viewCalls: [0, 0, 0, 0] };
   }
@@ -174,6 +178,7 @@ export class Game {
     this.bolts.onImpact.jar = (b, hit) => this.swarms.release(b, hit);
     if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'beam')) this.fx.enableBeams(scene);
     this.pickups = new Pickups(this, this.materials.props);
+    if (this.mode === 'oysters') this.oysters = new Oysters(this, scene);
     if (gfx.beacons) {
       this.beacons = new Beacons(this.pickups.pads, this.arena.halos, this.materials);
       this.beacons.setHalos(gfx.halos && preset.halos);
@@ -290,6 +295,7 @@ export class Game {
     this.bolts.warmup(true, fwd);
     this.swarms.warmup(true, fwd);
     this.pickups.warmup(true, fwd);
+    this.oysters?.warmup(true, fwd);
     this.fx.explosion(fwd, 5);
     this.fx.tracer(cam.position, fwd, 0xffffff);
     this.fx.beam(cam.position, fwd, 0xffffff, 0.03);
@@ -314,6 +320,7 @@ export class Game {
     this.bolts.warmup(false);
     this.swarms.warmup(false);
     this.pickups.warmup(false);
+    this.oysters?.warmup(false);
     this.fx.clear();
     this.needsRender = true;
   }
@@ -352,6 +359,20 @@ export class Game {
     ray.dir.z = dir.z;
     const hit = this.physics.world.castRayAndGetNormal(ray, range, true, this.shotFilter, undefined, exclude);
     const entity = hit ? this.entities.get(hit.collider.handle) ?? null : null;
+    r.lowBlow = false;
+    // Rocky Mountain Oysters: a sack in the way is hit before whatever is behind it.
+    const sack = this.oysters?.rayHit(origin, dir, hit ? hit.timeOfImpact : range, exclude, this._sack);
+    if (sack) {
+      r.hit = true;
+      r.distance = this._sack.distance;
+      r.point.copy(origin).addScaledVector(dir, r.distance);
+      r.normal.copy(dir).negate();
+      r.entity = sack;
+      r.headshot = false;
+      r.lowBlow = true;
+      r.surface = null;
+      return r;
+    }
     // The mud has no collider (you wade through it), so a shot, projectile or bug flying into it
     // stops at its surface. (A body under it can still be hit, as before.)
     const mud = entity ? null : this.zones.mudAlong(origin, dir, hit ? hit.timeOfImpact : range);
@@ -503,6 +524,7 @@ export class Game {
 
   onKill(victim, info) {
     this.match.onKill(victim, info);
+    this.oysters?.onKill(victim, info, this.match);
     const a = info.attacker;
     if (a && a !== victim && a.kind === 'player') {
       a.feedback.killT = this.time;
@@ -616,6 +638,7 @@ export class Game {
     this.bolts.tick(dt);
     this.swarms.tick(dt);
     this.pickups.tick(dt);
+    this.oysters?.tick(dt);
     for (const d of this.dummies) d.tick(dt);
     this.physics.world.step();
     for (const p of this.players) {
@@ -633,6 +656,7 @@ export class Game {
     this.bolts.updateVisuals(alpha);
     this.swarms.updateVisuals(alpha);
     this.pickups.updateVisuals(this.time);
+    this.oysters?.updateVisuals(dt);
     this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
   }
@@ -696,6 +720,7 @@ export class Game {
     this._offSettings?.();
     for (const h of this.huds) h.dispose();
     this.infoPanel?.dispose();
+    this.oysters?.dispose();
     for (const p of this.players) p.dispose();
     for (const d of this.dummies) d.dispose();
     this.grenades.clear();
