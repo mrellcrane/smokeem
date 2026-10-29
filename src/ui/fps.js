@@ -18,7 +18,8 @@ export class FpsCounter {
     this.el.style.display = v ? 'block' : 'none';
   }
 
-  frame(dt, drawCalls) {
+  // stats (optional): { shadowCalls, views, viewCalls[] } from the game's last render.
+  frame(dt, drawCalls, stats = null) {
     this.frames++;
     this.time += dt;
     this.worst = Math.max(this.worst, dt);
@@ -27,6 +28,11 @@ export class FpsCounter {
         const fps = this.frames / this.time;
         const ms = (this.time / this.frames) * 1000;
         this.text = `${fps.toFixed(0)} fps | ${ms.toFixed(1)} ms (worst ${(this.worst * 1000).toFixed(0)}) | ${drawCalls} draws`;
+        if (stats) {
+          let views = '';
+          for (let i = 0; i < stats.views; i++) views += `${i ? '/' : ''}${stats.viewCalls[i]}`;
+          this.text += ` (shadow ${stats.shadowCalls}, views ${views})`;
+        }
         this.el.textContent = this.text;
       }
       this.frames = 0;

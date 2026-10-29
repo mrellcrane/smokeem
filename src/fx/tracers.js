@@ -42,6 +42,8 @@ export class Tracers {
     this.mesh.name = 'tracers';
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 6;
+    // Hidden (no draw call) while no tracer is live.
+    this.mesh.visible = false;
     this.dirty = false;
   }
 
@@ -105,6 +107,7 @@ export class Tracers {
     g.attributes.position.needsUpdate = true;
     g.attributes.color.needsUpdate = true;
     this.dirty = any;
+    this.mesh.visible = any;
   }
 
   dispose() {

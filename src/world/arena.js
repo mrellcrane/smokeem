@@ -193,7 +193,9 @@ function mudPitAndBars(B, M, zones) {
   );
   zones.addMud([PIT.x0, -1.5, PIT.z0], [PIT.x1, PIT.mudY + 0.05, PIT.z1]);
   // Hazard trim around the pit lip.
-  const trim = { collide: false, castShadow: false };
+  // Flat trims cast no real shadow, but casting keeps them in the same merged mesh as every
+  // other hazard box (one draw instead of two).
+  const trim = { collide: false };
   B.boxMinMax(M.hazard, [PIT.x0 - 0.3, 0, PIT.z0 - 0.3], [PIT.x1 + 0.3, 0.02, PIT.z0], trim);
   B.boxMinMax(M.hazard, [PIT.x0 - 0.3, 0, PIT.z1], [PIT.x1 + 0.3, 0.02, PIT.z1 + 0.3], trim);
 

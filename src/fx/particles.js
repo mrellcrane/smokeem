@@ -86,6 +86,8 @@ export class Particles {
     this.mesh.name = name;
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = additive ? 7 : 4;
+    // Nothing to draw until something spawns.
+    this.mesh.visible = false;
   }
 
   // opts: grow (end size multiplier), drag (per second), gravity, alpha, rotVel
@@ -115,9 +117,12 @@ export class Particles {
     this.active = this.max;
   }
 
+  // Ages every particle. While none is alive the mesh is hidden (no draw call), and it only
+  // draws up to the highest live slot.
   update(dt) {
     if (this.active === 0) return;
     let alive = 0;
+    let top = -1;
     const P = this.iPos.array;
     const C = this.iColor.array;
     const S = this.iSizeRot.array;
@@ -128,6 +133,7 @@ export class Particles {
         continue;
       }
       alive++;
+      top = i;
       this.life[i] -= dt;
       const t = 1 - Math.max(0, this.life[i]) / this.maxLife[i];
       const drag = Math.max(0, 1 - this.drag[i] * dt);
@@ -152,6 +158,8 @@ export class Particles {
     this.iColor.needsUpdate = true;
     this.iSizeRot.needsUpdate = true;
     this.active = alive;
+    this.mesh.visible = alive > 0;
+    this.mesh.geometry.instanceCount = top + 1;
   }
 
   dispose() {

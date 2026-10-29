@@ -10,8 +10,11 @@ import { Sfx } from './audio/sfx.js';
 import { settings, updateSettings, onSettingsChange } from './settings.js';
 import { loadoutLabel, chooseSet, DEFAULT_SET } from './combat/arsenal.js';
 import { WEAPONS } from './combat/weapons.js';
+import { gfx } from './render/gfx.js';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
+// ?bench runs a scripted split-screen match and reports frame times (src/render/bench.js).
+const BENCH = new URLSearchParams(window.location.search).has('bench');
 
 const stage = document.getElementById('stage');
 const hudRoot = document.getElementById('hud');
@@ -324,7 +327,8 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Backquote' && !e.repeat) updateSettings({ showFps: !settings.showFps });
 });
 
-menu.showTitle();
+if (BENCH) import('./render/bench.js').then((m) => m.runBench({ stage, hudRoot, uiRoot, fps, sfx }));
+else menu.showTitle();
 
 if (DEBUG) {
   window.smokeem = {
@@ -339,6 +343,7 @@ if (DEBUG) {
     seats,
     settings,
     sfx,
+    gfx,
     // For automated tests in browsers without pointer lock.
     playWithoutLock() {
       if (!game) return;

@@ -12,6 +12,12 @@ const _z = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3(1, 1, 1);
 const UP = new THREE.Vector3(0, 1, 0);
+const _col = new THREE.Color();
+
+// A glow tint (materials.js) draws with its shared material, the tint as a vertex color.
+function resolve(mat) {
+  return mat?.tintOf ? [mat.tintOf, mat.tint] : [mat, null];
+}
 
 // BoxGeometry face order: +x, -x, +y, -y, +z, -z (4 verts each). Scale UVs to meters.
 function worldUvBox(geom, w, h, d, tile) {
@@ -39,7 +45,14 @@ export class StaticBuilder {
     this.meshes = [];
   }
 
-  _add(mat, geom, castShadow) {
+  _add(mat, geom, castShadow, tint = null) {
+    if (tint !== null) {
+      _col.set(tint);
+      const n = geom.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) _col.toArray(col, i * 3);
+      geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    }
     const key = `${mat.uuid}|${castShadow ? 1 : 0}`;
     let g = this.groups.get(key);
     if (!g) {
@@ -57,7 +70,8 @@ export class StaticBuilder {
 
   // Box by center and size. Options: rotY (radians) or quat, uv ('world' | 'fit'),
   // collide (default true), visible (default true), castShadow (default true).
-  box(mat, center, size, opts = {}) {
+  box(matOrTint, center, size, opts = {}) {
+    const [mat, tint] = resolve(matOrTint);
     const [w, h, d] = size;
     const { rotY = 0, quat = null, uv = 'world', collide = true, visible = true, castShadow = true } = opts;
     const q = quat ? _q.copy(quat) : _q.setFromAxisAngle(UP, rotY);
@@ -66,7 +80,7 @@ export class StaticBuilder {
       const geom = new THREE.BoxGeometry(w, h, d);
       if (uv === 'world' && mat.userData.tile > 0) worldUvBox(geom, w, h, d, mat.userData.tile);
       geom.applyMatrix4(_m.compose(_p, q, _s));
-      this._add(mat, geom, castShadow);
+      this._add(mat, geom, castShadow, tint);
     }
     if (collide) {
       this._collider(this.RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2), _p, q);
@@ -86,7 +100,8 @@ export class StaticBuilder {
   }
 
   // Vertical cylinder by base center.
-  cylinder(mat, base, radius, height, opts = {}) {
+  cylinder(matOrTint, base, radius, height, opts = {}) {
+    const [mat, tint] = resolve(matOrTint);
     const { segments = 10, collide = true, castShadow = true } = opts;
     const geom = new THREE.CylinderGeometry(radius, radius, height, segments, 1);
     const tile = mat.userData.tile;
@@ -97,7 +112,7 @@ export class StaticBuilder {
       }
     }
     geom.translate(base[0], base[1] + height / 2, base[2]);
-    this._add(mat, geom, castShadow);
+    this._add(mat, geom, castShadow, tint);
     if (collide) {
       _p.set(base[0], base[1] + height / 2, base[2]);
       this._collider(this.RAPIER.ColliderDesc.cylinder(height / 2, radius), _p, null);

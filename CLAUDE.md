@@ -23,6 +23,11 @@ Then open the localhost URL it prints.
   SwiftShader; drive it by pausing the game and calling `game.tick(1 / 60)` with values
   written into the player's `InputState`, since headless frame rates are too low for
   real-time checks.
+- Add `?bench` to run a scripted split-screen match that reports frame time, render time,
+  draw calls (shadow pass and per view) and load time (`src/render/bench.js`, only loaded
+  for that URL). Options: `q=low|medium|high`, `views=1..4` (default 3), `secs`, `set`, and
+  `off=name,...` to turn graphics switches in `src/render/gfx.js` off for a before/after.
+  Run it on the Xbox from the Pages URL for real numbers; headless only checks draw counts.
 - To test controllers headless, override `navigator.getGamepads` in `page.addInitScript`
   with fake pad objects (`connected`, `mapping: 'standard'`, `axes`, `buttons[i].pressed` /
   `.value`) and dispatch `gamepadconnected`. Menu code reads pads once per animation frame,
@@ -152,11 +157,14 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Cap render resolution on high-DPI screens: use `Math.min(window.devicePixelRatio, cap)` for the renderer pixel ratio. On the medium quality preset the cap is about 1.5. Retina Macs report 2, which is roughly 1.8x the pixels of 1.5.
 - Pre-compile all shaders during the loading screen so nothing compiles mid-game. Warm up every material, lighting and shadow combination that can appear, including things spawned later (muzzle flashes, explosions, pickups), by rendering them once before gameplay starts.
 - Quality presets (low / medium / high) live in `src/settings.js`: pixel ratio cap, shadow map size, anti-aliasing, anisotropy.
-- The shadow map is rendered once per frame, not once per viewport (`shadowMap.autoUpdate = false`, set `needsUpdate` before the first view). The sun's shadow camera covers the whole arena so one map serves every view.
-- Static arena geometry is merged into one mesh per material to keep draw calls low. Add new static props through `StaticBuilder` so they get merged too.
+- The shadow map is rendered once per frame, not once per viewport (`shadowMap.autoUpdate = false`, set `needsUpdate` before the first view). The sun's shadow camera is fitted at load (`fitShadowCamera` in `game.js`: the smallest square around the arena over every roll about the sun's axis) so one map serves every view at the best texel density.
+- Static arena geometry is merged into one mesh per material to keep draw calls low. Add new static props through `StaticBuilder` so they get merged too. Glowing strips share one vertex-colored material: pass the `materials.glowCyan` / `glowOrange` / `ember` tints to `StaticBuilder` like materials.
+- Pooled systems hide themselves while empty (particles, tracers, beams, grenades, bolts, swarms, pickups): three still issues a draw for a zero-count instanced mesh. Pickups are one instanced mesh per gun type plus one for grenade pairs.
+- The sky dome draws last (`renderOrder` 1, depth test on, no depth write), so the arena's depth hides most of its pixels.
+- Textures are painted once per page load; later matches reuse the canvases.
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
-- The FPS counter (backquote key or settings) shows fps, frame time and draw calls.
+- The FPS counter (backquote key or settings) shows fps, frame time and draw calls, plus the shadow pass's draws and each view's.
 - Each view renders the world, then clears depth and renders the viewmodel scene (its own
   camera and lights) so guns never clip into walls. `renderer.autoClear` is off; views clear
   themselves inside their scissor rect.

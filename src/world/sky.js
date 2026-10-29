@@ -1,5 +1,7 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../util/rng.js';
+import { gfx } from '../render/gfx.js';
 
 export const FOG_COLOR = 0xcad7d9;
 
@@ -33,7 +35,8 @@ export function createSky(textures, materials) {
     domeGeom,
     new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }),
   );
-  dome.renderOrder = -10;
+  // Drawn after the opaque arena, so the arena's depth hides most of the dome's pixels.
+  dome.renderOrder = gfx.skyLast ? 1 : -10;
   dome.name = 'skyDome';
   group.add(dome);
 
@@ -50,14 +53,19 @@ export function createSky(textures, materials) {
   planet.name = 'planet';
   group.add(planet);
 
-  group.add(mesaRing(200, 250, 10, 34, 64, 1, materials.mesa));
-  group.add(mesaRing(310, 370, 24, 62, 48, 2, materials.mesa));
+  // Both rings of mesas in one mesh.
+  const mesas = new THREE.Mesh(
+    mergeGeometries([mesaRing(200, 250, 10, 34, 64, 1), mesaRing(310, 370, 24, 62, 48, 2)], false),
+    materials.mesa,
+  );
+  mesas.name = 'mesas';
+  group.add(mesas);
 
   return group;
 }
 
 // A jagged ring of flat-topped hills, open on the inside, built as a single strip.
-function mesaRing(rMin, rMax, hMin, hMax, segments, seed, material) {
+function mesaRing(rMin, rMax, hMin, hMax, segments, seed) {
   const rand = mulberry32(seed * 977);
   const verts = [];
   const ring = [];
@@ -79,7 +87,5 @@ function mesaRing(rMin, rMax, hMin, hMax, segments, seed, material) {
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   geom.computeVertexNormals();
-  const mesh = new THREE.Mesh(geom, material);
-  mesh.name = 'mesas';
-  return mesh;
+  return geom;
 }
