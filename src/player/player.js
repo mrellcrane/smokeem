@@ -160,6 +160,9 @@ export class Player {
     // Last left/right direction on the respawn screen, for picking the next loadout.
     this.pickDir = 0;
     this.pickHold = false;
+    // Movement and jump multipliers from a game mode (Rocky Mountain Oysters).
+    this.burdenSpeed = 1;
+    this.burdenJump = 1;
     this.grenades = GRENADE.start;
     this.switchT = 0;
     this.meleeT = 0;
@@ -576,7 +579,8 @@ export class Player {
     if (wasSprinting && this.grounded && inp.held.crouch && !this.crouched && this.slideCooldown <= 0 && this.lungeT <= 0) {
       this.startSlide(k);
     }
-    let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k;
+    // (burdenSpeed: Rocky Mountain Oysters' drag.)
+    let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k * this.burdenSpeed;
     // Turning Rotisserie barrels slow you down.
     if (this.weapon.spin > 0) speed *= this.weapon.def.spinMoveMul ?? 1;
     if (this.inMud) speed *= MOVE.mudSpeedMul;
@@ -661,7 +665,7 @@ export class Player {
   }
 
   groundJump() {
-    this.vel.y = MOVE.jumpSpeed * (this.inMud ? MOVE.mudJumpMul : 1);
+    this.vel.y = MOVE.jumpSpeed * (this.inMud ? MOVE.mudJumpMul : 1) * this.burdenJump;
     this.grounded = false;
     this.coyote = 0;
     this.jumpBuffer = 0;
@@ -832,7 +836,7 @@ export class Player {
 
   doubleJump(wx, wz, wishLen, speed) {
     const v = this.vel;
-    v.y = MOVE.doubleJumpSpeed;
+    v.y = MOVE.doubleJumpSpeed * this.burdenJump;
     this.airJumpsLeft--;
     this.pose.airJumps++;
     this.jumpBuffer = 0;

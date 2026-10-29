@@ -180,6 +180,7 @@ async function startMatch() {
       botSkill: settings.botSkill,
       practiceTargets: settings.bots === 0,
       timeLimit: settings.timeLimit,
+      mode: settings.mode,
       weaponSet: (lastSet = chooseSet(settings.weaponSet === 'default' ? DEFAULT_SET : settings.weaponSet, lastSet)),
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });

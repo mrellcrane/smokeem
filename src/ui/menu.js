@@ -8,7 +8,7 @@ import {
   VOLUME_RANGE,
   MAX_BOTS,
   BOT_SKILLS,
-  TIME_LIMITS,
+  TIME_LIMITS, MODES,
   MOVE_SPEED_RANGE,
 } from '../settings.js';
 import { controlsHtml } from './controls.js';
@@ -122,6 +122,10 @@ export class Menu {
         this.renderMatchValues();
         break;
       }
+      case 'mode':
+        updateSettings({ mode: btn.dataset.value });
+        this.renderMatchValues();
+        break;
       case 'timeLimit':
         updateSettings({ timeLimit: Number(btn.dataset.value) });
         this.renderMatchValues();
@@ -207,6 +211,13 @@ export class Menu {
           </div>
           <p class="hint bots-hint"></p>
           <div class="row-inline">
+            <label>Mode</label>
+            <div class="segmented">${Object.entries(MODES)
+              .map(([k, label]) => `<button data-action="mode" data-value="${k}" class="seg">${label}</button>`)
+              .join('')}</div>
+          </div>
+          <p class="hint mode-hint"></p>
+          <div class="row-inline">
             <label>Time limit</label>
             <div class="segmented">${[3, 5, 10, 0]
               .map((k) => `<button data-action="timeLimit" data-value="${k}" class="seg">${TIME_LIMITS[k]}</button>`)
@@ -286,6 +297,16 @@ export class Menu {
     }
     for (const btn of r.querySelectorAll('[data-action="timeLimit"]')) {
       btn.classList.toggle('active', Number(btn.dataset.value) === settings.timeLimit);
+    }
+    for (const btn of r.querySelectorAll('[data-action="mode"]')) {
+      btn.classList.toggle('active', btn.dataset.value === settings.mode);
+    }
+    const mh = r.querySelector('.mode-hint');
+    if (mh) {
+      mh.textContent =
+        settings.mode === 'oysters'
+          ? 'Every kill grows your oysters: bigger is slower and easier to hit, smoking someone bigger is a bonus point, and crouch three times over a fresh kill to sauce them.'
+          : '';
     }
     const h = r.querySelector('.bots-hint');
     if (h) h.textContent = settings.bots === 0 ? 'No bots: training dummies take their place.' : '';

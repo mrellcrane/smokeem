@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LOW_BLOW } from '../modes/oysters.js';
 import { DEG } from '../util/math.js';
 import { dealDamage } from './damage.js';
 import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
@@ -279,6 +280,7 @@ function fire(game, p) {
       const t = (hit.distance - d.falloffStart) / (d.falloffEnd - d.falloffStart);
       if (t > 0) dmg *= 1 - Math.min(1, t) * (1 - d.falloffMin);
       if (hit.headshot) dmg *= d.headshotMul;
+      if (hit.lowBlow) dmg *= LOW_BLOW;
       let acc = pelletHits.get(hit.entity);
       if (!acc) {
         acc = { dmg: 0, head: false, point: new THREE.Vector3(), normal: new THREE.Vector3(), shields: hit.entity.vitals.shield > 0 };

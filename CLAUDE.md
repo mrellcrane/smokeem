@@ -70,6 +70,11 @@ Live build: https://mrellcrane.github.io/smokeem/
   `game.match`; when time runs out `game.endMatch()` sets state `'over'` and `main.js` shows
   the results.
 - `src/config.js`: movement and body tuning numbers.
+- `src/modes/`: optional match modes on top of free-for-all, picked on the title screen
+  (`settings.mode`, `game.mode`). `oysters.js` is Rocky Mountain Oysters: per-player sack size,
+  its sway on a short rope from the belt (one instanced mesh), shots that hit it (`castShot`
+  checks it first and returns `lowBlow`), the speed and jump burden (`Player.burdenSpeed` /
+  `burdenJump`), bounties and SAUCED.
 - `src/settings.js`: quality presets and saved settings (`localStorage`).
 - `src/input/`: input sources (keyboard/mouse, gamepads; bots write theirs from `src/ai/`)
   all write the same `InputState`, so the player controller doesn't care where input comes
