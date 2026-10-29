@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp } from '../util/math.js';
+import { BODY } from '../config.js';
 import { GUNS, allParts } from '../combat/guns/index.js';
 import { GLOVE, GLOW, SCREEN } from '../combat/weaponModels.js';
 import { JOINTS as BODY_JOINTS, BONES as BODY_BONES, HANDS, REGIONS, DATA } from './body/bodyMesh.js';
@@ -13,7 +14,9 @@ import { JOINTS as BODY_JOINTS, BONES as BODY_BONES, HANDS, REGIONS, DATA } from
 // Body language (update): the legs run toward where the body is going while the torso and gun
 // stay on the aim, feet plant and stay level, jumps tuck and land with a squash, and the gun
 // rides at the hip, at the shoulder when firing or zoomed, or across the chest when sprinting,
-// with both hands reaching for it (two-bone arm IK onto each gun's grips).
+// with both hands reaching for it (two-bone arm IK onto each gun's grips). Whatever the pose,
+// the helmet stays inside the hitbox's head band, so a shot at the visible head is a headshot.
+// Each body breathes on its own phase.
 
 const PARENT = {
   hips: 'root',
@@ -34,6 +37,7 @@ const PARENT = {
 };
 const JOINTS = Object.fromEntries(BODY_BONES.map((n) => [n, BODY_JOINTS[n]]));
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // The skeleton for a body carrying these guns: the body bones plus one bone per gun, at the
 // gun's grip point (each gun module's `carry`), hung off the spine.
@@ -51,17 +55,23 @@ function rig(guns) {
 }
 
 // Legs: rest vectors (hip socket to knee, knee to ankle) and heights, for keeping the feet on
-// the ground whatever the leg angles are.
+// the ground whatever the leg angles are; plus each segment's length and rest angle (about x,
+// from straight down toward the front) in the leg's swing plane, for the leg solve.
 const LEG = (() => {
   const hip = v3(JOINTS.legUR);
   const knee = v3(JOINTS.legLR);
   const ankle = v3(JOINTS.footR);
+  const thigh = knee.clone().sub(hip);
+  const shin = ankle.clone().sub(knee);
   return {
-    thigh: knee.clone().sub(hip),
-    shin: ankle.clone().sub(knee),
+    thigh,
+    shin,
     hipsY: JOINTS.hips[1],
-    socketDrop: JOINTS.hips[1] - hip.y,
-    ankleY: ankle.y,
+    lt: Math.hypot(thigh.y, thigh.z),
+    ls: Math.hypot(shin.y, shin.z),
+    at: Math.atan2(-thigh.z, -thigh.y),
+    as: Math.atan2(-shin.z, -shin.y),
+    restZ: thigh.z + shin.z,
   };
 })();
 // How far below the hip socket the ankle sits with the thigh turned `a` and the knee `b` (radians
@@ -72,6 +82,20 @@ function legDrop(a, b) {
   return -(t.y * Math.cos(a) - t.z * Math.sin(a)) - (s.y * Math.cos(a + b) - s.z * Math.sin(a + b));
 }
 const LEG_REST_DROP = legDrop(0, 0);
+// The thigh and knee turns that keep the ankle where it stands at rest with the hips `drop`
+// lower and `back` behind it, the knee bending forward. Writes out.thigh and out.knee.
+function legSolve(drop, back, out) {
+  const L = LEG;
+  const v = LEG_REST_DROP - drop;
+  const z = L.restZ - back;
+  const d = clamp(Math.hypot(v, z), Math.abs(L.lt - L.ls) + 0.01, L.lt + L.ls - 1e-4);
+  const dir = Math.atan2(-z, v);
+  const hip = Math.acos(clamp((L.lt * L.lt + d * d - L.ls * L.ls) / (2 * L.lt * d), -1, 1));
+  const knee = Math.acos(clamp((L.ls * L.ls + d * d - L.lt * L.lt) / (2 * L.ls * d), -1, 1));
+  out.thigh = dir + hip - L.at;
+  out.knee = dir - knee - L.as - out.thigh;
+  return out;
+}
 
 // Arms: two-bone IK in the spine's frame (arms and guns both hang off the spine). Each segment
 // turns from its own rest direction (the model's slight A-pose), and the upper arm's twist keeps
@@ -148,24 +172,42 @@ const GUN_POSE = {
   aim: { pos: [-0.05, 0.15, -0.04], rot: [0.04, 0, 0] },
   sprint: { pos: [-0.07, -0.04, 0.06], rot: [-0.45, 0.85, 0.35] },
 };
+// A gun carried at least this high (the launcher, at the shoulder) rests on the pauldron in the
+// aim hold all the time, sprinting too.
+const SHOULDER_CARRY = 1.3;
+// The support shoulder comes forward (spine space, meters) as far as this when the gun's fore
+// grip is out of the arm's reach, before the hand slides back along the gun.
+const PROTRACT = new THREE.Vector3(0.025, -0.01, -0.07);
 
 // Gait: one stride (half a leg cycle) covers this many meters, from walking to sprinting, so
 // the feet plant instead of sliding.
 const STRIDE_MIN = 0.9;
 const STRIDE_MAX = 1.6;
-// How much of the stride's leg reach the hips follow down (1 would plant the feet exactly).
+// How much of the stride's leg reach the hips follow down (1 would plant the feet exactly), and
+// at most how far (meters), so the helmet stays above the head line mid-stride.
 const STRIDE_DIP = 0.35;
-// The crouch: thighs, knees (radians) and the torso's forward lean. Deep enough that the helmet
-// stays inside the crouched capsule (1.2 m) and above its head line (0.88 m).
-const CROUCH = { thigh: 1.45, knee: -2.45, lean: 0.45 };
-// How the aim's pitch is shared: the spine bends with part of it (the arms and gun ride it), the
-// head nods the rest of the way to the aim, and the gun tips about its grip to nearly the aim
-// (less when aiming down, so a crouched gun stays off the floor).
-const PITCH = { spine: 0.38, head: 0.47, gunUp: 0.5, gunDown: 0.3 };
+const STRIDE_DIP_MAX = 0.015;
+// The crouch: the hips drop and sit back (meters; the legs fold to keep the feet planted) and
+// the torso leans forward (radians), so the helmet lands inside the crouched capsule.
+const CROUCH = { drop: 0.5, back: 0.1, lean: 0.6 };
+// How the aim's pitch is shared: the spine bends with about a third of it (the arms and gun ride
+// it), easing off toward spineMax, and the gun tips about its grip the rest of the way to nearly
+// the aim (less when aiming down, so a crouched gun stays off the floor).
+const PITCH = { spine: 0.32, spineMax: 0.42, gunUp: 0.88, gunDown: 0.68 };
+// The head tips with part of the aim, clamped (radians from level; tipped further, the swept
+// helmet stands taller than the head band), about a pivot this far above the head joint (the
+// top of the neck). It then moves up or down to keep the helmet in the hitbox's head band: from
+// a little under the head line (Player.headLineY: 0.32 under the capsule top) to a little over
+// the top (meters).
+const HEAD = { share: 0.5, down: -0.2, up: 0.3, pivot: 0.08, line: 0.32, below: 0.015, above: 0.02 };
+// Idle breathing: radians of spine pitch, and radians per second (each body has its own phase).
+const BREATH = { amount: 0.012, rate: 1.9 };
 // The hips turn toward where the body is going (at most this far off the aim) while the spine
 // turns back, so the torso and gun stay on the aim.
 const HIP_TURN = 70 * (Math.PI / 180);
 const LEAN_MAX = 8 * (Math.PI / 180);
+// How far out the boots' outer edges are (meters).
+const FOOT_EDGE = 0.19;
 // Backpedaling starts past this move angle and stops under the second, so a stick held near a
 // pure strafe doesn't swing the hips across.
 const BACK_ENTER = 115 * (Math.PI / 180);
@@ -192,13 +234,15 @@ const _h = new THREE.Vector3();
 const _w = new THREE.Vector3();
 const _l = new THREE.Vector3();
 const _el = new THREE.Vector3();
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const _sh = new THREE.Vector3();
+const _leg = { thigh: 0, knee: 0 };
+const X_AXIS = new THREE.Vector3(1, 0, 0);
 
-// Turn an arm so its wrist reaches `target` (spine space) with the elbow toward `pole`; writes
-// the two segment rotations into qu (upper arm, in the spine's frame) and ql (forearm, in the
-// upper arm's). Out of reach, the arm points at the target, nearly straight.
-function solveArm(A, target, pole, qu, ql) {
-  _d.subVectors(target, A.shoulder);
+// Turn an arm so its wrist reaches `target` (spine space) from `shoulder` with the elbow toward
+// `pole`; writes the two segment rotations into qu (upper arm, in the spine's frame) and ql
+// (forearm, in the upper arm's). Out of reach, the arm points at the target, nearly straight.
+function solveArm(A, shoulder, target, pole, qu, ql) {
+  _d.subVectors(target, shoulder);
   let dist = _d.length();
   _d.divideScalar(dist || 1);
   dist = clamp(dist, Math.abs(A.l1 - A.l2) + 0.01, (A.l1 + A.l2) * 0.995);
@@ -208,8 +252,8 @@ function solveArm(A, target, pole, qu, ql) {
   if (_p.lengthSq() < 1e-6) _p.set(0, -1, 0).addScaledVector(_d, _d.y);
   _p.normalize();
   _u.copy(_d).multiplyScalar(cosA).addScaledVector(_p, sinA);
-  _el.copy(A.shoulder).addScaledVector(_u, A.l1);
-  _l.copy(A.shoulder).addScaledVector(_d, dist).sub(_el).normalize();
+  _el.copy(shoulder).addScaledVector(_u, A.l1);
+  _l.copy(shoulder).addScaledVector(_d, dist).sub(_el).normalize();
   _h.crossVectors(_p, _d).normalize();
   _w.crossVectors(_u, _h);
   _m.makeBasis(_u, _h, _w);
@@ -264,11 +308,46 @@ function base() {
     normal,
     shell,
     region: bytes(DATA.region),
+    // Baked shade per vertex (255 = none), from the tool: occlusion, darker plate edges, the
+    // visor's gradient.
+    shade: DATA.shade ? bytes(DATA.shade) : null,
     skinIndex: new Uint16Array(bytes(DATA.skinIndex)),
     skinWeight,
     index: new Uint16Array(bytes(DATA.index).buffer),
   };
+  bodyBase.helmet = helmetTable(bodyBase);
   return bodyBase;
+}
+
+// The helmet's lowest and highest point (vertices on the head bone alone) relative to the head
+// joint, for each tilt of the head from level (radians, + up), so update() can keep it inside the
+// hitbox's head band.
+const TILT = { from: -0.5, step: 0.05, n: 29 };
+function helmetTable(b) {
+  const head = BODY_BONES.indexOf('head');
+  const [, hy, hz] = JOINTS.head;
+  const lo = new Float32Array(TILT.n).fill(9);
+  const hi = new Float32Array(TILT.n).fill(-9);
+  for (let i = 0; i < b.count; i++) {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (b.skinIndex[i * 4 + k] === head) w += b.skinWeight[i * 4 + k];
+    if (w < 0.99) continue;
+    const y = b.position[i * 3 + 1] - hy;
+    const z = b.position[i * 3 + 2] - hz;
+    for (let t = 0; t < TILT.n; t++) {
+      const a = TILT.from + t * TILT.step;
+      const ty = y * Math.cos(a) - z * Math.sin(a);
+      if (ty < lo[t]) lo[t] = ty;
+      if (ty > hi[t]) hi[t] = ty;
+    }
+  }
+  return { lo, hi };
+}
+// One end of the helmet's range (table lo or hi) at tilt `a`.
+function helmetAt(table, a) {
+  const f = clamp((a - TILT.from) / TILT.step, 0, TILT.n - 1.001);
+  const i = Math.floor(f);
+  return table[i] + (table[i + 1] - table[i]) * (f - i);
 }
 
 // Per-vertex color, glow and team color: vertex i takes entry pick(i) of the palette.
@@ -301,6 +380,14 @@ function buildGeometry(colors, inflate, r) {
     const palette = REGIONS.map((name) => new THREE.Color().set(colors[name]));
     const glows = REGIONS.map((name) => GLOWS[name] ?? 0);
     const { col, glow, tm } = paint(b.count, palette, glows, (i) => b.region[i], colors.armor);
+    if (b.shade) {
+      for (let i = 0; i < b.count; i++) {
+        const k = b.shade[i] / 255;
+        col[i * 3] *= k;
+        col[i * 3 + 1] *= k;
+        col[i * 3 + 2] *= k;
+      }
+    }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     // Self-glow and the body's team color, for the rim light (see bodyMaterial).
     g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
@@ -457,9 +544,14 @@ export class CharacterModel {
     // With no gun shown, the hands still hold where a rifle would be.
     this.noGunRest = v3(DEFAULT_CARRY).sub(v3(JOINTS.spine));
     this.grips = grips(null);
+    this.shoulderGun = 0;
     this.setWeapon(guns[0]);
+    this.headRest = this.bones.head.position.clone();
+    this.helmet = base().helmet;
 
     this.phase = 0;
+    // Each body breathes on its own phase, so a crowd doesn't breathe in step.
+    this.breath = Math.random() * Math.PI * 2;
     this.lands = this.airJumps = this.shots = 0;
     this.reset();
   }
@@ -491,7 +583,7 @@ export class CharacterModel {
     if (!bone) return;
     const gb = this.bones[bone];
     const rest = this.gunRest[this.weaponId];
-    const a = this.aimW * (1 - this.climb);
+    const a = Math.max(this.aimW, this.shoulderGun) * (1 - this.climb);
     const A = GUN_POSE.aim;
     gb.position.set(rest.x + A.pos[0] * a, rest.y + A.pos[1] * a, rest.z + A.pos[2] * a);
     gb.rotation.set(A.rot[0] * a + this.gunTip, A.rot[1] * a, A.rot[2] * a);
@@ -509,6 +601,7 @@ export class CharacterModel {
     }
     this.weaponId = id;
     this.grips = grips(this.rig.gunBones[id] ? id : null);
+    this.shoulderGun = this.rig.gunBones[id] && GUNS[id].carry[1] >= SHOULDER_CARRY ? 1 : 0;
     // A gun outside the match's set has no bone: the body just shows no gun.
     for (const [wid, bone] of Object.entries(this.rig.gunBones)) {
       // Not exactly zero, so skinned normals never divide by zero.
@@ -594,35 +687,27 @@ export class CharacterModel {
     const falling = clamp(-velY / 8, 0, 1);
     const takeoff = this.airT > 0 && this.airT < 0.08 ? 1 - this.airT / 0.08 : 0;
     const dj = this.djT < 0.3 ? Math.sin((this.djT / 0.3) * Math.PI) : 0;
-    const tuck = this.air * (0.35 + rising * 0.45 + takeoff * 0.4 - falling * 0.25);
-    // Landing squash: the knees give (up to about 8 cm of hip drop on a hard landing) and come
-    // back up.
+    // (Crouched, the legs are already folded, so the tuck adds less.)
+    const tuck = this.air * (0.35 + rising * 0.45 + takeoff * 0.4 - falling * 0.25) * (1 - this.crouch * 0.6);
+    // Landing squash: the hips drop (up to 5 cm on a hard landing) and come back up.
     const lt = this.landT;
-    const squash = this.landHard * 0.25 * (lt < 0.06 ? lt / 0.06 : Math.max(0, 1 - (lt - 0.06) / 0.2));
-    // Crouching squats deep (the crouched capsule is only 1.2 m tall).
-    const thighBend = this.crouch * CROUCH.thigh + squash;
-    const kneeBend = this.crouch * CROUCH.knee - squash * 1.7;
-
-    const aL = sw + tuck * 1.2 + dj * 0.9 + thighBend;
-    const aR = -sw + tuck * 0.8 + dj * 0.2 + thighBend;
-    const bL = -Math.max(0, -sn) * 1.1 * run - tuck * 1.6 - dj * 0.3 + kneeBend;
-    const bR = -Math.max(0, sn) * 1.1 * run - tuck * 1.2 - dj * 1.3 + kneeBend;
-    B.legUL.rotation.x = aL;
-    B.legUR.rotation.x = aR;
-    B.legLL.rotation.x = bL;
-    B.legLR.rotation.x = bR;
-    // The hips drop as far as the knees bend (crouch, landing squash), so the feet stay on the
-    // floor, and part of the way with the stride: planting the feet fully would bob the head
-    // through the head line at a run.
-    const bent = legDrop(thighBend, kneeBend);
-    const strideDip = Math.max(0, bent - Math.max(legDrop(aL, bL), legDrop(aR, bR)));
-    B.hips.position.y = LEG.hipsY - (LEG_REST_DROP - bent) - strideDip * STRIDE_DIP * ground;
+    const squash = this.landHard * 0.05 * (lt < 0.06 ? lt / 0.06 : Math.max(0, 1 - (lt - 0.06) / 0.2));
+    // Crouching squats deep with the hips sat back; the legs fold just enough to keep the feet
+    // where they stand.
+    let drop = this.crouch * CROUCH.drop + squash;
+    const sit = this.crouch * CROUCH.back;
+    legSolve(drop, sit, _leg);
+    // The hips follow the stride's leg reach down a little: planting the feet fully would bob the
+    // head through the head line at a run.
+    const swL = sw + tuck * 1.2 + dj * 0.9;
+    const swR = -sw + tuck * 0.8 + dj * 0.2;
+    const kL = -Math.max(0, -sn) * 1.1 * run - tuck * 1.6 - dj * 0.3;
+    const kR = -Math.max(0, sn) * 1.1 * run - tuck * 1.2 - dj * 1.3;
+    const legReach = Math.max(legDrop(swL + _leg.thigh, kL + _leg.knee), legDrop(swR + _leg.thigh, kR + _leg.knee));
+    const strideDip = Math.min(STRIDE_DIP_MAX, Math.max(0, legDrop(_leg.thigh, _leg.knee) - legReach) * STRIDE_DIP) * ground;
+    // The hips sit back along the way the legs face.
+    B.hips.position.set(Math.sin(this.hipYaw) * sit, LEG.hipsY - drop - strideDip, Math.cos(this.hipYaw) * sit);
     B.hips.rotation.set(0, this.hipYaw, sn * 0.07 * run);
-    // Feet stay flat through a crouch and roll heel to toe with the stride; in the air the toes
-    // hang.
-    const flat = thighBend + kneeBend;
-    B.footL.rotation.x = (-flat - (aL + bL - flat) * 0.75) * ground + (0.3 - (aL + bL) * 0.5) * (1 - ground);
-    B.footR.rotation.x = (-flat - (aR + bR - flat) * 0.75) * ground + (0.3 - (aR + bR) * 0.5) * (1 - ground);
 
     // Lean into sideways acceleration, at most 8 degrees.
     if (dt > 0) {
@@ -632,12 +717,56 @@ export class CharacterModel {
     const leanTo = clamp(-this.sideAcc * 0.012, -LEAN_MAX, LEAN_MAX) * ground;
     this.lean += (leanTo - this.lean) * damp(8, dt);
     B.root.rotation.z = this.lean;
+    // (Rolled about the middle of the feet, the outer boot would sink into the floor.)
+    B.root.position.y = Math.abs(Math.sin(this.lean)) * FOOT_EDGE;
 
-    // The spine turns back against the hips (so the torso faces the aim) and carries the aim
-    // pitch, so the arms and gun follow it together; each shot kicks it up a little.
+    // The spine turns back against the hips (so the torso faces the aim) and carries part of the
+    // aim pitch, so the arms and gun follow it together; each shot kicks it up a little, and
+    // standing still the chest rises and falls.
     const kick = this.kickT < 0.25 ? this.kickAmount * 0.035 * Math.exp(-this.kickT * 14) : 0;
-    B.spine.rotation.set(s.pitch * PITCH.spine - this.crouch * CROUCH.lean + kick, -this.hipYaw, 0);
-    B.head.rotation.x = s.pitch * PITCH.head + this.crouch * CROUCH.lean * 0.6;
+    this.breath += dt * BREATH.rate;
+    const breathe = Math.sin(this.breath) * BREATH.amount * (1 - run) * ground;
+    const bend = PITCH.spineMax * Math.tanh((s.pitch * PITCH.spine) / PITCH.spineMax);
+    B.spine.rotation.set(bend - this.crouch * CROUCH.lean + kick + breathe, -this.hipYaw, 0);
+
+    // The head: level in roll and turned to the aim, tipped with part of the pitch about the top
+    // of the neck, then moved up or down to keep the helmet in the head band: a helmet too high
+    // sinks the hips (the knees bend), one too low raises them out of a crouch or, standing,
+    // lifts on the neck.
+    const tilt = clamp(s.pitch * HEAD.share, HEAD.down, HEAD.up);
+    _qa.copy(B.root.quaternion).multiply(B.hips.quaternion).multiply(B.spine.quaternion);
+    _qb.copy(_qa).invert();
+    const qh = B.head.quaternion.copy(_qb).multiply(_qc.setFromAxisAngle(X_AXIS, tilt));
+    _p.set(0, HEAD.pivot, 0).applyQuaternion(qh);
+    B.head.position.copy(this.headRest).sub(_p);
+    B.head.position.y += HEAD.pivot;
+    _t.copy(B.head.position).applyQuaternion(B.spine.quaternion).add(B.spine.position);
+    _t.applyQuaternion(B.hips.quaternion).add(B.hips.position).applyQuaternion(B.root.quaternion).add(B.root.position);
+    const top = BODY.standHeight + (BODY.crouchHeight - BODY.standHeight) * this.crouch;
+    const below = top - HEAD.line - HEAD.below - (_t.y + helmetAt(this.helmet.lo, tilt));
+    const over = top + HEAD.above - (_t.y + helmetAt(this.helmet.hi, tilt));
+    const lift = Math.max(below, Math.min(0, over));
+    const hipsLift = lift < 0 ? lift : Math.min(lift * this.crouch, drop);
+    if (hipsLift !== 0) {
+      drop -= hipsLift;
+      B.hips.position.y += hipsLift;
+      legSolve(drop, sit, _leg);
+    }
+    B.head.position.add(_p.set(0, lift - hipsLift, 0).applyQuaternion(_qb));
+
+    const aL = swL + _leg.thigh;
+    const aR = swR + _leg.thigh;
+    const bL = kL + _leg.knee;
+    const bR = kR + _leg.knee;
+    B.legUL.rotation.x = aL;
+    B.legUR.rotation.x = aR;
+    B.legLL.rotation.x = bL;
+    B.legLR.rotation.x = bR;
+    // Feet stay flat through a crouch and roll heel to toe with the stride; in the air the toes
+    // hang.
+    const flat = _leg.thigh + _leg.knee;
+    B.footL.rotation.x = (-flat - (aL + bL - flat) * 0.75) * ground + (0.3 - (aL + bL) * 0.5) * (1 - ground);
+    B.footR.rotation.x = (-flat - (aR + bR - flat) * 0.75) * ground + (0.3 - (aR + bR) * 0.5) * (1 - ground);
 
     // The gun: at the shoulder while firing or zoomed, across the chest while sprinting,
     // otherwise at the hip; the arms reach up instead while climbing.
@@ -645,8 +774,8 @@ export class CharacterModel {
     this.aimW += ((aiming ? 1 : 0) - this.aimW) * damp(14, dt);
     this.sprintW += ((s.sprinting && !aiming && speed > 1 ? 1 : 0) - this.sprintW) * damp(8, dt);
     const k = this.climb;
-    const a = this.aimW * (1 - k);
-    const sp = this.sprintW * (1 - k);
+    const a = Math.max(this.aimW, this.shoulderGun) * (1 - k);
+    const sp = this.sprintW * (1 - k) * (1 - this.shoulderGun);
     const A = GUN_POSE.aim;
     const S = GUN_POSE.sprint;
     const bone = this.rig.gunBones[this.weaponId];
@@ -656,25 +785,29 @@ export class CharacterModel {
       rest.y + A.pos[1] * a + S.pos[1] * sp,
       rest.z + A.pos[2] * a + S.pos[2] * sp + kick * 0.6,
     );
-    // The gun tips with the aim on top of the spine's pitch (and stays level through a crouch's
-    // forward lean); out of a sprint endSprint() uses the same tip.
-    this.gunTip = s.pitch * (s.pitch > 0 ? PITCH.gunUp : PITCH.gunDown) * (1 - k) + this.crouch * CROUCH.lean * 0.9;
+    // The gun tips the rest of the way to its share of the aim on top of the spine's bend (and
+    // stays level through a crouch's forward lean and the breathing); out of a sprint endSprint()
+    // uses the same tip.
+    const gunPitch = s.pitch * (s.pitch > 0 ? PITCH.gunUp : PITCH.gunDown);
+    this.gunTip = (gunPitch - bend) * (1 - k) + this.crouch * CROUCH.lean * 0.9 - breathe;
     _e.set(A.rot[0] * a + S.rot[0] * sp + kick * 0.5 + this.gunTip, A.rot[1] * a + S.rot[1] * sp, A.rot[2] * a + S.rot[2] * sp);
     if (bone) {
       B[bone].position.copy(_gp);
       B[bone].rotation.copy(_e);
     }
-    // Both hands on the gun (spine space), or reaching up to climb. The support hand slides back
-    // along the gun when its grip is out of reach.
+    // Both hands on the gun (spine space), or reaching up to climb. When the gun's fore grip is
+    // out of reach the support shoulder comes forward, then the hand slides back along the gun.
     _gq.setFromEuler(_e);
     for (const sd of SIDES) {
       const arm = ARM[sd];
       const gr = sd === 'R' ? this.grips.right : this.grips.left;
       _t.copy(gr.wrist).applyQuaternion(_gq).add(_gp);
+      _sh.copy(arm.shoulder);
       if (gr.slideMax > 0) {
-        _z.set(0, 0, 1).applyQuaternion(_gq);
-        _o.subVectors(_t, arm.shoulder);
         const reach = (arm.l1 + arm.l2) * 0.97;
+        _sh.addScaledVector(PROTRACT, clamp((_t.distanceTo(_sh) - reach) / 0.15, 0, 1) * (1 - k));
+        _z.set(0, 0, 1).applyQuaternion(_gq);
+        _o.subVectors(_t, _sh);
         const c = _o.lengthSq() - reach * reach;
         if (c > 0) {
           const bz = _o.dot(_z);
@@ -682,23 +815,24 @@ export class CharacterModel {
           _t.addScaledVector(_z, clamp(disc >= 0 ? -bz - Math.sqrt(disc) : -bz, 0, gr.slideMax));
         }
       }
-      solveArm(arm, _t, arm.pole, _qa, _qb);
+      B[arm.upper].position.copy(_sh);
+      solveArm(arm, _sh, _t, arm.pole, _qa, _qb);
       // The hand turns to its grip: its rest frame onto the grip's, as seen from the forearm.
       _qf.copy(_gq).multiply(gr.q).multiply(arm.handRestInv);
       _qg.copy(_qa).multiply(_qb).invert().multiply(_qf);
       const qu = B[arm.upper].quaternion;
       const ql = B[arm.lower].quaternion;
-      const qh = B[arm.hand].quaternion;
+      const qw = B[arm.hand].quaternion;
       if (k > 0.001) {
-        _t.copy(arm.shoulder).addScaledVector(arm.upDir, (arm.l1 + arm.l2) * 0.97);
-        solveArm(arm, _t, arm.upPole, _qd, _qe);
+        _t.copy(_sh).addScaledVector(arm.upDir, (arm.l1 + arm.l2) * 0.97);
+        solveArm(arm, _sh, _t, arm.upPole, _qd, _qe);
         qu.slerpQuaternions(_qa, _qd, k);
         ql.slerpQuaternions(_qb, _qe, k);
-        qh.identity().slerp(_qg, 1 - k);
+        qw.identity().slerp(_qg, 1 - k);
       } else {
         qu.copy(_qa);
         ql.copy(_qb);
-        qh.copy(_qg);
+        qw.copy(_qg);
       }
     }
 
