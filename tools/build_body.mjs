@@ -3,25 +3,32 @@
 // license: src/player/body/CREDITS.md.
 //
 // Usage: node tools/build_body.mjs <model.FBX> <diffuse.png> [--debug out.json]
-// (model.FBX and diffuse.png are in soldier_1.zip on that page.)
+// (model.FBX and diffuse.png are in soldier_1.zip on that page; CREDITS.md has its SHA-256.)
 //
 // Steps:
 // 1. Load the mesh and stand it 1.8 m tall on the origin, facing -z (the game's body space).
 // 2. Name each face's color region from the texture (armor plates, undersuit, the yellow bands
-//    become trim), plus the gloves, boot soles and helmet crest by shape. Curl the fingers into
-//    a grip.
+//    become trim), plus the boot soles and the undersuit at the backs of the knees and thighs by
+//    shape.
 // 3. Weight every vertex to the game's bones: the nearest limb first, then smooth blends across
-//    each joint, so elbows, knees, shoulders and hips bend like a person's. The helmet rides the
-//    head alone and the shoulder pads the torso.
+//    each joint, so elbows, knees, shoulders and hips bend like a person's. The head rides the
+//    head bone alone and the shoulder pads the torso.
 // 4. Move the rest pose onto the game's rig (src/player/character.js builds its skeleton from
 //    the joints written here): the body a little shorter so the shoulders stay under the head
-//    line (1.48 m), the helmet a little bigger above it, the arms longer. The arms keep the
-//    model's slight A-pose; the game turns each arm segment from its own rest direction.
+//    line (1.48 m), the arms longer and the upper arms thicker. The arms keep the model's slight
+//    A-pose; the game turns each arm segment from its own rest direction.
 // 5. Recompute normals on the final shape (smooth within 50 degrees, creases kept).
-// 6. Add a wraparound visor band and thin light strips fitted to the surface by rays, and the
-//    smoker canister with its ember ring on the back.
-// 7. Write positions, normals, the shield shell's push directions, triangles, color regions,
-//    skin weights, the joints and the hands' rest frames.
+// 6. Replace the model's helmet with a Halo Mark VI style one (a round shell, a big gold visor
+//    set in under a brow lip and cheek guards, a mouthpiece with vents, ear discs and a back
+//    ridge in trim, a lining) and its open, splayed hands with gloved fists closed on a grip, and
+//    add a thick neck seal with an armor collar, thin light strips fitted to the surface by rays,
+//    and the smoker canister with its ember ring on the back.
+// 7. Bake a shade per vertex: occlusion at rest, darker plate edges, the visor's gradient.
+// 8. Write positions, normals, the shield shell's push directions, triangles, color regions,
+//    skin weights, shade, the joints and the hands' rest frames.
+//
+// The output is the same on every run (no randomness), so a rebuild only changes what the tool
+// changed.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -126,7 +133,7 @@ function readPNG(file) {
 }
 
 // The texture is flat color regions: white plates, slate undersuit, pale green-grey panels,
-// yellow strips and red eye slashes (the visor band covers those).
+// yellow strips and red eye slashes (on the model's helmet, which is left out).
 function regionOfColor([r, g, b]) {
   if (r > 190 && g > 170 && b < 90) return 'strip';
   if (r > 200 && g < 80) return 'armor';
@@ -231,35 +238,6 @@ function handFrame(s) {
   const axis = V().subVectors(side(s, SRC.fingers), w).normalize();
   const palm = V().crossVectors(axis, FORWARD).normalize().multiplyScalar(-s);
   return { w, axis, palm };
-}
-const isHand = (p) => {
-  const s = Math.sign(p.x) || 1;
-  const h = handFrame(s);
-  return Math.abs(p.x) > 0.3 && p.y < 1.1 && V().subVectors(p, h.w).dot(h.axis) > -0.005;
-};
-// Curl the fingers into a loose fist, so the hands read as gripping the gun: past the knuckles
-// each point turns toward the palm, more the further out it is.
-const KNUCKLE = 0.085;
-const CURL = 1.5;
-{
-  const R = new THREE.Quaternion();
-  let dMax = 0;
-  const curled = new Map();
-  for (let i = 0; i < src.pos.length; i++) {
-    const p = src.pos[i];
-    if (!isHand(p)) continue;
-    const h = handFrame(Math.sign(p.x) || 1);
-    const d = V().subVectors(p, h.w).dot(h.axis);
-    dMax = Math.max(dMax, d);
-    if (d <= KNUCKLE) continue;
-    const axis = V().crossVectors(h.axis, h.palm).normalize();
-    const pivot = h.w.clone().addScaledVector(h.axis, KNUCKLE).addScaledVector(h.palm, 0.012);
-    R.setFromAxisAngle(axis, CURL * smooth(KNUCKLE, KNUCKLE + 0.1, d));
-    p.sub(pivot).applyQuaternion(R).add(pivot);
-    curled.set(i, R.clone());
-  }
-  for (const t of src.tris) for (const c of t) if (curled.has(c.v)) c.n.applyQuaternion(curled.get(c.v));
-  console.log('hands: length', dMax.toFixed(3), 'curled', curled.size, 'points');
 }
 
 // Bones, in the order the game's skeleton lists them (character.js BODY_BONES).
@@ -424,9 +402,8 @@ const skin = W.map((w) => {
 
 // ---------------------------------------------------------------------------------------------
 // 4. The game's rest pose. The body below the neck is scaled down a little about the feet, so
-// the shoulder pads and collar end at about the head line (1.48 m); the helmet keeps its crown
-// at 1.80 m. Arms keep the model's slight A-pose: the game poses each arm segment from its own
-// rest direction.
+// the shoulder pads and collar end at about the head line (1.48 m). Arms keep the model's slight
+// A-pose: the game poses each arm segment from its own rest direction.
 // The model's arms are short for holding a rifle in both hands, so the upper arm is stretched
 // along its length (more undersuit shows under the pad) and the forearm a little; the hands keep
 // their size.
@@ -450,7 +427,8 @@ for (const s of [-1, 1]) {
       .addScaledVector(aU, (K_ARM_U - 1) * lU)
       .addScaledVector(aL, (K_ARM_L - 1) * clamp(V().subVectors(v, E).dot(aL), 0, lL));
 }
-// The helmet grows 14% about its crown, so it sits lower on a shorter neck and reads bigger.
+// The head bone's part of the model grows 14% about the crown: the helmet itself is replaced
+// (buildHelmet), but the head joint and the collar's top, which ride the head, keep that fit.
 const K_HEAD = 1.14;
 const CROWN = V(0, 1.8, -0.045);
 for (const s of [-1, 1]) {
@@ -466,7 +444,30 @@ const toGame = (p, w) => {
   for (const [b, x] of w) out.addScaledVector(boneToGame(b, p), x);
   return out;
 };
+// The upper arms are thin next to the big pads: the undersuit between the pad and the elbow is
+// pushed out from the arm's axis, most at mid-arm (the pads ride the torso and stay on top).
+const ARM_THICK = 1.32;
+for (let i = 0; i < N; i++) {
+  if (pinned[i]) continue;
+  const p = src.pos[i];
+  const s = Math.sign(p.x) || 1;
+  const w = skin[i].find(([b]) => b === B[`armU${s < 0 ? 'L' : 'R'}`])?.[1] ?? 0;
+  if (w < 0.3) continue;
+  const a = side(s, SRC.shoulder);
+  const ax = V().subVectors(side(s, SRC.elbow), a);
+  const len = ax.length();
+  ax.normalize();
+  const q = V().subVectors(p, a);
+  const t = q.dot(ax) / len;
+  const k = (ARM_THICK - 1) * w * smooth(0.05, 0.35, t) * (1 - smooth(0.8, 1.05, t));
+  p.addScaledVector(q.addScaledVector(ax, -q.dot(ax)), k);
+}
 const pos = src.pos.map((p, i) => toGame(p, skin[i]));
+
+// The model's helmet (everything on the head bone alone above the neck, not the chest plate's
+// collar tips) is left out: the tool builds a Mark VI style helmet in its place (buildHelmet).
+const isHelmet = (i) => skin[i][0][0] === B.head && skin[i][0][1] > 0.99 && src.pos[i].y > 1.515 && Math.abs(src.pos[i].x) < 0.12;
+
 const J = {};
 J.root = V();
 J.hips = SRC.hips.clone().multiplyScalar(K_BODY);
@@ -485,9 +486,10 @@ for (const s of [-1, 1]) {
 // ---------------------------------------------------------------------------------------------
 // Output mesh: one vertex per (source vertex, normal, region), plus the added parts.
 
-const REGIONS = ['armor', 'suit', 'panel', 'strip', 'glove', 'boot', 'visor', 'ember', 'metal'];
+const REGIONS = ['armor', 'suit', 'panel', 'strip', 'glove', 'boot', 'visor', 'ember', 'metal', 'shine'];
 const R = Object.fromEntries(REGIONS.map((n, i) => [n, i]));
-const mesh = { pos: [], nrm: [], reg: [], skin: [], idx: [] };
+// tone: a builder's own shade for a vertex (the visor's gradient), 1 for most.
+const mesh = { pos: [], nrm: [], reg: [], skin: [], idx: [], tone: [] };
 const vkey = new Map();
 function emit(p, n, region, w, key = null) {
   if (key !== null && vkey.has(key)) return vkey.get(key);
@@ -496,6 +498,7 @@ function emit(p, n, region, w, key = null) {
   mesh.nrm.push(n.clone().normalize());
   mesh.reg.push(R[region]);
   mesh.skin.push(w);
+  mesh.tone.push(1);
   if (key !== null) vkey.set(key, i);
   return i;
 }
@@ -543,25 +546,60 @@ for (let v = 0; v < N; v++) {
   fs.forEach(([f, k], i) => (cornerN[f][k] = sums.get(find(i)).clone().normalize()));
 }
 
-// Gloves: everything past the wrist. Soles: the bottom 3 cm of the boots.
+// The model's hands (everything past the wrist) are left out for the fists (buildFist). Soles: the
+// bottom 3 cm of the boots.
 const handT = (p) => {
   const s = Math.sign(p.x) || 1;
   const d = V().subVectors(side(s, SRC.fingers), side(s, SRC.wrist)).normalize();
   return V().subVectors(p, side(s, SRC.wrist)).dot(d);
 };
+const onHand = (p) => Math.abs(p.x) > 0.3 && p.y < 1.1 && handT(p) > -0.005;
+// The model's legs are armor all over (a rubber bodysuit at a glance): the back of the knee and
+// the inside and back of the thigh show the undersuit, as a Spartan's do. Faces are judged in
+// the quads they pair into (across their longest edge), so the edges run square, not zigzag.
+const LEG_BONES = [B.legUL, B.legLL, B.legUR, B.legLR];
+const legSuit = (() => {
+  const T = src.tris;
+  const longest = T.map((t) => {
+    let best = 0;
+    let bl = -1;
+    for (let k = 0; k < 3; k++) {
+      const l = src.pos[t[k].v].distanceTo(src.pos[t[(k + 1) % 3].v]);
+      if (l > bl) [bl, best] = [l, k];
+    }
+    const a = t[best].v;
+    const b = t[(best + 1) % 3].v;
+    return a < b ? `${a},${b}` : `${b},${a}`;
+  });
+  const byEdge = new Map();
+  longest.forEach((e, f) => byEdge.set(e, [...(byEdge.get(e) ?? []), f]));
+  const onLeg = (f) => region[f] === 'armor' && T[f].every((c) => LEG_BONES.includes(skin[c.v][0][0]));
+  return T.map((t, f) => {
+    if (!onLeg(f)) return false;
+    const pair = byEdge.get(longest[f]).filter((g) => onLeg(g));
+    const m = V();
+    const n = V();
+    for (const g of pair) {
+      for (const c of T[g]) m.addScaledVector(pos[c.v], 1 / (3 * pair.length));
+      n.add(faceN[g]);
+    }
+    n.normalize();
+    const inner = n.x * Math.sign(m.x) < -0.5;
+    return (m.y > 0.56 && m.y < 0.8 && (n.z > 0.55 || (inner && m.y > 0.6))) || (m.y > 0.42 && m.y <= 0.56 && n.z > 0.45);
+  });
+})();
 for (let f = 0; f < src.tris.length; f++) {
   const t = src.tris[f];
+  if (t.every((c) => isHelmet(c.v))) continue;
   let reg = region[f];
   const ps = t.map((c) => src.pos[c.v]);
-  const bones = t.map((c) => skin[c.v][0][0]);
-  const mid = ps[0].clone().add(ps[1]).add(ps[2]).divideScalar(3);
-  if (ps.every((p) => Math.abs(p.x) > 0.3 && p.y < 1.1 && handT(p) > -0.005)) reg = 'glove';
-  else if (ps.every((p) => p.y < 0.03)) reg = 'boot';
+  // (A face reaching well past the wrist would hang a sliver off the fist.)
+  if (ps.filter(onHand).length >= 2 || ps.some((p) => onHand(p) && handT(p) > 0.012)) continue;
+  if (ps.every((p) => p.y < 0.03)) reg = 'boot';
   // The model's yellow bands down the torso's sides and upper arms take the trim color (a bot's
   // second color).
   else if (reg === 'strip') reg = 'panel';
-  // The fin sweeping back off the helmet's crown is the crest, in trim.
-  else if (bones.every((b) => b === B.head) && mid.y > 1.715 && mid.z > 0.0) reg = 'panel';
+  else if (legSuit[f]) reg = 'suit';
   const ids = t.map((c, k) => {
     const n = cornerN[f][k];
     const key = `${c.v}|${Math.round(n.x * 40)},${Math.round(n.y * 40)},${Math.round(n.z * 40)}|${reg}`;
@@ -574,8 +612,8 @@ const bodyVerts = mesh.pos.length;
 // ---------------------------------------------------------------------------------------------
 // 6. Added parts.
 
-// Rays against the model's surface (game space), for fitting the visor and the light strips;
-// only triangles wholly on the given bones count.
+// Rays against the model's surface (game space), for fitting the light strips; only triangles
+// wholly on the given bones count.
 function trisOn(bones) {
   const out = [];
   for (const t of src.tris) {
@@ -658,24 +696,495 @@ function band(grid, region, w, lift, sink) {
   }
 }
 
-// The visor: a band around the front of the helmet at eye height, cast out from inside the
-// head. The bottom edge dips a little in the middle.
-function buildVisor() {
-  const tris = trisOn([B.head]);
-  const cols = 17;
-  const span = (84 * Math.PI) / 180;
-  const c = boneToGame(B.head, HELMET.c);
-  const grid = [];
-  for (let i = 0; i < cols; i++) {
-    const u = (i / (cols - 1)) * 2 - 1;
-    const th = u * span;
-    const d = V(Math.sin(th), 0, -Math.cos(th));
-    const au = Math.abs(u);
-    const yTop = 1.682 - 0.012 * au * au;
-    const yBot = 1.608 + 0.03 * au ** 1.4;
-    grid.push([yBot, yTop].map((y) => ({ h: cast(tris, V(0, y, c.z + 0.01), d), out: d })));
+// Wind every triangle from index k on to face the way its vertex normals point.
+function orientFrom(k) {
+  for (let t = k; t < mesh.idx.length; t += 3) {
+    const [a, b, c] = mesh.idx.slice(t, t + 3);
+    const fn = V().subVectors(mesh.pos[b], mesh.pos[a]).cross(V().subVectors(mesh.pos[c], mesh.pos[a]));
+    if (fn.dot(V().add(mesh.nrm[a]).add(mesh.nrm[b]).add(mesh.nrm[c])) < 0) [mesh.idx[t + 1], mesh.idx[t + 2]] = [c, b];
   }
-  band(grid, 'visor', W_HEAD, 0.008, 0.02);
+}
+
+// The helmet, after Halo's Mark VI: a round shell (wider at the temples, the jaw tapering to a
+// mouthpiece, the rim a little higher at the ears), a big gold visor set into the front from the
+// brow to about mouth level under a brow lip and between cheek guards, vents either side of the
+// mouthpiece's ridge, a disc over each ear and a ridge down the back. Built from rows of
+// superellipse cross-sections, so it shades smooth; the crown sits at the hitbox top (1.79 m) and
+// the rim stays at or above 1.524 m, clear of the head line (1.48).
+const HELM = { zc: -0.02, yc: 1.65, top: 1.792, half: 0.12, front: 0.166, back: 0.14, chin: 1.524 };
+// The cross-section at height y: half width, and reach to the front and to the back.
+function helmSection(y) {
+  if (y >= HELM.yc) {
+    const u = clamp((y - HELM.yc) / (HELM.top - HELM.yc), 0, 1);
+    const k = Math.pow(1 - Math.pow(u, 2.3), 1 / 2.3);
+    return { a: HELM.half * k, f: HELM.front * k, b: HELM.back * k };
+  }
+  const w = clamp((HELM.yc - y) / (HELM.yc - HELM.chin), 0, 1.2);
+  return { a: HELM.half * (1 - 0.24 * w * w), f: HELM.front * (1 - 0.05 * w * w), b: HELM.back * (1 - 0.12 * w * w) };
+}
+// A point on the shell: th is the angle round from the front (+ toward the right side).
+const sPow = (c, e) => Math.sign(c) * Math.pow(Math.abs(c), e);
+function helmetAt(th, y) {
+  const s = helmSection(y);
+  const sx = Math.sin(th);
+  const cz = -Math.cos(th);
+  // A little squarer than an ellipse below the brow, rounder over the dome.
+  const e = 2 / (2.4 - 0.3 * smooth(1.66, 1.75, y));
+  // The mouthpiece comes forward under the visor, flat across the front and rounding off at the
+  // sides (to a point, under a bulging visor, it read as a beak).
+  const chin = 0.016 * smooth(1.605, 1.575, y) * (1 - 0.35 * smooth(1.56, 1.524, y)) * (1 - smooth(0.3, 0.8, Math.abs(th)));
+  return V(s.a * sPow(sx, e), y, HELM.zc + (cz < 0 ? s.f + chin : s.b) * sPow(cz, e));
+}
+function helmetNormal(th, y) {
+  const e = 1e-3;
+  const dt = V().subVectors(helmetAt(th + e, y), helmetAt(th - e, y));
+  const dy = V().subVectors(helmetAt(th, Math.min(y + e, HELM.top - 1e-4)), helmetAt(th, y - e));
+  const n = V().crossVectors(dt, dy).normalize();
+  const out = V().subVectors(helmetAt(th, y), V(0, HELM.yc, HELM.zc));
+  return n.dot(out) < 0 ? n.negate() : n;
+}
+// The rim: lowest at the chin, a little higher at the ears, low again over the nape (so the
+// helmet sits down on the neck seal all round).
+const helmRim = (th) => (Math.abs(th) <= Math.PI / 2 ? HELM.chin + 0.024 * Math.sin(th) ** 2 : HELM.chin + 0.008 + 0.016 * Math.sin(th) ** 2);
+function buildHelmet() {
+  const start = mesh.idx.length;
+  const cols = 24;
+  // Rows: three below the widest section, then up the dome by elevation.
+  const rowY = (th, r) => {
+    if (r <= 3) return helmRim(th) + ((HELM.yc - helmRim(th)) * r) / 3;
+    const phi = [0, 20, 40, 58, 75][r - 3] * (Math.PI / 180);
+    return HELM.yc + (HELM.top - HELM.yc) * Math.sin(phi);
+  };
+  const rows = 8;
+  const ths = Array.from({ length: cols }, (_, c) => (c / cols) * Math.PI * 2 - Math.PI);
+  const grid = ths.map((th) => Array.from({ length: rows }, (_, r) => {
+    const y = rowY(th, r);
+    return emit(helmetAt(th, y), helmetNormal(th, y), 'armor', W_HEAD);
+  }));
+  const crown = emit(V(0, HELM.top, HELM.zc + 0.004), V(0, 1, 0), 'armor', W_HEAD);
+  const quad = (a, b, c, d) => mesh.idx.push(a, b, c, a, c, d);
+  for (let c = 0; c < cols; c++) {
+    const g0 = grid[c];
+    const g1 = grid[(c + 1) % cols];
+    // Wound to face outward: around is to the right seen from the front, rows go up.
+    for (let r = 0; r < rows - 1; r++) quad(g0[r], g0[r + 1], g1[r + 1], g1[r]);
+    mesh.idx.push(g0[rows - 1], crown, g1[rows - 1]);
+  }
+  // The lining: the rim turns in under the shell to the neck seal's top, so nobody sees into
+  // the helmet from below.
+  const rim = ths.map((th) => {
+    const p = helmetAt(th, helmRim(th));
+    const q = sealAt(th, SEAL.length - 1);
+    return [emit(p, V(0, -1, 0), 'suit', W_HEAD), emit(q, V(0, -1, 0), 'suit', W_HEAD)];
+  });
+  for (let c = 0; c < cols; c++) {
+    const [a0, b0] = rim[c];
+    const [a1, b1] = rim[(c + 1) % cols];
+    quad(a0, a1, b1, b0);
+  }
+  orientFrom(start);
+}
+
+// The neck seal: a thick padded collar of undersuit from inside the chest plate up into the
+// helmet, bending from the spine to the head, so the neck stops reading thin and long. Rings:
+// height, half width, reach to the front and to the back (around z = -0.005).
+const SEAL = [
+  [1.385, 0.084, 0.084, 0.1],
+  [1.425, 0.088, 0.083, 0.106],
+  [1.462, 0.091, 0.084, 0.104],
+  [1.5, 0.086, 0.079, 0.096],
+  [1.548, 0.074, 0.07, 0.084],
+];
+const sealW = (y) => {
+  const h = smooth(1.435, 1.505, y);
+  return h < 0.01 ? W_SPINE : h > 0.99 ? W_HEAD : [[B.head, h], [B.spine, 1 - h]];
+};
+function sealAt(th, r) {
+  const [y, a, f, b] = SEAL[r];
+  const cz = -Math.cos(th);
+  return V(a * sPow(Math.sin(th), 0.9), y, -0.005 + (cz < 0 ? f : b) * sPow(cz, 0.9));
+}
+function buildSeal() {
+  const start = mesh.idx.length;
+  const cols = 20;
+  const ths = Array.from({ length: cols }, (_, c) => (c / cols) * Math.PI * 2 - Math.PI);
+  const grid = ths.map((th) =>
+    SEAL.map((ring, r) => {
+      const p = sealAt(th, r);
+      const e = 1e-3;
+      const dt = V().subVectors(sealAt(th + e, r), sealAt(th - e, r));
+      const up = V().subVectors(sealAt(th, Math.min(r + 1, SEAL.length - 1)), sealAt(th, Math.max(r - 1, 0)));
+      const n = V().crossVectors(dt, up).normalize();
+      if (n.dot(V(p.x, 0, p.z + 0.005)) < 0) n.negate();
+      return emit(p, n, 'suit', sealW(p.y));
+    }),
+  );
+  for (let c = 0; c < cols; c++) {
+    const g0 = grid[c];
+    const g1 = grid[(c + 1) % cols];
+    for (let r = 0; r < SEAL.length - 1; r++) mesh.idx.push(g0[r], g0[r + 1], g1[r + 1], g0[r], g1[r + 1], g1[r]);
+  }
+  orientFrom(start);
+}
+
+// An armor collar (a gorget lip) round the seal's foot, below the head line: from the front the
+// seal stood as a black column in the chest plate's V.
+function buildGorget() {
+  const start = mesh.idx.length;
+  const cols = 20;
+  const ths = Array.from({ length: cols }, (_, c) => (c / cols) * Math.PI * 2 - Math.PI);
+  // [ring of the seal to start from, height, how far out from the seal]
+  const RINGS = [
+    [1, 1.418, -0.004],
+    [2, 1.442, 0.015],
+    [2, 1.466, -0.003],
+  ];
+  const grid = ths.map((th) =>
+    RINGS.map(([r, y, off]) => {
+      const q = sealAt(th, r);
+      const out = V(q.x, 0, q.z + 0.005).normalize();
+      return emit(V(q.x, y, q.z).addScaledVector(out, off), out, 'armor', sealW(y));
+    }),
+  );
+  const v0 = grid[0][0];
+  const centers = [];
+  for (let i = v0; i < mesh.pos.length; i++) centers.push(V(0, mesh.pos[i].y, -0.005));
+  for (let c = 0; c < cols; c++) {
+    const g0 = grid[c];
+    const g1 = grid[(c + 1) % cols];
+    for (let r = 0; r < RINGS.length - 1; r++) mesh.idx.push(g0[r], g0[r + 1], g1[r + 1], g0[r], g1[r + 1], g1[r]);
+  }
+  smoothFrom(v0, start, centers);
+}
+
+// The visor: wide under the brow, narrowing toward the mouth, its ends rounding off by the
+// temples; a lens that bulges a little at its middle and meets its frame flush, set in under the
+// brow lip and between the cheek guards (buildVisor). u runs across (-1 to 1, left to right), v
+// down (0 at the brow).
+const VISOR = { top: 1.716, bot: 1.6, spanTop: (76 * Math.PI) / 180, spanBot: (64 * Math.PI) / 180, lift: 0.0045 };
+function visorAt(u, v, lift = true) {
+  // (Normals take differences just past the edges.)
+  v = clamp(v, 0, 1);
+  // The corners round off: the top and bottom rows reach less far round.
+  const span = (VISOR.spanTop + (VISOR.spanBot - VISOR.spanTop) * v) * (1 - 0.2 * (2 * v - 1) ** 2);
+  const th = u * span;
+  // The lower edge rises gently toward the ends, which stay tall and round.
+  const yTop = VISOR.top - 0.012 * u * u;
+  const yBot = VISOR.bot + 0.044 * Math.abs(u) ** 1.7;
+  const y = yTop + (yBot - yTop) * v;
+  const p = helmetAt(th, y);
+  const n = helmetNormal(th, y);
+  const h = lift ? VISOR.lift * Math.max(0, 1 - u * u) * Math.sin(Math.PI * v) : 0;
+  return { p: p.addScaledVector(n, h), n };
+}
+// The frame round the lens, by where on its edge (v: 0 the brow, 0.5 the ends, 1 the mouth):
+// how far it stands over the shell at the lens, how far it comes in over the lens, and how wide
+// it is before it sinks back into the shell. The brow lip and the cheek guards stand tallest.
+const BEZEL = [
+  { up: 0.01, over: 0.004, wide: 0.016 },
+  { up: 0.011, over: 0.002, wide: 0.02 },
+  { up: 0.006, over: 0, wide: 0.01 },
+];
+function bezelAt(v) {
+  const [a, b] = v <= 0.5 ? [BEZEL[0], BEZEL[1]] : [BEZEL[1], BEZEL[2]];
+  const t = smooth(0, 1, v <= 0.5 ? v * 2 : v * 2 - 1);
+  return Object.fromEntries(Object.keys(a).map((k) => [k, a[k] + (b[k] - a[k]) * t]));
+}
+function buildVisor() {
+  const start = mesh.idx.length;
+  const cols = 11;
+  // Rows closer under the brow, where the glass shines.
+  const VS = [0, 0.1, 0.22, 0.36, 0.55, 0.78, 1];
+  const rows = VS.length;
+  const uv = (c, r) => [(c / (cols - 1)) * 2 - 1, VS[r]];
+  const top = [];
+  for (let r = 0; r < rows; r++) {
+    top.push([]);
+    for (let c = 0; c < cols; c++) {
+      const [u, v] = uv(c, r);
+      const e = 1e-3;
+      const du = V().subVectors(visorAt(u + e, v).p, visorAt(u - e, v).p);
+      const dv = V().subVectors(visorAt(u, v + e).p, visorAt(u, v - e).p);
+      const { p, n } = visorAt(u, v);
+      const nn = V().crossVectors(du, dv).normalize();
+      // Curved glass: a bright streak of sky across its upper part (the shine color), a horizon
+      // under it, darker toward the mouth and the ends, and darker where it meets the frame.
+      const shine = r === 1 && Math.abs(u) < 0.75;
+      const i = emit(p, nn.dot(n) < 0 ? nn.negate() : nn, shine ? 'shine' : 'visor', W_HEAD);
+      const g = [0.9, 1, 0.97, 0.86, 0.77, 0.69, 0.62][r];
+      const rim = r === 0 || r === rows - 1 || c === 0 || c === cols - 1 ? 0.88 : 1;
+      mesh.tone[i] = g * (1 - 0.15 * u * u) * rim;
+      top[r].push(i);
+    }
+  }
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols - 1; c++) mesh.idx.push(top[r][c], top[r + 1][c], top[r + 1][c + 1], top[r][c], top[r + 1][c + 1], top[r][c + 1]);
+  }
+  orientFrom(start);
+  // The frame, all the way round the edge: a dark wall from under the lens up to the frame's lip,
+  // then the armor lip, rounded over and sloping back down into the shell. Nothing dark stands
+  // above the lens, and from the side the lens sits back in the helmet.
+  const ring = [];
+  for (let c = 0; c < cols - 1; c++) ring.push(uv(c, 0));
+  for (let r = 0; r < rows - 1; r++) ring.push(uv(cols - 1, r));
+  for (let c = cols - 1; c > 0; c--) ring.push(uv(c, rows - 1));
+  for (let r = rows - 1; r > 0; r--) ring.push(uv(0, r));
+  const mid = visorAt(0, 0.5, false).p;
+  const v0 = mesh.pos.length;
+  const t0 = mesh.idx.length;
+  const centers = [];
+  const put = (p, region, c) => {
+    centers.push(c);
+    return emit(p, V(0, 0, -1), region, W_HEAD);
+  };
+  const strips = ring.map(([u, v], i) => {
+    const a = visorAt(...ring[(i + ring.length - 1) % ring.length], false).p;
+    const b = visorAt(...ring[(i + 1) % ring.length], false).p;
+    const { p: base, n } = visorAt(u, v, false);
+    const out = V().subVectors(b, a).cross(n).normalize();
+    if (out.dot(V().subVectors(base, mid)) < 0) out.negate();
+    const z = bezelAt(v);
+    const lip = base.clone().addScaledVector(n, z.up).addScaledVector(out, -z.over);
+    const inside = base.clone().addScaledVector(n, -0.05);
+    return [
+      put(base.clone().addScaledVector(n, -0.003), 'metal', base.clone().addScaledVector(out, 0.05)),
+      put(lip, 'metal', base.clone().addScaledVector(out, 0.05)),
+      put(lip, 'armor', inside),
+      put(base.clone().addScaledVector(n, z.up * 0.8).addScaledVector(out, z.wide * 0.45), 'armor', inside),
+      put(base.clone().addScaledVector(n, -0.004).addScaledVector(out, z.wide), 'armor', inside),
+    ];
+  });
+  for (let i = 0; i < strips.length; i++) {
+    const s0 = strips[i];
+    const s1 = strips[(i + 1) % strips.length];
+    for (const [j, k] of [[0, 1], [2, 3], [3, 4]]) mesh.idx.push(s0[j], s0[k], s1[k], s0[j], s1[k], s1[j]);
+  }
+  smoothFrom(v0, t0, centers);
+}
+
+// The mouthpiece's detail: a ridge down its middle and two dark vents either side, and a ridge
+// in trim down the back of the dome (Mark VI cues; the trim also tells apart bots in the same
+// armor color from behind).
+function buildHelmetDetail() {
+  const start = mesh.idx.length;
+  const edge = (th, y) => ({ h: helmetAt(th, y), out: helmetNormal(th, y) });
+  band([1.594, 1.574, 1.554, 1.534].map((y) => [edge(-0.035, y), edge(0.035, y)]), 'armor', W_HEAD, 0.004, 0.004);
+  band([1.786, 1.765, 1.73, 1.69, 1.65, 1.61].map((y) => [edge(Math.PI - 0.1, y), edge(-Math.PI + 0.1, y)]), 'panel', W_HEAD, 0.006, 0.004);
+  const vent = (th0, th1, y0, y1) => {
+    const ps = [[th0, y0], [th1, y0], [th1, y1], [th0, y1]].map(([th, y]) => helmetAt(th, y).addScaledVector(helmetNormal(th, y), 0.0015));
+    const n = helmetNormal((th0 + th1) / 2, (y0 + y1) / 2);
+    const ids = ps.map((p) => emit(p, n, 'metal', W_HEAD));
+    mesh.idx.push(ids[0], ids[1], ids[2], ids[0], ids[2], ids[3]);
+  };
+  for (const s of [-1, 1]) {
+    for (const y of [1.58, 1.561]) vent(s * 0.11, s * 0.27, y - 0.004, y + 0.004);
+  }
+  orientFrom(start);
+}
+
+// A disc over each ear, in trim.
+function buildEars() {
+  const start = mesh.idx.length;
+  const segs = 10;
+  for (const s of [-1, 1]) {
+    const th = s * (97 * Math.PI) / 180;
+    const y = 1.636;
+    const c = helmetAt(th, y);
+    const n = helmetNormal(th, y);
+    const t1 = V().crossVectors(n, V(0, 1, 0)).normalize();
+    const t2 = V().crossVectors(t1, n);
+    const top = c.clone().addScaledVector(n, 0.013);
+    const bot = c.clone().addScaledVector(n, -0.006);
+    const cap = emit(top, n, 'panel', W_HEAD);
+    const ids = [];
+    for (let k = 0; k < segs; k++) {
+      const a = (k / segs) * Math.PI * 2;
+      const d = t1.clone().multiplyScalar(Math.cos(a)).addScaledVector(t2, Math.sin(a));
+      const r = 0.037;
+      // The cap's rim, the side's top and the side's foot (sunk into the shell).
+      ids.push([
+        emit(top.clone().addScaledVector(d, r), n, 'panel', W_HEAD),
+        emit(top.clone().addScaledVector(d, r), d, 'panel', W_HEAD),
+        emit(bot.clone().addScaledVector(d, r + 0.002), d, 'panel', W_HEAD),
+      ]);
+    }
+    for (let k = 0; k < segs; k++) {
+      const [ca, sa, ba] = ids[k];
+      const [cb, sb, bb] = ids[(k + 1) % segs];
+      mesh.idx.push(cap, ca, cb, sa, ba, bb, sa, bb, sb);
+    }
+  }
+  orientFrom(start);
+}
+
+// Smooth normals for the vertices emitted from v0 on, from the triangles from index t0 on, each
+// turned to face away from its own center (centers[i - v0]); then the triangles are wound to match.
+function smoothFrom(v0, t0, centers) {
+  const acc = Array.from({ length: mesh.pos.length - v0 }, () => V());
+  for (let t = t0; t < mesh.idx.length; t += 3) {
+    const [a, b, c] = mesh.idx.slice(t, t + 3);
+    const fn = V().subVectors(mesh.pos[b], mesh.pos[a]).cross(V().subVectors(mesh.pos[c], mesh.pos[a]));
+    for (const i of [a, b, c]) {
+      if (i < v0) continue;
+      const k = acc[i - v0];
+      k.addScaledVector(fn, k.dot(fn) < 0 ? -1 : 1);
+    }
+  }
+  acc.forEach((n, k) => {
+    if (!centers[k]) return;
+    n.normalize();
+    if (n.dot(V().subVectors(mesh.pos[v0 + k], centers[k])) < 0) n.negate();
+    mesh.nrm[v0 + k].copy(n);
+  });
+  orientFrom(t0);
+}
+
+// The fists. The model's hands are open and splayed (curled, they read as talons), so each is
+// rebuilt as a gloved fist closed on a grip: a padded back of the hand, four fingers wrapped round
+// a 4.4 cm handle and the thumb folded over them. Built in the hand's rest frame (x from the wrist
+// to the knuckles, y the way the palm faces, z toward the thumb) round the grip that character.js
+// closes each hand on (grip(): 7.5 cm along the hand, 2.5 cm off the palm).
+// (A gauntlet a little bigger than a hand: everything grows `scale` about the grip. The support
+// hand closes tighter, round a fore grip it mostly sinks into.)
+const FIST = { gx: 0.075, gy: 0.025, grip: { R: 0.02, L: 0.016 }, z0: 0.015, finger: 0.0112, thumb: 0.0098, scale: 1.12 };
+// A six-sided tube section: across (u, along z) and out from the grip (w).
+const HEX = [[1, 0], [0.5, 0.87], [-0.5, 0.87], [-1, 0], [-0.5, -0.87], [0.5, -0.87]];
+function buildFist(s) {
+  const L = s < 0 ? 'L' : 'R';
+  const h = handFrame(s);
+  const o = J[`hand${L}`];
+  // Toward the thumb (forward at rest) on both hands, so the left fist mirrors the right.
+  const zAx = V().crossVectors(h.axis, h.palm).multiplyScalar(s);
+  const k = FIST.scale;
+  const at = (x, y, z) =>
+    o
+      .clone()
+      .addScaledVector(h.axis, FIST.gx + k * (x - FIST.gx))
+      .addScaledVector(h.palm, FIST.gy + k * (y - FIST.gy))
+      .addScaledVector(zAx, FIST.z0 + k * (z - FIST.z0));
+  const hand = B[`hand${L}`];
+  const fore = B[`armL${L}`];
+  // The cuff bends with the wrist like the model's did.
+  const wOf = (x) => {
+    const k = smooth(-0.01, 0.02, x);
+    return k > 0.99 ? [[hand, 1]] : k < 0.01 ? [[fore, 1]] : [[hand, k], [fore, 1 - k]];
+  };
+  const v0 = mesh.pos.length;
+  const t0 = mesh.idx.length;
+  const centers = [];
+  // Tube points take smooth normals (out from their center); caps and tips keep the one given.
+  const put = (p, x, center, n = V(0, 1, 0)) => {
+    centers.push(center);
+    return emit(p, n, 'glove', wOf(x));
+  };
+  // Rings joined into a tube; the last ring closes on a tip pushed out along `tipDir`.
+  const tube = (rings, tip) => {
+    for (let r = 0; r < rings.length - 1; r++) {
+      const a = rings[r];
+      const b = rings[r + 1];
+      for (let k = 0; k < a.length; k++) {
+        const k1 = (k + 1) % a.length;
+        mesh.idx.push(a[k], b[k], b[k1], a[k], b[k1], a[k1]);
+      }
+    }
+    if (tip) {
+      const last = rings[rings.length - 1];
+      const c = put(tip.p, tip.x, null, tip.n);
+      for (let k = 0; k < last.length; k++) mesh.idx.push(c, last[k], last[(k + 1) % last.length]);
+    }
+  };
+  // The back of the hand and the palm: rounded sections from the cuff (inside the forearm's end)
+  // to the knuckles, the heel of the hand thick and the palm thin where the grip lies on it.
+  // [x, back, palm side, half width]
+  const PALM = [
+    [-0.015, -0.025, 0.045, 0.034],
+    [0.025, -0.022, 0.032, 0.039],
+    [0.06, -0.019, 0.009, 0.044],
+    [0.084, -0.0175, 0.004, 0.044],
+  ];
+  const palmRings = PALM.map(([x, yb, yf, hz]) => {
+    const yc = (yb + yf) / 2;
+    const hy = (yf - yb) / 2;
+    const c = at(x, yc, FIST.z0);
+    return Array.from({ length: 8 }, (_, k) => {
+      const th = ((22.5 + 45 * k) * Math.PI) / 180;
+      return put(at(x, yc + hy * sPow(Math.cos(th), 0.5), FIST.z0 + hz * sPow(Math.sin(th), 0.5)), x, c);
+    });
+  });
+  tube(palmRings, null);
+  // Flat caps at both ends (the cuff's opens into the forearm).
+  for (const [r, sign, x] of [[0, -1, PALM[0][0]], [PALM.length - 1, 1, PALM[PALM.length - 1][0]]]) {
+    const ids = palmRings[r].map((i) => put(mesh.pos[i], x, null, h.axis.clone().multiplyScalar(sign)));
+    for (let k = 1; k < ids.length - 1; k++) mesh.idx.push(ids[0], ids[k], ids[k + 1]);
+  }
+  const deg = Math.PI / 180;
+  const G = (a, r) => [FIST.gx + r * Math.cos(a), FIST.gy + r * Math.sin(a)];
+  // A ring of the section round the point at angle a and radius r about the grip, z across;
+  // stretch keeps the thickness through a bend.
+  const ring = (x, y, z, a, half, stretch = 1) => {
+    const c = at(x, y, z);
+    const out = V().addScaledVector(h.axis, Math.cos(a)).addScaledVector(h.palm, Math.sin(a));
+    return HEX.map(([u, w]) => put(c.clone().addScaledVector(zAx, u * half * k).addScaledVector(out, w * half * stretch * k), x, c));
+  };
+  // Fingers, little finger to index: each wraps round the grip from its knuckle, in three
+  // segments (the little finger shortest).
+  const R = FIST.grip[L] + 0.87 * FIST.finger;
+  const SEGS = [0.044, 0.028, 0.022];
+  for (const [dz, len] of [[-0.0345, 0.8], [-0.0115, 0.95], [0.0115, 1], [0.0345, 0.93]]) {
+    const z = FIST.z0 + dz;
+    const angles = [-80 * deg];
+    for (const l of SEGS) angles.push(angles[angles.length - 1] + 2 * Math.asin((l * len) / (2 * R)));
+    const rings = angles.map((a, k) => {
+      let [x, y] = G(a, R);
+      // The first ring sits back inside the palm, the joints keep their thickness.
+      if (k === 0) [x, y] = [x - 0.01 * -Math.sin(a), y - 0.01 * Math.cos(a)];
+      const turn = k === 0 || k === angles.length - 1 ? 0 : (angles[k + 1] - angles[k - 1]) / 2;
+      return ring(x, y, z, a, FIST.finger, 1 / Math.cos(turn / 2));
+    });
+    const a = angles[angles.length - 1];
+    const tan = V().addScaledVector(h.axis, -Math.sin(a)).addScaledVector(h.palm, Math.cos(a)).normalize();
+    const [x, y] = G(a, R);
+    tube(rings, { p: at(x, y, z).addScaledVector(tan, 0.4 * k * FIST.finger), x, n: tan });
+  }
+  // The palm's flesh inside the curl, so a fist seen along its grip (or off the gun) is solid,
+  // not a ring.
+  {
+    const r = FIST.grip[L] * 1.05;
+    const ends = [-0.04, 0.045].map((dz) => {
+      const c = at(FIST.gx, FIST.gy, FIST.z0 + dz);
+      const ids = Array.from({ length: 6 }, (_, j) => {
+        const a = (j / 6) * Math.PI * 2;
+        const p = c.clone().addScaledVector(h.axis, Math.cos(a) * r * k).addScaledVector(h.palm, Math.sin(a) * r * k);
+        return put(p, FIST.gx, c);
+      });
+      return ids;
+    });
+    tube(ends, null);
+    ends.forEach((ids, e) => {
+      const n = zAx.clone().multiplyScalar(e ? 1 : -1);
+      const cap = ids.map((i) => put(mesh.pos[i], FIST.gx, null, n));
+      for (let j = 1; j < 5; j++) mesh.idx.push(cap[0], cap[j], cap[j + 1]);
+    });
+  }
+  // The thumb: from inside the heel of the hand, folded round the far side of the grip over the
+  // index and middle fingers.
+  {
+    // [angle about the grip, out past the fingers' line, z]
+    const T = [
+      [205, R + 0.022, 0.028],
+      [150, R + 0.0175, 0.04],
+      [108, R + 0.0205, 0.027],
+    ];
+    const rings = T.map(([a, r, z], k) => {
+      const [x, y] = G(a * deg, r);
+      return ring(x, y, FIST.z0 + z, a * deg, FIST.thumb, k === 1 ? 1.08 : 1);
+    });
+    const a = T[2][0] * deg;
+    const tan = V().addScaledVector(h.axis, Math.sin(a)).addScaledVector(h.palm, -Math.cos(a)).normalize();
+    const [x, y] = G(a, T[2][1]);
+    tube(rings, { p: at(x, y, FIST.z0 + T[2][2]).addScaledVector(tan, 0.4 * k * FIST.thumb), x, n: tan });
+  }
+  smoothFrom(v0, t0, centers);
 }
 
 // Thin light strips in the body's own color: two down the chest plate and one along the outside
@@ -727,18 +1236,123 @@ function backZ(y) {
   return best;
 }
 
+buildHelmet();
+buildSeal();
+buildGorget();
 buildVisor();
+buildHelmetDetail();
+buildEars();
+buildFist(-1);
+buildFist(1);
 buildStrips();
-// The smoker canister on the back, with its glowing ember ring and a metal cap.
+// The smoker canister on the back: a slim can with its glowing ember ring as a vent band under
+// a small metal cap (a big cap over a ring at the bottom read as a jetpack).
 {
-  const zb = backZ(1.22);
-  const r = 0.068;
-  const c = V(0, 1.2, zb + r - 0.025);
-  addCylinder(c, r, 0.3, 'suit', W_SPINE, 12);
-  addCylinder(V(c.x, 1.085, c.z), r + 0.007, 0.03, 'ember', W_SPINE, 12);
-  addCylinder(V(c.x, 1.36, c.z), r * 0.8, 0.025, 'metal', W_SPINE, 12, r * 0.65);
+  const zb = backZ(1.2);
+  const r = 0.054;
+  const c = V(0, 1.19, zb + r - 0.022);
+  addCylinder(c, r, 0.24, 'suit', W_SPINE, 12);
+  addCylinder(V(c.x, 1.282, c.z), r + 0.006, 0.026, 'ember', W_SPINE, 12);
+  addCylinder(V(c.x, 1.318, c.z), r * 0.55, 0.016, 'metal', W_SPINE, 10, r * 0.4);
   console.log('canister at z', c.z.toFixed(3), 'back plate at', zb.toFixed(3));
 }
+
+// ---------------------------------------------------------------------------------------------
+// 7. Baked shade: ambient occlusion at rest, darker plate edges and the builders' tones (the
+// visor's gradient), multiplied into every vertex's painted color by character.js.
+
+// Occlusion: rays over the hemisphere round each vertex's normal (a fixed cosine-weighted spiral,
+// so the output never changes), against the body's own triangles, nearer hits darker. The arms
+// hang beside the body at rest but swing forward to hold a gun in play, so arms and body don't
+// shade each other, except the pads and armpits over the upper arms. (Much stronger and the
+// crevices sit flat at the floor instead of shading off.)
+const AO = { rays: 48, reach: 0.25, strength: 1.1, floor: 0.55 };
+const ARM_BONES = { L: [B.armUL, B.armLL, B.handL], R: [B.armUR, B.armLR, B.handR] };
+const groupOf = (i) => {
+  const b = mesh.skin[i][0][0];
+  return ARM_BONES.L.includes(b) ? 1 : ARM_BONES.R.includes(b) ? 2 : 0;
+};
+function bakeOcclusion() {
+  const n = mesh.pos.length;
+  const tris = [];
+  for (let t = 0; t < mesh.idx.length; t += 3) {
+    const [a, b, c] = [mesh.idx[t], mesh.idx[t + 1], mesh.idx[t + 2]].map((i) => mesh.pos[i]);
+    const mid = a.clone().add(b).add(c).divideScalar(3);
+    const r = Math.max(mid.distanceTo(a), mid.distanceTo(b), mid.distanceTo(c));
+    tris.push({ a, e1: V().subVectors(b, a), e2: V().subVectors(c, a), mid, r, group: groupOf(mesh.idx[t]) });
+  }
+  const dirs = [];
+  for (let k = 0; k < AO.rays; k++) {
+    const r = Math.sqrt((k + 0.5) / AO.rays);
+    const ph = k * 2.399963;
+    dirs.push([r * Math.cos(ph), r * Math.sin(ph), Math.sqrt(1 - r * r)]);
+  }
+  // Ray against triangle (Moller-Trumbore), the distance or Infinity.
+  const pv = V();
+  const tv = V();
+  const qv = V();
+  const hitT = (o, d, T) => {
+    pv.crossVectors(d, T.e2);
+    const det = T.e1.dot(pv);
+    if (Math.abs(det) < 1e-12) return Infinity;
+    const inv = 1 / det;
+    tv.subVectors(o, T.a);
+    const u = tv.dot(pv) * inv;
+    if (u < 0 || u > 1) return Infinity;
+    qv.crossVectors(tv, T.e1);
+    const v = d.dot(qv) * inv;
+    if (v < 0 || u + v > 1) return Infinity;
+    const t = T.e2.dot(qv) * inv;
+    return t > 1e-5 ? t : Infinity;
+  };
+  const out = new Float32Array(n).fill(1);
+  const o = V();
+  const d = V();
+  const t1 = V();
+  const t2 = V();
+  for (let i = 0; i < n; i++) {
+    const reg = REGIONS[mesh.reg[i]];
+    if (reg === 'visor' || reg === 'shine' || reg === 'strip' || reg === 'ember') continue;
+    const nn = mesh.nrm[i];
+    o.copy(mesh.pos[i]).addScaledVector(nn, 0.002);
+    const g = groupOf(i);
+    const near = tris.filter(
+      (T) => T.mid.distanceTo(o) < AO.reach + T.r && (T.group === g || (g !== 0 && T.group === 0 && T.mid.y > 1.25)),
+    );
+    t1.set(Math.abs(nn.y) < 0.9 ? 0 : 1, Math.abs(nn.y) < 0.9 ? 1 : 0, 0).cross(nn).normalize();
+    t2.crossVectors(nn, t1);
+    let occ = 0;
+    for (const [x, y, z] of dirs) {
+      d.copy(t1).multiplyScalar(x).addScaledVector(t2, y).addScaledVector(nn, z);
+      let best = AO.reach;
+      for (const T of near) best = Math.min(best, hitT(o, d, T));
+      occ += 1 - best / AO.reach;
+    }
+    out[i] = Math.max(AO.floor, 1 - AO.strength * (occ / AO.rays));
+  }
+  return out;
+}
+const shade = bakeOcclusion();
+// Plate edges: armor along a seam with the undersuit, gloves or boots darkens (and the undersuit
+// just under it a little), so plates read as plates over a suit, not one rubber skin.
+{
+  const at = new Map();
+  const key = (p) => `${Math.round(p.x * 2000)},${Math.round(p.y * 2000)},${Math.round(p.z * 2000)}`;
+  mesh.pos.forEach((p, i) => {
+    const k = key(p);
+    if (!at.has(k)) at.set(k, []);
+    at.get(k).push(i);
+  });
+  const PLATE = new Set([R.armor, R.panel]);
+  const UNDER = new Set([R.suit, R.glove, R.boot]);
+  mesh.pos.forEach((p, i) => {
+    const others = at.get(key(p));
+    if (PLATE.has(mesh.reg[i]) && others.some((j) => UNDER.has(mesh.reg[j]))) shade[i] *= 0.72;
+    else if (UNDER.has(mesh.reg[i]) && others.some((j) => PLATE.has(mesh.reg[j]))) shade[i] *= 0.88;
+  });
+}
+// All of it is judged by eye (sRGB); vertex colors are linear, so it goes in raised to 2.2.
+for (let i = 0; i < shade.length; i++) shade[i] = (shade[i] * mesh.tone[i]) ** 2.2;
 
 // ---------------------------------------------------------------------------------------------
 // Shield shell directions: the average normal of every vertex at the same place, so the
@@ -755,7 +1369,7 @@ const shellN = (() => {
 })();
 
 // ---------------------------------------------------------------------------------------------
-// 7. Write.
+// 8. Write.
 
 const n = mesh.pos.length;
 const P16 = new Int16Array(n * 3);
@@ -764,7 +1378,9 @@ const S8 = new Int8Array(n * 3);
 const REG = new Uint8Array(n);
 const SI = new Uint8Array(n * 4);
 const SW = new Uint8Array(n * 4);
+const SH = new Uint8Array(n);
 for (let i = 0; i < n; i++) {
+  SH[i] = Math.round(clamp(shade[i], 0, 1) * 255);
   const p = mesh.pos[i];
   P16.set([Math.round(p.x * 8192), Math.round(p.y * 8192), Math.round(p.z * 8192)], i * 3);
   const q = mesh.nrm[i];
@@ -811,7 +1427,8 @@ export const REGIONS = ${JSON.stringify(REGIONS)};
 
 // Little-endian base64: position Int16 x3 (1/8192 m), normal and shell (the shield shell's
 // push direction) Int8 x3 (1/127), region Uint8, skinIndex Uint8 x4, skinWeight Uint8 x4
-// (sum 255), index Uint16.
+// (sum 255), shade Uint8 (the painted color times shade / 255: baked occlusion, darker plate
+// edges, the visor's gradient; 255 on the light strips and the ember ring), index Uint16.
 export const DATA = {
   count: ${n},
   position: '${b64(P16)}',
@@ -820,6 +1437,7 @@ export const DATA = {
   region: '${b64(REG)}',
   skinIndex: '${b64(SI)}',
   skinWeight: '${b64(SW)}',
+  shade: '${b64(SH)}',
   index: '${b64(I16)}',
 };
 `;
@@ -847,10 +1465,12 @@ if (debugOut) {
         return a;
       }),
       region: Array.from({ length: mesh.idx.length / 3 }, (_, f) => REGIONS[mesh.reg[mesh.idx[f * 3]]]),
+      vreg: mesh.reg.map((r) => REGIONS[r]),
+      shade: Array.from(SH),
+      nrm: mesh.nrm.flatMap((q) => round(q)),
       bones: BONES,
       joints: Object.fromEntries(Object.entries(J).map(([k, v]) => [k, v.toArray()])),
     }),
   );
   console.log('debug written', debugOut);
 }
-
