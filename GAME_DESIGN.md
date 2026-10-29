@@ -526,8 +526,12 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 - Sticks have a radial deadzone. Look runs on a curve (fine aim near center) with a turn
   boost after a moment at full tilt, so you can still spin around. Full tilt is about
   180 degrees per second before the boost.
-- Light aim friction on controllers only: look slows to 60% while the crosshair is on
-  someone. No magnetism or auto-aim.
+- Controller aim assist, Halo style (controllers only, never mouse or bots):
+  - Slowdown: look slows to 50% while the crosshair is on someone and to 72% just around them.
+  - Magnetism: a shot that would just miss (within about 35 cm of the body's edge, at most 8
+    degrees) bends onto the nearest point of the body, so aiming at the head still gets the
+    head. Spread and bloom still apply after the bend, so spraying still misses. No lock-on
+    and no turning the view for you.
 - Rumble when you get hurt, smoked, or shaken by a blast (can be turned off).
 - Edge on Xbox treats B as the browser's Back button, so once a controller shows up the game
   keeps a spare history entry and B can never leave the page.
@@ -758,3 +762,8 @@ Need answers before the step that uses them gets built.
   controllers only (overriding the earlier "no magnetism or auto-aim" rule), stronger aim
   slowdown, a retuned stick curve, snappier ground acceleration and chasing the one 42 ms hitch
   seen on the Mac bench.
+- 2026-10-29: Halo feel pass. Controller aim assist now has magnetism and a wider slowdown (see
+  Controls), and ground movement is snappier: faster acceleration and stopping, and pushing
+  against the way you're moving turns you around 1.5x faster. The stick curve stays as it was
+  until the owner has played with the rest. The 42 ms hitch seen once on the Mac bench didn't
+  reproduce headless; the Xbox bench will say whether it's real.

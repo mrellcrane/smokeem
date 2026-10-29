@@ -15,12 +15,31 @@ export const BODY = {
   skin: 0.02,
 };
 
+// Controller aim assist (src/combat/aimAssist.js), Halo style.
+export const AIM = {
+  // Magnetism: a shot this far past the edge of a body (meters, as an angle, capped) bends onto
+  // it, out to this fraction of the gun's range.
+  magnetRadius: 0.35,
+  magnetMaxAngle: 8 * (Math.PI / 180),
+  magnetRange: 0.8,
+  // The body as a segment: from this far under its center to this far over its head line.
+  segmentBelow: 0.35,
+  segmentAbove: 0.22,
+  // Look speed with the crosshair on someone, and within this many magnetism cones of them.
+  frictionOn: 0.5,
+  frictionNear: 0.72,
+  nearCones: 1.6,
+};
+
 export const MOVE = {
   walkSpeed: 7.0,
   sprintSpeed: 10.5,
   crouchSpeed: 3.6,
-  groundAccel: 70,
-  groundDecel: 55,
+  // Ground acceleration, and how much faster it turns you around when the stick opposes
+  // where you're going (snappy strafes, Halo style).
+  groundAccel: 85,
+  groundDecel: 70,
+  reverseAccelMul: 1.5,
   airAccel: 24,
   airDrag: 1.5,
   gravity: 16,
