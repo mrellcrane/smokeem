@@ -127,6 +127,21 @@ const SOUNDS = {
       const pop = Math.random() < 0.004 ? 1 : 0;
       return (0.25 * noise() + pop * 0.8) * Math.sin((Math.PI * t) / 0.3);
     }),
+  // Sliding on grit: low-passed noise that darkens as the slide slows, with a few crunches.
+  slide: (ctx) =>
+    synth(ctx, 0.9, (t, s) => {
+      s.prev += (noise() - s.prev) * (0.4 - 0.3 * (t / 0.9));
+      const crunch = Math.random() < 0.015 ? noise() * 0.5 : 0;
+      const env = Math.min(1, t / 0.03) * Math.pow(1 - t / 0.9, 1.4);
+      return env * (1.1 * s.prev + crunch);
+    }),
+  // A boot hitting a wall: a dropping thump with a little knock on top.
+  wallKick: (ctx) =>
+    synth(ctx, 0.25, (t, s, rate) => {
+      const f = 150 * Math.exp(-t * 20) + 55;
+      s.phase += (f * Math.PI * 2) / rate;
+      return 0.9 * Math.sin(s.phase) * Math.exp(-t * 16) + 0.3 * noise() * Math.exp(-t * 70) + 0.25 * click(t, 0, 820, 60);
+    }),
 };
 
 // Recorded sounds, grouped by name: shot-1.wav ... shot-4.wav are variations of 'shot'.
@@ -161,6 +176,8 @@ const MIX = {
   swing: { ref: 6 },
   bash: { ref: 8 },
   death: { ref: 14, wet: 0.2 },
+  slide: { volume: 0.6, ref: 8, voices: 4 },
+  wallKick: { volume: 0.8, ref: 10, wet: 0.15, voices: 4 },
 };
 const DEFAULT_MIX = { volume: 1, ref: 10, wet: 0, voices: 8 };
 

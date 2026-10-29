@@ -47,7 +47,8 @@ export function currentSpread(p) {
   if (speed > 1.5) s += d.spreadMoveAdd * Math.min(1, speed / 7);
   if (p.mode === 'move' && !p.grounded) s += d.spreadAirAdd;
   if (p.aimZoom > 1.05) s *= d.aimSpreadMul;
-  if (p.crouched && p.grounded) s *= d.crouchSpreadMul;
+  // A slide aims like moving, not like crouching.
+  if (p.crouched && p.grounded && !p.sliding) s *= d.crouchSpreadMul;
   if (p.mode === 'net' || p.mode === 'rope' || p.mode === 'bars') s *= d.climbSpreadMul;
   return s;
 }
