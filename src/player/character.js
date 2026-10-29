@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp } from '../util/math.js';
 import { GUNS, allParts } from '../combat/guns/index.js';
+import { GLOW, SCREEN } from '../combat/weaponModels.js';
 
 // The contestant body: chunky armor, a wide amber visor and a smoker canister on the back.
 // Built from boxes, rigidly skinned to a 12-bone body skeleton plus one bone per gun in the
@@ -75,36 +76,59 @@ const ARM_POSE = (() => {
   };
 })();
 
-const SUIT = 0x2b2f35;
-const BOOT = 0x1d1f23;
+// The undersuit is mid charcoal, so the armor's color and the body's shape read against dark
+// walls and shade.
+const SUIT = 0x454b54;
+const BOOT = 0x2c2f35;
 const METAL = 0x33373c;
 const WOOD = 0x8a5a33;
+const EMBER = 0xff7a1a;
+
+// How much a part glows on its own (ignores light and shadow): visor and canister ember ring
+// fully, the team-color light strips a little less, glowing bits of the held gun some.
+const GLOWS = { visor: 1, ember: 1, strip: 0.9 };
+const GUN_GLOWS = { [GLOW]: 0.8, [SCREEN]: 0.8 };
 
 // [bone, center, size, colorKey]
 function parts(r) {
   const P = [
     ['hips', [0, 0.93, 0], [0.4, 0.18, 0.26], 'suit'],
-    ['hips', [0, 1.0, 0], [0.42, 0.06, 0.28], 'trim'],
+    // Belt with two pouches.
+    ['hips', [0, 1.0, 0], [0.43, 0.065, 0.29], 'trim'],
+    ['hips', [-0.15, 0.95, -0.15], [0.09, 0.09, 0.05], 'boot'],
+    ['hips', [0.15, 0.95, -0.15], [0.09, 0.09, 0.05], 'boot'],
     ['spine', [0, 1.24, 0], [0.46, 0.42, 0.28], 'armor'],
+    // Layered chest plate with two light strips.
     ['spine', [0, 1.28, -0.15], [0.38, 0.3, 0.04], 'trim'],
-    ['spine', [0, 1.25, 0.2], [0.24, 0.36, 0.14], 'suit'],
-    ['spine', [0, 1.38, 0.275], [0.12, 0.05, 0.02], 'visor'],
+    ['spine', [0, 1.33, -0.18], [0.3, 0.15, 0.03], 'armor'],
+    ['spine', [-0.13, 1.2, -0.172], [0.035, 0.16, 0.012], 'strip'],
+    ['spine', [0.13, 1.2, -0.172], [0.035, 0.16, 0.012], 'strip'],
+    // Smoker canister on the back: ember ring, and a hose up to the helmet.
+    ['spine', [0, 1.25, 0.21], [0.26, 0.4, 0.16], 'suit'],
+    ['spine', [0, 1.13, 0.21], [0.28, 0.045, 0.18], 'ember'],
+    ['spine', [0, 1.47, 0.21], [0.14, 0.04, 0.1], 'metal'],
+    ['spine', [0.09, 1.5, 0.15], [0.045, 0.2, 0.045], 'boot'],
     ['head', [0, 1.53, 0], [0.14, 0.06, 0.14], 'suit'],
-    ['head', [0, 1.66, 0], [0.28, 0.27, 0.3], 'armor'],
-    ['head', [0, 1.67, -0.152], [0.23, 0.08, 0.02], 'visor'],
-    ['head', [0, 1.81, 0.02], [0.06, 0.04, 0.2], 'trim'],
+    // Helmet with a wide visor and a crest.
+    ['head', [0, 1.66, 0], [0.3, 0.29, 0.32], 'armor'],
+    ['head', [0, 1.67, -0.162], [0.25, 0.1, 0.02], 'visor'],
+    ['head', [0, 1.82, 0.02], [0.07, 0.06, 0.24], 'trim'],
   ];
   for (const s of [-1, 1]) {
     const side = s < 0 ? 'L' : 'R';
     const x = 0.33 * s;
     const lx = 0.12 * s;
     P.push(
-      [`armU${side}`, [x, 1.44, 0], [0.18, 0.12, 0.26], 'armor'],
+      // Big shoulder pads with a light strip on the outside.
+      [`armU${side}`, [x + 0.01 * s, 1.45, 0], [0.22, 0.16, 0.28], 'armor'],
+      [`armU${side}`, [x + 0.121 * s, 1.45, 0], [0.012, 0.045, 0.22], 'strip'],
       [`armU${side}`, [x, 1.29, 0], [0.12, 0.28, 0.13], 'suit'],
       [`armL${side}`, [x, 0.99, 0], [0.13, 0.28, 0.14], 'armor'],
       [`armL${side}`, [x, 0.82, 0], [0.1, 0.09, 0.1], 'suit'],
       [`legU${side}`, [lx, 0.71, 0], [0.17, 0.4, 0.2], 'suit'],
-      [`legU${side}`, [lx, 0.53, -0.1], [0.15, 0.1, 0.05], 'armor'],
+      // Thigh plate and knee pad.
+      [`legU${side}`, [lx, 0.76, -0.105], [0.15, 0.22, 0.035], 'armor'],
+      [`legU${side}`, [lx, 0.53, -0.1], [0.17, 0.12, 0.06], 'armor'],
       [`legL${side}`, [lx, 0.28, 0], [0.16, 0.42, 0.19], 'armor'],
       [`legL${side}`, [lx, 0.05, -0.03], [0.18, 0.1, 0.28], 'boot'],
     );
@@ -132,6 +156,12 @@ function buildGeometry(colors, inflate, r) {
     c.set(typeof key === 'string' ? colors[key] : key);
     for (let i = 0; i < n; i++) c.toArray(col, i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    // Self-glow and the body's team color, for the rim light (see bodyMaterial).
+    const glow = new Float32Array(n).fill(typeof key === 'string' ? GLOWS[key] ?? 0 : GUN_GLOWS[key] ?? 0);
+    g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
+    const team = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) colors.armor.toArray(team, i * 3);
+    g.setAttribute('aTeam', new THREE.BufferAttribute(team, 3));
     const bi = r.names.indexOf(bone);
     const si = new Uint16Array(n * 4);
     const sw = new Float32Array(n * 4);
@@ -148,11 +178,38 @@ function buildGeometry(colors, inflate, r) {
   return merged;
 }
 
+// One material for every body. On top of Lambert: glowing parts ignore light and shadow, and a
+// rim in the body's own color lights its silhouette, stronger with distance, so a far player
+// reads as a colored person (with a glowing head) instead of a dark speck, even in shade.
+const RIM_VERTEX = /* glsl */ `
+  attribute float aGlow;
+  attribute vec3 aTeam;
+  varying float vGlow;
+  varying vec3 vTeam;
+`;
+const RIM_FRAGMENT = /* glsl */ `
+  float ndv = saturate(dot(normal, normalize(vViewPosition)));
+  float rim = (1.0 - ndv) * (1.0 - ndv) * mix(0.25, 0.7, smoothstep(8.0, 40.0, length(vViewPosition)));
+  outgoingLight = mix(outgoingLight, diffuseColor.rgb * 1.5, vGlow) + vTeam * rim;
+`;
+
 let sharedMaterial = null;
 function bodyMaterial() {
   if (!sharedMaterial) {
     sharedMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
     sharedMaterial.name = 'character';
+    sharedMaterial.onBeforeCompile = (shader) => {
+      const v = shader.vertexShader;
+      const f = shader.fragmentShader;
+      if (!v.includes('#include <begin_vertex>') || !f.includes('#include <opaque_fragment>')) {
+        console.warn('character: shader chunks changed, rim light off');
+        return;
+      }
+      shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vTeam = aTeam;');
+      shader.fragmentShader =
+        'varying float vGlow;\nvarying vec3 vTeam;\n' + f.replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
+    };
+    sharedMaterial.customProgramCacheKey = () => 'character-rim';
   }
   return sharedMaterial;
 }
@@ -175,6 +232,9 @@ export class CharacterModel {
       boot: BOOT,
       metal: METAL,
       wood: WOOD,
+      ember: EMBER,
+      // Light strips: the armor color, lifted toward white.
+      strip: armorColor.clone().lerp(new THREE.Color(0xffffff), 0.35),
     };
 
     this.group = new THREE.Group();

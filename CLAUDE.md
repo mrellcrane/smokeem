@@ -168,6 +168,10 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Each view renders the world, then clears depth and renders the viewmodel scene (its own
   camera and lights) so guns never clip into walls. `renderer.autoClear` is off; views clear
   themselves inside their scissor rect.
+- Bodies share one Lambert material with a small `onBeforeCompile` addition: per-vertex
+  `aGlow` (parts that glow on their own) and `aTeam` (the body's color, for a distance-scaled
+  rim light). Any geometry drawn with it needs both attributes. `smokeem.lineup({ distance })`
+  (debug) stands every body color in a row for readability checks.
 - A player's own body sits on layer `1 + id`, which that player's camera disables (except while
   flying a missile). The sun's shadow camera enables all layers so you still see your own
   shadow.

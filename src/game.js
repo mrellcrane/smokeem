@@ -187,7 +187,8 @@ export class Game {
         input: brain.state,
         name: BOT_NAMES[i % BOT_NAMES.length],
         brain,
-        color: BOT_COLORS[i % BOT_COLORS.length],
+        color: BOT_COLORS[i % BOT_COLORS.length].armor,
+        trim: BOT_COLORS[i % BOT_COLORS.length].trim,
       });
       brain.player = p;
       this.players.push(p);
