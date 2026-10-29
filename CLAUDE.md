@@ -75,7 +75,13 @@ Live build: https://mrellcrane.github.io/smokeem/
   (`projectiles.js`: Smoke Signal missiles, grenades as Rapier dynamic bodies), area damage
   (`explosions.js`), pickups, and `dealDamage`, the single path all damage goes through.
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system.
-- `src/audio/`: placeholder WebAudio sounds synthesized at load (unlocked by the drop-in click).
+- `src/audio/`: sound effects (unlocked by the drop-in click). Guns, reloads and explosions
+  are CC0 recordings in `src/audio/samples/` (`name-N.wav` files are variations of `name`;
+  credits in `CREDITS.md`, regenerate with `tools/build_sounds.py`); everything else is
+  synthesized at unlock. `sfx.play(name, { at, source })` places a sound in the world: it
+  fades and muffles with distance from the nearest local player and plays up close when
+  `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
+  played for local players (`!player.isBot`).
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
   training dummies.
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load

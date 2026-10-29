@@ -313,8 +313,18 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 ## Audio
 
-Placeholder sound effects are fine for v1 (generated with WebAudio). The owner wants more
-realistic gun sounds; that pass is next after step 6 (CC0 recordings where possible).
+- Guns, reloads and explosions are real recordings, all CC0 (credits in
+  `src/audio/samples/CREDITS.md`). The Hickory is an AK-47 (four takes, picked at random),
+  the Mesquite a Benelli Nova 12 gauge with a real pump rack after every shot, explosions
+  are cannon and firework bangs over a synthesized sub-bass thump.
+- UI and body sounds (hit markers, kill confirm, shields, hurt, melee, grenade bounces) stay
+  synthesized with WebAudio.
+- Sounds live in the world: other players' guns fade and lose their highs with distance from
+  the nearest local player, guns and blasts ring off the arena walls (a generated echo that
+  gets relatively louder far away), and with one local player sounds pan left and right.
+  Your own sounds always play up close.
+- Hit markers, hurt and shield sounds play only for local players, not for bots fighting
+  each other.
 
 ## Roadmap
 
@@ -384,4 +394,7 @@ Need answers before the step that uses them gets built.
   crosshair) and nothing stronger. Keyboard and mouse get none.
 - 2026-10-29: Seats: A joins and B leaves on the title screen; keyboard and mouse joins by
   clicking a seat or playing solo. Settings stay shared across local players for now.
-- 2026-10-29: Owner asked for more realistic gun sounds: queued right after step 6.
+- 2026-10-29: Owner asked for more realistic gun sounds: guns, reloads and explosions are now
+  CC0 recordings (The Free Firearm Sound Library and others from OpenGameArt), with distance
+  falloff, muffling, panning and an arena echo. Bots' personal sounds (hit markers, hurt) no
+  longer play.

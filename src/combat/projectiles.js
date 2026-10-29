@@ -244,7 +244,7 @@ export class Grenades {
       g.rot.set(r.x, r.y, r.z, r.w);
       // A sharp change in velocity means it bounced off something.
       _v.set(lv.x, lv.y, lv.z);
-      if (_v.distanceTo(g.vel) > 3 && g.vel.length() > 2.5) this.game.sfx.play('clink');
+      if (_v.distanceTo(g.vel) > 3 && g.vel.length() > 2.5) this.game.sfx.play('clink', { at: g.pos });
       g.vel.copy(_v);
       g.fuse -= dt;
       if (g.fuse <= 0 || g.pos.y < -20) this.detonate(g);
