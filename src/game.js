@@ -293,7 +293,7 @@ export class Game {
     this.bolts.warmup(false);
     this.swarms.warmup(false);
     this.pickups.warmup(false);
-    this.fx.update(10);
+    this.fx.clear();
     this.needsRender = true;
   }
 
@@ -517,6 +517,8 @@ export class Game {
       const p = this.humans[i];
       const rect = rects[i];
       p.updateCamera(alpha, dt, rect.w / rect.h);
+      // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
+      this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
       r.setViewport(rect.x, rect.y, rect.w, rect.h);
       r.setScissor(rect.x, rect.y, rect.w, rect.h);
       r.clear(true, true, false);

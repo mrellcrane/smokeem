@@ -78,7 +78,8 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/player/`: the player controller (movement, climbing, mantling, camera), the skinned
   character body and the first-person viewmodel.
 - `src/combat/`: vitals (shields/health), one module per gun under `guns/` (stats, box model,
-  first-person hands and pose, muzzle, third-person grip; registered in `guns/index.js`),
+  first-person hands and pose, muzzle and its flash color, third-person grip; registered in
+  `guns/index.js`),
   weapon sets and loadouts (`arsenal.js`: a match builds only its set's guns), weapon state
   (`weapons.js`), shared box helpers and colors (`weaponModels.js`), the per-tick weapon
   controller (`shooting.js`: trigger, spin-up, pellets, missile and launcher shots, grenades,
@@ -90,6 +91,18 @@ Live build: https://mrellcrane.github.io/smokeem/
   path all damage goes through.
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system. Beams get
   their own small tracer pool, built only when the match's set has a beam gun.
+  - Particles pick a cell of their system's 4 x 4 atlas (`textures.fxAtlas` / `smokeAtlas`) and
+    take a minimum on-screen size (`minPx`), an `owner` (hidden in that player's own view)
+    and an optional `axis` to stretch along. Smoke fades out right at the camera.
+  - Tracers are camera-facing ribbons built in the vertex shader, never thinner than about
+    1.6 px. A bullet tracer's head travels from the gun to the hit point. Each starts at the
+    shooter's first-person barrel in their own view and at `Player.worldMuzzle` (the
+    third-person gun) in everyone else's.
+  - Both read per-view uniforms (`viewUniforms.js`: viewer id and view height), set by
+    `fx.setView` before each view renders. New effect shaders should use them the same way.
+  - Combat cues: third-person muzzle flashes (`fx.muzzleFlash`, at most one per shooter per
+    50 ms), the shield-break pop (from `dealDamage`) and the death puff tinted with the
+    victim's armor color.
 - `src/audio/`: sound effects (unlocked by the drop-in click). Guns, reloads and explosions
   are CC0 recordings in `src/audio/samples/` (`name-N.wav` files are variations of `name`;
   credits in `CREDITS.md`, regenerate with `tools/build_sounds.py`); everything else is

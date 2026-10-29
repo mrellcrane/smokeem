@@ -8,4 +8,6 @@ export const gfx = {
   bake: true,
   // Per-vertex light on static geometry: darker toward the floor and into corners.
   vertexLight: true,
+  // Muzzle flashes on other players' third-person guns.
+  thirdPersonFlashes: true,
 };

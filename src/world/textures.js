@@ -384,28 +384,132 @@ function spark() {
   return toTexture(c, { repeat: false });
 }
 
-// Lumpy grey puff for death smoke and dust.
-function smoke() {
-  const S = 128;
-  const [c, ctx] = canvas(S, S);
-  const rand = mulberry32(91);
-  ctx.clearRect(0, 0, S, S);
-  for (let i = 0; i < 14; i++) {
-    const a = rand() * Math.PI * 2;
-    const r = rand() * S * 0.18;
-    const x = S / 2 + Math.cos(a) * r;
-    const y = S / 2 + Math.sin(a) * r;
-    const rad = S * (0.18 + rand() * 0.14);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    const v = 200 + Math.floor(rand() * 55);
-    g.addColorStop(0, `rgba(${v},${v},${v},0.55)`);
-    g.addColorStop(1, `rgba(${v},${v},${v},0)`);
-    ctx.fillStyle = g;
+// Effect atlases: a 4 x 4 grid of 128 px cells, each drawn inside a 4 px transparent border
+// so neighbors don't bleed into each other (particles.js picks a cell per particle).
+const CELL = 128;
+const PAD = 4;
+function atlas(cells) {
+  const [c, ctx] = canvas(CELL * 4, CELL * 4);
+  ctx.clearRect(0, 0, CELL * 4, CELL * 4);
+  cells.forEach((draw, i) => {
+    ctx.save();
+    ctx.translate((i % 4) * CELL + CELL / 2, Math.floor(i / 4) * CELL + CELL / 2);
     ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fill();
-  }
+    ctx.rect(-CELL / 2 + PAD, -CELL / 2 + PAD, CELL - 2 * PAD, CELL - 2 * PAD);
+    ctx.clip();
+    draw(ctx, CELL / 2 - PAD);
+    ctx.restore();
+  });
   return toTexture(c, { repeat: false });
+}
+
+function softDot(ctx, R) {
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.8)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-R, -R, R * 2, R * 2);
+}
+
+// A white star with `points` rays (tinted per use), a hot core and a soft halo. The core and
+// halo are big, so the star still reads as a bright blob when it's only a few pixels wide.
+function star(points, spin, thin) {
+  return (ctx, R) => {
+    ctx.rotate(spin);
+    const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+    halo.addColorStop(0, 'rgba(255,255,255,0.8)');
+    halo.addColorStop(0.45, 'rgba(255,255,255,0.35)');
+    halo.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(-R, -R, R * 2, R * 2);
+    for (let i = 0; i < points; i++) {
+      ctx.rotate((Math.PI * 2) / points);
+      const len = R * (i % 2 ? 0.7 : 1);
+      const g = ctx.createLinearGradient(0, 0, len, 0);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.45, 'rgba(255,255,255,0.7)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(0, -thin);
+      ctx.lineTo(len, 0);
+      ctx.lineTo(0, thin);
+      ctx.closePath();
+      ctx.fill();
+    }
+    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.45);
+    core.addColorStop(0, 'rgba(255,255,255,1)');
+    core.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+    core.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = core;
+    ctx.fillRect(-R, -R, R * 2, R * 2);
+  };
+}
+
+function ring(ctx, R) {
+  const g = ctx.createRadialGradient(0, 0, R * 0.6, 0, 0, R);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.6, 'rgba(255,255,255,1)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-R, -R, R * 2, R * 2);
+}
+
+// Bright along the middle of the cell's width, tapering to both ends (stretched along a
+// direction by particles.js). It fills half the cell's height, so the particle's size sets
+// its thickness (and its minimum on-screen size still shows).
+function streak(ctx, R) {
+  ctx.scale(1, 0.5);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.75)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-R, -R / 0.5, R * 2, (R * 2) / 0.5);
+}
+
+function shard(ctx, R) {
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.25, -R * 0.9);
+  ctx.lineTo(R * 0.55, -R * 0.1);
+  ctx.lineTo(R * 0.1, R * 0.85);
+  ctx.lineTo(-R * 0.5, R * 0.2);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Additive effects. Cells: 0 soft dot, 1 to 3 stars, 4 ring, 5 streak, 6 shard.
+function fxAtlas() {
+  return atlas([softDot, star(4, 0, 6), star(6, 0.3, 4), star(5, 0.7, 5), ring, streak, shard]);
+}
+
+// Lumpy grey puff for death smoke and dust; one variation per seed.
+function puff(seed) {
+  return (ctx, R) => {
+    const rand = mulberry32(seed);
+    for (let i = 0; i < 14; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = rand() * R * 0.36;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      const rad = R * (0.36 + rand() * 0.28);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+      const v = 200 + Math.floor(rand() * 55);
+      g.addColorStop(0, `rgba(${v},${v},${v},0.55)`);
+      g.addColorStop(1, `rgba(${v},${v},${v},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+}
+
+// Alpha-blended effects. Cells: 0 to 3 puffs.
+function smokeAtlas() {
+  return atlas([puff(91), puff(92), puff(93), puff(94)]);
 }
 
 // Four-point muzzle flash star.
@@ -464,7 +568,8 @@ export function createTextures() {
     flame: keep('flame', flame),
     planet: keep('planet', planet),
     spark: keep('spark', spark),
-    smoke: keep('smoke', smoke),
+    fxAtlas: keep('fxAtlas', fxAtlas),
+    smokeAtlas: keep('smokeAtlas', smokeAtlas),
     flash: keep('flash', flash),
   };
 }
