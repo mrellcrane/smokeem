@@ -24,7 +24,7 @@ export const GRENADE = {
   throwUp: 4,
   fuse: 2.4,
   cooldown: 0.8,
-  explosion: { radius: 5, inner: 1, damage: 130, knockback: 10 },
+  explosion: { radius: 5, inner: 1, damage: 130, knockback: 10, tint: 0xffb050 },
 };
 
 export const MELEE = {

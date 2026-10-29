@@ -170,6 +170,8 @@ export class StaticBuilder {
     this.stains = [];
     // Glowing strips that get a halo (beacons.js).
     this.halos = [];
+    // Collider handle to what it's made of (materials.js surface), for bullet impacts.
+    this.surfaces = new Map();
   }
 
   // shade: whether build() shades the vertices (quads and glows don't get it).
@@ -248,7 +250,8 @@ export class StaticBuilder {
       }
     }
     if (collide) {
-      this._collider(this.RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2), _p, q);
+      const c = this._collider(this.RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2), _p, q);
+      if (mat?.userData.surface) this.surfaces.set(c.handle, mat.userData.surface);
     }
   }
 
@@ -283,7 +286,8 @@ export class StaticBuilder {
     if (collide) {
       this.solids.push({ cyl: true, x: base[0], y: base[1] + height / 2, z: base[2], r: radius, hy: height / 2 });
       _p.set(base[0], base[1] + height / 2, base[2]);
-      this._collider(this.RAPIER.ColliderDesc.cylinder(height / 2, radius), _p, null);
+      const c = this._collider(this.RAPIER.ColliderDesc.cylinder(height / 2, radius), _p, null);
+      if (mat.userData.surface) this.surfaces.set(c.handle, mat.userData.surface);
     }
   }
 

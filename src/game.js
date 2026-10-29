@@ -43,6 +43,13 @@ const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => res
 
 const _sunDir = new THREE.Vector3();
 const _invQ = new THREE.Quaternion();
+const _fitT = new THREE.Vector3();
+const _fitB = new THREE.Vector3();
+const _fitO = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+// Marks shrink to these fractions of their width to fit the surface they lie on (fitDecal).
+const FIT_STEPS = [1, 0.7, 0.45, 0.3];
 
 // One match: renderer, scene, physics world, players and the fixed-step loop.
 // States: 'ready' (loaded, waiting for the player to click in), 'playing', 'paused', 'over'.
@@ -106,7 +113,9 @@ export class Game {
     this.entities = new Map();
     this.showDebug = false;
     this._frame = (now) => this.frame(now);
-    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false };
+    this._surface = { point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null };
+    // surface: what a world hit is made of (materials.js), null for bodies and unknown colliders.
+    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false, surface: null };
     // Per-frame render numbers for the FPS readout and ?bench.
     this.stats = { renderMs: 0, shadowCalls: 0, views: 1, viewCalls: [0, 0, 0, 0] };
   }
@@ -154,7 +163,7 @@ export class Game {
     });
     this.bake = this.arena.bake;
     this.zones = this.arena.zones;
-    this.fx = new Effects(scene, this.textures);
+    this.fx = new Effects(scene, this.textures, { decals: gfx.decals ? preset.decals : 0, fxScale: preset.fxScale });
     this.missiles = new Missiles(this, this.materials.props, this.textures);
     this.grenades = new Grenades(this, this.materials.props);
     this.bolts = new Bolts(this, this.materials.props);
@@ -316,6 +325,8 @@ export class Game {
       }
       this.applyAnisotropy(preset);
       this.beacons?.setHalos(gfx.halos && preset.halos);
+      // (Room for marks is set at load: a new count applies from the next match.)
+      this.fx.fxScale = preset.fxScale;
     }
     this.needsRender = true;
   }
@@ -339,6 +350,7 @@ export class Game {
       r.hit = false;
       r.entity = null;
       r.headshot = false;
+      r.surface = null;
       r.distance = range;
       return r;
     }
@@ -348,7 +360,67 @@ export class Game {
     r.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
     r.entity = this.entities.get(hit.collider.handle) ?? null;
     r.headshot = !!r.entity && r.point.y >= r.entity.headLineY();
+    r.surface = r.entity ? null : this.arena.surfaces.get(hit.collider.handle) ?? null;
+    // The mud has no collider (you wade through it), so a shot into it stops at its surface.
+    if (!r.entity) {
+      const t = this.zones.mudAlong(origin, dir, r.distance);
+      if (t !== null) {
+        r.distance = t;
+        r.point.copy(origin).addScaledVector(dir, t);
+        r.normal.set(0, 1, 0);
+        r.surface = 'mud';
+      }
+    }
     return r;
+  }
+
+  // The level surface within maxDist of pos along dir (a unit vector), as a reused
+  // { point, normal, surface }, or null. Bodies and grenades don't count.
+  surfaceNear(pos, dir, maxDist) {
+    const ray = this.ray;
+    ray.origin.x = pos.x;
+    ray.origin.y = pos.y;
+    ray.origin.z = pos.z;
+    ray.dir.x = dir.x;
+    ray.dir.y = dir.y;
+    ray.dir.z = dir.z;
+    const hit = this.physics.world.castRayAndGetNormal(ray, maxDist, true, this.shotFilter, undefined, undefined, undefined, this.notBody);
+    // (Starting inside a solid gives no usable normal.)
+    if (!hit || hit.timeOfImpact <= 0) return null;
+    const s = this._surface;
+    s.point.copy(pos).addScaledVector(dir, hit.timeOfImpact);
+    s.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
+    s.surface = this.arena.surfaces.get(hit.collider.handle) ?? null;
+    return s;
+  }
+
+  // How wide a mark centered on a surface (from surfaceNear) can be, up to width, and still lie
+  // on it without hanging over an edge into the air: probes just off the surface at four points
+  // near the mark's edge, shrinking it until they all find the same flat surface. 0 if none fits.
+  fitDecal(surface, width) {
+    const n = surface.normal;
+    _fitT.crossVectors(n, Math.abs(n.y) < 0.99 ? UP : X_AXIS).normalize();
+    _fitB.crossVectors(n, _fitT);
+    const ray = this.ray;
+    for (const k of FIT_STEPS) {
+      const r = width * k * 0.42;
+      let fits = true;
+      for (let i = 0; i < 4 && fits; i++) {
+        const a = i === 0 ? 1 : i === 1 ? -1 : 0;
+        const c = i === 2 ? 1 : i === 3 ? -1 : 0;
+        _fitO.copy(surface.point).addScaledVector(n, 0.1).addScaledVector(_fitT, a * r).addScaledVector(_fitB, c * r);
+        ray.origin.x = _fitO.x;
+        ray.origin.y = _fitO.y;
+        ray.origin.z = _fitO.z;
+        ray.dir.x = -n.x;
+        ray.dir.y = -n.y;
+        ray.dir.z = -n.z;
+        const hit = this.physics.world.castRayAndGetNormal(ray, 0.25, true, this.shotFilter, undefined, undefined, undefined, this.notBody);
+        fits = !!hit && Math.abs(hit.timeOfImpact - 0.1) < 0.05 && hit.normal.x * n.x + hit.normal.y * n.y + hit.normal.z * n.z > 0.95;
+      }
+      if (fits) return width * k;
+    }
+    return 0;
   }
 
   // True when solid level geometry sits between a and b (bodies and grenades don't count).
@@ -498,7 +570,7 @@ export class Game {
   }
 
   updateVisuals(dt, alpha) {
-    this.arena.update(dt, this.time);
+    this.arena.update(dt, this.time, this.fx);
     for (const p of this.players) p.updateVisuals(dt, alpha);
     for (const d of this.dummies) d.updateVisual(dt, alpha);
     this.missiles.updateVisuals(alpha);

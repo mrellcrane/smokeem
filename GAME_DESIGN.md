@@ -286,6 +286,9 @@ synthesized.
   bounces, settles and blows up 2.4 s after the throw. Blast: 5 m radius, full 130 damage
   within 1 m. Solid cover between you and a blast blocks it. Blasts shove people and other
   grenades, shake nearby cameras, and hurt the thrower.
+- Every blast flashes white, rolls fire that cools from yellow to red into dark smoke, and
+  sends a shock ring along the ground out to its real damage radius, so you learn how close is
+  too close. It leaves a scorch that fades after 30 s.
 - **Tenderizer** melee: 65 damage at up to 2.3 m. Anyone up to 3.6 m in front pulls you into a
   quick lunge. Hits from behind smoke instantly. 0.9 s cooldown.
 
@@ -475,7 +478,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
   separate from legs, jumps and landings (done); (8) pickup beacons (done); (9) explosions, impacts and
-  decals; (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
+  decals (done); (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
   high only; (15) a shadowless low tier only if the Xbox bench needs it.
 - **More maps** (owner wants this): Map 2 and beyond. Each map needs its own layout, bot
@@ -580,3 +583,8 @@ Need answers before the step that uses them gets built.
   still reads; they partly cover what's behind them so the orange one stays orange against the
   bright sky instead of washing out to white. Halos around the cyan and orange wall strips are
   on Medium and High only. Together they cost one draw call per view and no shadow pass draws.
+- 2026-10-29: Booms and marks (graphics PR 9). Bullet hits throw sparks off metal, chips off
+  dirt and concrete, splinters off wood and splats in mud, and leave small marks that fade after
+  15 s (none on mud, nets or ropes). Marks and scorches are off on Low. Shots now stop at the
+  mud's surface instead of going through it to the pit floor (missiles and jars too), since
+  the mud is what you see. No new draw calls or shader programs.

@@ -289,7 +289,9 @@ function fire(game, p) {
       acc.normal.copy(hit.normal);
       if (rays === 1 || i % 3 === 0) game.fx.impactBody(hit.point, hit.normal, acc.shields);
     } else if (rays === 1 || i % 3 === 0) {
-      game.fx.impactWorld(hit.point, hit.normal);
+      game.fx.impactWorld(hit.point, hit.normal, hit.surface);
+      // A mark for every shot of a slow gun, every third of a fast one.
+      if (!d.tracerEvery || (w.shots - 1) % 3 === 0) game.fx.mark(hit.point, hit.normal, hit.surface);
     }
   }
   for (const [target, acc] of pelletHits) {

@@ -15,13 +15,40 @@ const STAR = 1; // 1 to 3
 const RING = 4;
 const STREAK = 5;
 const SHARD = 6;
-const PUFF = 0; // 0 to 3, in the smoke atlas
+const FIRE = 8; // 8 to 11
+// In the smoke atlas.
+const PUFF = 0; // 0 to 3
+const CHIP = 4;
+const SPLINTER = 5;
+const SPLAT = 6;
+const HOLE = 7;
+const SCORCH = 8;
+
+// What a bullet kicks up from each surface (materials.js), and the tint of the mark it leaves
+// (none on mud, nets and ropes). Marks multiply the tint into a near-black hole and its rim.
+const HITS = {
+  metal: { sparks: 8, spark: 0xffc070, dust: 0x9a9690, mark: 0xb8bcc0, markAlpha: 0.9 },
+  dirt: { chips: 4, chip: 0x5a3e2a, dust: 0xa88462, dustSize: 0.3, mark: 0x5a3a26, markAlpha: 0.8 },
+  wood: { splinters: 4, chip: 0xd8b07a, dust: 0xc0a07c, mark: 0x9a7650, markAlpha: 0.9 },
+  concrete: { sparks: 2, spark: 0xffd090, chips: 4, chip: 0xa8a6a2, dust: 0xc4c0ba, mark: 0x8e8c88, markAlpha: 0.9 },
+  mud: { splats: 5, chip: 0x3a2a1c },
+  cloth: { dust: 0xb8a888 },
+  // Anything else (invisible blockers).
+  other: { sparks: 6, spark: 0xffb060, dust: 0xb89a80 },
+};
+// Bullet marks and blast scorches: how long they stay and fade (s).
+const MARK_LIFE = 15;
+const SCORCH_LIFE = 30;
+const MARK_FADE = 3;
 
 export class Effects {
-  constructor(scene, textures) {
+  // opts: decals (how many marks can lie around at once: 0 for none), fxScale (multiplies smoke
+  // and ember counts; the quality preset's).
+  constructor(scene, textures, { decals = 0, fxScale = 1 } = {}) {
+    this.fxScale = fxScale;
     this.tracerPool = new Tracers(64);
-    this.sparks = new Particles({ max: 400, texture: textures.fxAtlas, additive: true, name: 'sparks' });
-    this.smoke = new Particles({ max: 260, texture: textures.smokeAtlas, additive: false, name: 'smoke' });
+    this.sparks = new Particles({ max: 512, texture: textures.fxAtlas, additive: true, name: 'sparks' });
+    this.smoke = new Particles({ max: 320, decals, texture: textures.smokeAtlas, additive: false, name: 'smoke' });
     scene.add(this.tracerPool.mesh, this.sparks.mesh, this.smoke.mesh);
   }
 
@@ -102,20 +129,60 @@ export class Effects {
     }
   }
 
-  impactWorld(point, normal) {
-    this.burst(point, normal, 0xffb060, 6, 6, 0.07);
-    this.smoke.spawn(
-      point.x + normal.x * 0.05,
-      point.y + normal.y * 0.05,
-      point.z + normal.z * 0.05,
-      normal.x * 0.6,
-      normal.y * 0.6 + 0.2,
-      normal.z * 0.6,
-      0xb89a80,
-      0.18,
-      0.45,
-      { grow: 3, drag: 3, alpha: 0.55, rotVel: 1, cell: PUFF + Math.floor(Math.random() * 4) },
-    );
+  // A bullet hitting the world: sparks off metal, dust and chips off dirt and concrete,
+  // splinters off wood, splats in mud. surface: game.castShot's (materials.js).
+  impactWorld(point, normal, surface = null) {
+    const h = HITS[surface] ?? HITS.other;
+    if (h.sparks) this.burst(point, normal, h.spark, h.sparks, surface === 'metal' ? 8 : 6, 0.07);
+    if (h.chips) this.debris(point, normal, h.chip, h.chips, CHIP, 0.045, 3.5);
+    if (h.splinters) this.debris(point, normal, h.chip, h.splinters, SPLINTER, 0.1, 4);
+    if (h.splats) this.debris(point, normal, h.chip, h.splats, SPLAT, 0.07, 2.5);
+    if (h.dust) {
+      this.smoke.spawn(
+        point.x + normal.x * 0.05,
+        point.y + normal.y * 0.05,
+        point.z + normal.z * 0.05,
+        normal.x * 0.6,
+        normal.y * 0.6 + 0.2,
+        normal.z * 0.6,
+        h.dust,
+        h.dustSize ?? 0.18,
+        0.45,
+        { grow: 3, drag: 3, alpha: 0.55, rotVel: 1, cell: PUFF + Math.floor(Math.random() * 4) },
+      );
+    }
+  }
+
+  // Solid bits thrown out of a surface around its normal, falling and tumbling.
+  debris(point, normal, color, count, cell, size, speed) {
+    for (let i = 0; i < count; i++) {
+      randomInHemisphere(normal, _t);
+      const s = speed * (0.5 + Math.random() * 0.8);
+      this.smoke.spawn(
+        point.x + normal.x * 0.04,
+        point.y + normal.y * 0.04,
+        point.z + normal.z * 0.04,
+        _t.x * s,
+        _t.y * s + 1,
+        _t.z * s,
+        color,
+        size * (0.7 + Math.random() * 0.6),
+        0.45 + Math.random() * 0.3,
+        { cell, gravity: 12, drag: 1, rotVel: (Math.random() - 0.5) * 16 },
+      );
+    }
+  }
+
+  // Whether marks and scorches go on this surface (and there's room for any).
+  marksOn(surface) {
+    return this.smoke.decals > 0 && !!HITS[surface]?.mark;
+  }
+
+  // A bullet mark where a shot hit the world (none on mud, nets and ropes).
+  mark(point, normal, surface) {
+    const h = HITS[surface];
+    if (!h?.mark) return;
+    this.smoke.decal(point, normal, h.mark, 0.08 + Math.random() * 0.03, MARK_LIFE, MARK_FADE, { cell: HOLE, alpha: h.markAlpha });
   }
 
   impactBody(point, normal, shield) {
@@ -160,28 +227,65 @@ export class Effects {
     }
   }
 
-  // Fireball, shock of sparks and a rolling smoke cloud, scaled to the blast radius.
-  explosion(pos, radius) {
+  // A blast, scaled to its radius: one white frame, rolling fire that cools from white-hot
+  // through orange and red, a shock ring out to the real damage radius (so you learn how close
+  // is too close), ember streaks, smoke and a scorch. opts: tint (the ring and embers, per
+  // explosive), surface ({ point, normal, surface }: what it went off against, from
+  // Game.surfaceNear; the ring lies flat on it), scorch (the scorch's width on that surface,
+  // 0 for none: Game.fitDecal keeps it from hanging over an edge).
+  explosion(pos, radius, { tint = 0xffb050, surface = null, scorch = 0 } = {}) {
     const r = radius / 5;
-    for (let i = 0; i < 7; i++) {
+    const k = this.fxScale;
+    this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, 0xffffff, radius * 1.2, 0.06, { cell: STAR + 1, minPx: 16 });
+    const billows = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < billows; i++) {
       randomInHemisphere(UP, _t);
-      this.sparks.spawn(pos.x + _t.x * 0.4, pos.y + _t.y * 0.4, pos.z + _t.z * 0.4, _t.x * 3 * r, _t.y * 3 * r, _t.z * 3 * r,
-        i < 3 ? 0xfff0c0 : 0xff8a2a, (2.2 + Math.random() * 1.6) * r, 0.28 + Math.random() * 0.12, { grow: 1.6, drag: 3 });
+      this.sparks.spawn(
+        pos.x + _t.x * 0.5 * r,
+        pos.y + _t.y * 0.4 * r,
+        pos.z + _t.z * 0.5 * r,
+        _t.x * 2.5 * r,
+        _t.y * 2.5 * r + 1,
+        _t.z * 2.5 * r,
+        0xffffff,
+        (2.2 + Math.random() * 1.2) * r,
+        0.45 + Math.random() * 0.15,
+        { cell: FIRE + (i % 4), ramp: true, grow: 1.7, drag: 3, rotVel: (Math.random() - 0.5) * 2 },
+      );
     }
-    for (let i = 0; i < 28; i++) {
+    // The ring cell's bright line sits at 0.84 of its half width.
+    const ringSize = (radius * 2) / 0.84;
+    if (surface) {
+      const p = surface.point;
+      const n = surface.normal;
+      this.sparks.spawn(p.x + n.x * 0.05, p.y + n.y * 0.05, p.z + n.z * 0.05, 0, 0, 0, tint, 0.6, 0.35, {
+        cell: RING,
+        flat: n,
+        grow: ringSize / 0.6,
+        ease: true,
+        minPx: 12,
+      });
+    } else {
+      this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, tint, 0.6, 0.3, { cell: RING, grow: ringSize / 0.6, ease: true, minPx: 12 });
+    }
+    const embers = Math.round((20 + Math.random() * 8) * k);
+    for (let i = 0; i < embers; i++) {
       randomInHemisphere(UP, _t);
       const s = (8 + Math.random() * 10) * r;
-      this.sparks.spawn(pos.x, pos.y + 0.1, pos.z, _t.x * s, _t.y * s, _t.z * s, 0xffb050, 0.12, 0.35 + Math.random() * 0.4, {
+      _b.copy(_t).multiplyScalar(0.35 * r);
+      this.sparks.spawn(pos.x, pos.y + 0.1, pos.z, _t.x * s, _t.y * s, _t.z * s, tint, 0.05, 0.4 + Math.random() * 0.4, {
         gravity: 9,
         drag: 1.5,
-        grow: 0.5,
+        axis: _b,
+        minPx: 2,
       });
     }
-    for (let i = 0; i < 14; i++) {
+    const puffs = Math.round((8 + Math.random() * 4) * k);
+    for (let i = 0; i < puffs; i++) {
       randomInHemisphere(UP, _t);
       const s = (1.5 + Math.random() * 2.5) * r;
       this.smoke.spawn(pos.x + _t.x * r, pos.y + _t.y * r * 0.6, pos.z + _t.z * r, _t.x * s, _t.y * s + 0.8, _t.z * s,
-        i % 3 === 0 ? 0x4a4440 : 0x7a7470, (1.2 + Math.random()) * r, 1.4 + Math.random() * 0.9, {
+        i % 3 === 0 ? 0x2e2a28 : i % 3 === 1 ? 0x4a4440 : 0x6e6862, (1.2 + Math.random()) * r, 1.4 + Math.random() * 0.9, {
           cell: PUFF + (i % 4),
           grow: 2.4,
           drag: 1.6,
@@ -189,6 +293,20 @@ export class Effects {
           rotVel: (Math.random() - 0.5) * 1.5,
         });
     }
+    if (surface && scorch > 0) {
+      this.smoke.decal(surface.point, surface.normal, 0x0c0a08, scorch, SCORCH_LIFE, MARK_FADE, { cell: SCORCH, alpha: 0.85 });
+    }
+  }
+
+  // Fire troughs: a glowing ember drifting up out of the flames, and a thin wisp of smoke.
+  fireEmber(x, y, z) {
+    this.sparks.spawn(x, y, z, (Math.random() - 0.5) * 0.4, 1.2 + Math.random() * 1.2, (Math.random() - 0.5) * 0.4, 0xff8a2a,
+      0.04 + Math.random() * 0.03, 1.2 + Math.random() * 0.6, { drag: 0.3, minPx: 1.5 });
+  }
+
+  fireWisp(x, y, z) {
+    this.smoke.spawn(x, y, z, (Math.random() - 0.5) * 0.2, 0.7 + Math.random() * 0.3, (Math.random() - 0.5) * 0.2, 0x3a3634,
+      0.35, 2 + Math.random() * 0.6, { grow: 3, drag: 0.4, alpha: 0.3, rotVel: (Math.random() - 0.5), cell: PUFF + Math.floor(Math.random() * 4) });
   }
 
   update(dt) {

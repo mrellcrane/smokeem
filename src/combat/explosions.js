@@ -6,11 +6,22 @@ import { dealDamage } from './damage.js';
 
 const _c = new THREE.Vector3();
 const _d = new THREE.Vector3();
+const DOWN = new THREE.Vector3(0, -1, 0);
+// How far a blast looks for a surface to lie its shock ring on and scorch (m), and the
+// scorch's width (times the blast radius) before it shrinks to fit that surface.
+const SURFACE_REACH = 1.2;
+const SCORCH = 0.6;
 
-// cfg: { radius, inner, damage, knockback, volume?, rate? }  info: { attacker, weapon }
-// volume and rate let small blasts (Chimney coals) sound smaller.
+// cfg: { radius, inner, damage, knockback, tint?, volume?, rate? }
+// info: { attacker, weapon, against? (the normal of the level surface it hit) }
+// tint colors its shock ring and embers; volume and rate let small blasts (Chimney coals) sound
+// smaller.
 export function explode(game, pos, cfg, info) {
-  game.fx.explosion(pos, cfg.radius);
+  // What it went off against: back along the surface it hit, otherwise the floor below it.
+  const dir = info.against ? _d.copy(info.against).negate() : DOWN;
+  const surface = game.surfaceNear(pos, dir, SURFACE_REACH);
+  const scorch = surface && game.fx.marksOn(surface.surface) ? game.fitDecal(surface, cfg.radius * SCORCH) : 0;
+  game.fx.explosion(pos, cfg.radius, { tint: cfg.tint, surface, scorch });
   game.sfx.play('boom', { at: pos, volume: cfg.volume ?? 1, rate: cfg.rate ?? 1 });
   game.grenades.shove(pos, cfg);
   game.swarms.blast(pos, cfg.radius);

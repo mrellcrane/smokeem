@@ -13,6 +13,10 @@ export const QUALITY_PRESETS = {
     textureSize: 256,
     // Soft halos around glowing strips (beacons.js).
     halos: false,
+    // Multiplies smoke and ember counts (effects.js), and how many bullet marks and scorches
+    // can lie around at once (0: none).
+    fxScale: 0.5,
+    decals: 0,
   },
   medium: {
     label: 'Medium',
@@ -23,6 +27,8 @@ export const QUALITY_PRESETS = {
     bakeSize: 512,
     textureSize: 512,
     halos: true,
+    fxScale: 1,
+    decals: 96,
   },
   high: {
     label: 'High',
@@ -33,6 +39,8 @@ export const QUALITY_PRESETS = {
     bakeSize: 512,
     textureSize: 512,
     halos: true,
+    fxScale: 1.25,
+    decals: 160,
   },
 };
 

@@ -93,7 +93,22 @@ Live build: https://mrellcrane.github.io/smokeem/
   their own small tracer pool, built only when the match's set has a beam gun.
   - Particles pick a cell of their system's 4 x 4 atlas (`textures.fxAtlas` / `smokeAtlas`) and
     take a minimum on-screen size (`minPx`), an `owner` (hidden in that player's own view)
-    and an optional `axis` to stretch along. Smoke fades out right at the camera.
+    and an optional `axis` to stretch along or `flat` normal to lie across (shock rings).
+    `ramp` colors fire by age (white-hot to dark) and `ease` grows fast then settles. Smoke
+    fades out right at the camera.
+  - Marks: the smoke system keeps reserved slots at the front of its pool for bullet marks and
+    blast scorches (`fx.mark`, `Particles.decal`: flat, lifted 1.5 cm and pulled a hair toward
+    the camera in depth, fading over their last 3 s). How many is the preset's `decals` (0 on
+    Low), fixed per match.
+  - Surfaces: `StaticBuilder` records each collider's material surface (`userData.surface` in
+    `materials.js`: metal, dirt, wood, concrete, mud, cloth) and `game.castShot` returns it as
+    `surface`, so `fx.impactWorld` throws the right debris and marks skip mud, nets and ropes.
+    The mud has no collider, so `castShot` stops shots at its surface (`zones.mudAlong`).
+  - Explosions (`fx.explosion`, from `explode`): a white frame, fire billows, a shock ring out
+    to the real damage radius (flat on the surface the blast went off against, found with
+    `game.surfaceNear`), embers, smoke and a scorch that `game.fitDecal` shrinks to fit its
+    surface. Explosion configs carry a `tint`. The preset's `fxScale` multiplies smoke and
+    ember counts (also the fire troughs' embers and wisps, from `arena.update`).
   - Tracers are camera-facing ribbons built in the vertex shader, never thinner than about
     1.6 px. A bullet tracer's head travels from the gun to the hit point. Each starts at the
     shooter's first-person barrel in their own view and at `Player.worldMuzzle` (the
