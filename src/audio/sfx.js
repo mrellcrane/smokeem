@@ -111,6 +111,14 @@ const SOUNDS = {
       const env = Math.min(1, t / 0.05) * Math.min(1, (0.4 - t) / 0.05);
       return 0.3 * saw * trem * env;
     }),
+  // The crowd: a roar that swells and fades, with a ripple of claps and shouts in it.
+  cheer: (ctx) =>
+    synth(ctx, 1.6, (t, s) => {
+      s.prev = (s.prev ?? 0) + (noise() - (s.prev ?? 0)) * 0.35;
+      const swell = Math.min(1, t / 0.18) * Math.exp(-Math.max(0, t - 0.3) * 2.2);
+      const ripple = 0.65 + 0.35 * Math.sin(t * 2 * Math.PI * 7.3) * Math.sin(t * 2 * Math.PI * 3.1);
+      return 0.5 * s.prev * swell * ripple + 0.08 * noise() * swell * (Math.sin(t * 90) > 0.95 ? 1 : 0);
+    }),
   // Gravity Gun: the punt (a heavy whump with an electric zap) and the grab (a rising hum).
   punt: (ctx) =>
     synth(

@@ -20,6 +20,7 @@ import { Oysters } from './modes/oysters.js';
 import { Props } from './world/props.js';
 import { Gravity } from './combat/gravity.js';
 import { Replay } from './render/replay.js';
+import { Show } from './world/show.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -182,6 +183,7 @@ export class Game {
     if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'beam')) this.fx.enableBeams(scene);
     this.pickups = new Pickups(this, this.materials.props);
     if (this.mode === 'oysters') this.oysters = new Oysters(this, scene);
+    if (gfx.show && this.arena.stands?.length) this.show = new Show(this);
     if (gfx.beacons) {
       this.beacons = new Beacons(this.pickups.pads, this.arena.halos, this.materials);
       this.beacons.setHalos(gfx.halos && preset.halos);
@@ -536,6 +538,7 @@ export class Game {
   onKill(victim, info) {
     this.match.onKill(victim, info);
     this.oysters?.onKill(victim, info, this.match);
+    this.show?.onKill(victim, info);
     // Smoked: your sticky bombs fizzle and what your gravity gun held drops.
     if (victim.kind === 'player') {
       this.replay?.start(victim, info.attacker);
@@ -678,6 +681,7 @@ export class Game {
     this.pickups.updateVisuals(this.time);
     this.props?.updateVisuals(alpha);
     this.oysters?.updateVisuals(dt);
+    this.show?.update(dt);
     this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
     this.replay?.record(alpha);
@@ -751,6 +755,7 @@ export class Game {
     for (const h of this.huds) h.dispose();
     this.infoPanel?.dispose();
     this.oysters?.dispose();
+    this.show?.dispose();
     this.gravity?.clear();
     this.props?.dispose();
     for (const p of this.players) p.dispose();

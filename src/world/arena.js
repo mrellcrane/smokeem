@@ -32,6 +32,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   B.boxMinMax(M.ground, [-450, -2.6, -450], [450, -2.0, 450], { castShadow: false, collide: false });
 
   perimeter(B, M, H);
+  const stands = gfx.show ? grandstands(B, M, H) : [];
   summit(B, M, zones);
   climbingWalls(B, M);
   mudPitAndBars(B, M, zones);
@@ -76,6 +77,9 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     meshes,
     bake,
     zones,
+    // Crowd rows on the grandstands (world/show.js).
+    stands,
+    standsZ: -(H + 1 + STAND_TIERS * TIER_DEPTH) + 0.3,
     spawnPoints,
     halos: B.halos,
     surfaces: B.surfaces,
@@ -130,6 +134,47 @@ function perimeter(B, M, H) {
     B.boxMinMax(M.metalDark, [-H, 0, p - 0.6], [-H + 0.6, WALL_H + 0.3, p + 0.6]);
     B.boxMinMax(M.metalDark, [H - 0.6, 0, p - 0.6], [H, WALL_H + 0.3, p + 0.6]);
   }
+}
+
+// Game-show grandstands behind all four walls (looks only: no collision, no shadows; the
+// crowd standing on them is world/show.js). Returns where each crowd row stands: { a, b, y, n }
+// with a and b the row's ends and n its inward facing (x, z).
+export const STAND_TIERS = 5;
+const TIER_DEPTH = 1.6;
+const TIER_RISE = 1.1;
+function grandstands(B, M, H) {
+  const T = 1;
+  const deco = { collide: false, castShadow: false };
+  const rows = [];
+  const L = H - 4;
+  for (const [ax, sign] of [['z', -1], ['z', 1], ['x', -1], ['x', 1]]) {
+    for (let i = 0; i < STAND_TIERS; i++) {
+      const near = H + T + i * TIER_DEPTH;
+      const far = near + TIER_DEPTH;
+      const top = WALL_H - 0.6 + i * TIER_RISE;
+      const lo = WALL_H - 4;
+      const box = (m, a0, a1, y0, y1, d0, d1) => {
+        if (ax === 'z') B.boxMinMax(m, [a0, y0, Math.min(sign * d0, sign * d1)], [a1, y1, Math.max(sign * d0, sign * d1)], deco);
+        else B.boxMinMax(m, [Math.min(sign * d0, sign * d1), y0, a0], [Math.max(sign * d0, sign * d1), y1, a1], deco);
+      };
+      box(M.concrete, -L, L, lo, top, near, far);
+      // A dark bench lip along each step.
+      box(M.metalDark, -L, L, top - 0.35, top + 0.05, near - 0.02, near + 0.25);
+      const d = near + TIER_DEPTH * 0.55;
+      const a = ax === 'z' ? [-L + 1, top, sign * d] : [sign * d, top, -L + 1];
+      const b = ax === 'z' ? [L - 1, top, sign * d] : [sign * d, top, L - 1];
+      rows.push({ a, b, n: ax === 'z' ? [0, -sign] : [-sign, 0] });
+    }
+    // An orange glow strip along the front of the stands, over the wall.
+    const y = WALL_H + 0.05;
+    if (ax === 'z') B.boxMinMax(M.glowOrange, [-L, y, Math.min(sign * (H + T), sign * (H + T + 0.1))], [L, y + 0.12, Math.max(sign * (H + T), sign * (H + T + 0.1))], { collide: false, castShadow: false, bakeLight: false });
+    else B.boxMinMax(M.glowOrange, [Math.min(sign * (H + T), sign * (H + T + 0.1)), y, -L], [Math.max(sign * (H + T), sign * (H + T + 0.1)), y + 0.12, L], { collide: false, castShadow: false, bakeLight: false });
+  }
+  // The big screen's frame and legs, on top of the north stands.
+  const z = -(H + T + STAND_TIERS * TIER_DEPTH) + 0.3;
+  B.boxMinMax(M.metalDark, [-9.4, 11.6, z - 0.6], [9.4, 21.4, z], deco);
+  for (const x of [-7, 7]) B.boxMinMax(M.metalDark, [x - 0.4, WALL_H - 4, z - 0.5], [x + 0.4, 11.6, z + 0.1], deco);
+  return rows;
 }
 
 // The Summit: a 6 m deck on legs in the middle, cargo nets north and south.
