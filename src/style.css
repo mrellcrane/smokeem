@@ -748,3 +748,71 @@ kbd {
   font-size: 14px;
   color: var(--ink-dim);
 }
+
+/* ---------- match setup and damage arrow */
+
+.match-setup {
+  margin: 0 auto 26px;
+  width: min(420px, 100%);
+  text-align: left;
+}
+
+.row-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 10px 0;
+}
+
+.row-inline label {
+  font-weight: 700;
+}
+
+.row-inline .segmented {
+  flex: 0 0 62%;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stepper .step {
+  min-width: 0;
+  width: 44px;
+  padding: 6px 0;
+  font-size: 22px;
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(244, 234, 216, 0.35);
+}
+
+.bots-val {
+  font-family: var(--display);
+  font-size: 24px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.dmg-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.dmg-arrow i {
+  position: absolute;
+  left: -16px;
+  top: calc(-110px * var(--hud-scale, 1));
+  width: 0;
+  height: 0;
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  border-bottom: 22px solid rgba(255, 60, 30, 0.85);
+  filter: drop-shadow(0 0 4px rgba(255, 40, 0, 0.8));
+}

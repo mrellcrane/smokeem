@@ -37,7 +37,7 @@ export function explode(game, pos, cfg, info) {
     });
   }
 
-  for (const p of game.players) {
+  for (const p of game.humans) {
     const d = p.camera.position.distanceTo(pos);
     p.addShake(Math.max(0, 1 - d / 28) * 0.9);
   }

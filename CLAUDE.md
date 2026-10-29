@@ -71,11 +71,18 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/audio/`: placeholder WebAudio sounds synthesized at load (unlocked by the drop-in click).
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
   training dummies.
+- `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
+  (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
+  obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
+  `InputState` each tick. A new map needs its own links list.
 - `src/render/`: renderer setup, split-screen viewports, shader warm-up.
 - `src/ui/`: menus, HUD, FPS counter.
 
 ### Game loop
 
+- `game.players` is everyone in the match (local people and bots); `game.humans` is just the
+  local people with views and HUDs; `game.bots` the bots. Bots think and apply look inside the
+  fixed tick; humans apply look per frame.
 - Physics and gameplay run at a fixed 60 Hz step. Rendering runs at display rate and
   interpolates positions, so 120 Hz MacBook screens stay smooth.
 - Look input is applied every rendered frame for responsiveness; movement is applied per tick.

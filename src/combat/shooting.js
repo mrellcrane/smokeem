@@ -138,6 +138,7 @@ function fire(game, p) {
   p.sprintLock = 0.35;
   p.viewmodel?.fired();
   game.sfx.play(d.sound, { rate: 0.94 + Math.random() * 0.12 });
+  game.noise(p, 30);
 
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);

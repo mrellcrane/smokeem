@@ -224,7 +224,8 @@ function mudPitAndBars(B, M, zones) {
   for (let x = 10.0; x <= 22.01; x += 0.6) {
     B.rod(M.steel, [x, barY, -zr], [x, barY, zr], 0.035, { segments: 6 });
   }
-  zones.addBars({ minX: 9.6, maxX: 22.4, minZ: -0.55, maxZ: 0.55, y: barY });
+  // Grab zone spans the full width between the rails.
+  zones.addBars({ minX: 9.6, maxX: 22.4, minZ: -0.7, maxZ: 0.7, y: barY });
 }
 
 function fireJump(B, M, zones) {
