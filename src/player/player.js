@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BODY, MOVE, CAMERA, AIM } from '../config.js';
+import { BODY, MOVE, CAMERA, AIM, CORPSE } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
@@ -39,6 +39,7 @@ const EYE_OFF_CROUCH = BODY.eyeCrouch - BODY.crouchHeight / 2;
 const HAND_ABOVE_TOP = BODY.handReach - BODY.standHeight;
 
 const _c = new THREE.Vector3();
+const _c2 = new THREE.Vector3();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 // While flying a missile the body gets no movement input.
 // How long after spawning a loadout change still swaps your guns on the spot (s).
@@ -511,6 +512,8 @@ export class Player {
   }
 
   die(info) {
+    // (The corpse carries on with how we were moving.)
+    this.deathVel = (this.deathVel ?? new THREE.Vector3()).copy(this.vel);
     this.game.pickups?.dropFrom(this);
     this.guiding = null;
     this.lungeT = this.knockT = 0;
@@ -530,9 +533,90 @@ export class Player {
     this.aimZoom = 1;
     this.net = this.rope = this.bars = null;
     this.collider.setEnabled(false);
-    this.model.group.visible = false;
-    this.game.fx.deathPuff(this.center.x, this.feetY(), this.center.z, this.color);
     this.game.sfx.play('death', { at: this.center, source: this });
+    // The body drops where it was smoked (out of the world, it just goes).
+    if (info?.cause === 'fell') {
+      this.model.group.visible = false;
+      this.corpse = null;
+    } else {
+      this.startCorpse(info);
+    }
+  }
+
+  // Ragdoll-ish: the body is knocked the way the hit came from (blasts throw it), tips over and
+  // goes limp, slides to a stop, and puffs away just before the respawn. Looks only: nothing
+  // collides with it.
+  startCorpse(info) {
+    const c = (this.corpse ??= { pos: new THREE.Vector3(), vel: new THREE.Vector3(), axis: new THREE.Vector3(), dir: new THREE.Vector3() });
+    c.pos.set(this.center.x, this.feetY(), this.center.z);
+    const d = c.dir;
+    if (info?.dir) d.copy(info.dir);
+    else if (info?.point) d.subVectors(this.center, info.point);
+    else if (info?.attacker?.center) d.subVectors(this.center, info.attacker.center);
+    else d.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+    d.y = 0;
+    if (d.lengthSq() < 1e-6) d.set(0, 0, 1);
+    d.normalize();
+    const blast = info?.cause === 'explosion' || info?.cause === 'prop' || info?.cause === 'punt';
+    const push = blast ? CORPSE.blastPush : info?.cause === 'melee' ? CORPSE.meleePush : CORPSE.shotPush;
+    c.vel.copy(d).multiplyScalar(push).addScaledVector(this.deathVel, 0.5);
+    c.vel.y = blast ? CORPSE.blastUp : 0;
+    c.air = blast;
+    // The fall, about a horizontal axis in the body's own space, toward the push.
+    const cy = Math.cos(this.yaw);
+    const sy = Math.sin(this.yaw);
+    const lx = d.x * cy - d.z * sy;
+    const lz = d.x * sy + d.z * cy;
+    c.axis.set(lz, 0, -lx).normalize();
+    // (Falling forward, toward -z, the spine and head fold forward.)
+    c.front = lz < 0 ? 1 : -1;
+    c.side = Math.random() < 0.5 ? -1 : 1;
+    c.seed = Math.random() * 10;
+    c.yaw = this.yaw;
+    c.tip = 0;
+    c.tipV = CORPSE.tipStart + push * 0.15 + (info?.headshot ? 1.2 : 0);
+    c.t = 0;
+    c.limp = 0;
+  }
+
+  updateCorpse(dt) {
+    const c = this.corpse;
+    c.t += dt;
+    c.limp = Math.min(1, c.limp + dt * 4);
+    c.vel.y -= MOVE.gravity * dt;
+    // Walls stop it sliding on.
+    const step = Math.hypot(c.vel.x, c.vel.z) * dt;
+    if (step > 1e-4) {
+      _c.set(c.vel.x, 0, c.vel.z).normalize();
+      _c2.copy(c.pos).y += 0.6;
+      if (this.game.surfaceNear(_c2, _c, step + 0.35)) c.vel.x = c.vel.z = 0;
+    }
+    c.pos.addScaledVector(c.vel, dt);
+    const floor = this.game.bake ? this.game.bake.floorBelow(c.pos.x, c.pos.y + 0.5, c.pos.z) : -Infinity;
+    if (Number.isFinite(floor) && c.pos.y <= floor) {
+      c.pos.y = floor;
+      c.vel.y = c.vel.y < -3 ? -c.vel.y * 0.25 : 0;
+      const f = Math.max(0, 1 - CORPSE.friction * dt);
+      c.vel.x *= f;
+      c.vel.z *= f;
+      c.air = false;
+    } else if (c.pos.y > floor + 0.05) {
+      c.air = true;
+    }
+    // Tips over like a falling stick (faster the further it's gone), then rests on the ground.
+    c.tipV += 9 * Math.sin(c.tip + 0.25) * dt;
+    c.tip += c.tipV * dt;
+    if (c.tip >= CORPSE.lying) {
+      c.tip = CORPSE.lying;
+      c.tipV = -Math.abs(c.tipV) * 0.2;
+    }
+    this.model.ragdoll(dt, c);
+    // Just before the respawn, it puffs away.
+    if (this.deathT >= CORPSE.time && this.model.group.visible) {
+      this.model.group.visible = false;
+      _c.set(0, 0.7, 0).applyQuaternion(this.model.group.quaternion).add(c.pos);
+      this.game.fx.deathPuff(_c.x, _c.y - 0.9, _c.z, this.color);
+    }
   }
 
   // Move the capsule through the world with collision. Call at most once per tick.
@@ -1209,7 +1293,9 @@ export class Player {
 
   // Body pose for other players' views, and the first-person rifle.
   updateVisuals(dt, alpha) {
-    if (this.model.group.visible) {
+    if (this.mode === 'dead') {
+      if (this.corpse && this.model.group.visible) this.updateCorpse(dt);
+    } else if (this.model.group.visible) {
       const w = this.weapon;
       this.model.setWeapon(w.def.id);
       _c.lerpVectors(this.prevCenter, this.center, alpha);

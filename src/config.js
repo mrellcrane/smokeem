@@ -31,6 +31,21 @@ export const AIM = {
   nearCones: 1.6,
 };
 
+// Ragdoll-ish deaths (Player.startCorpse): how hard the body is knocked (m/s) by a bullet, a
+// melee hit and a blast (blasts throw it up too), how fast it starts tipping (rad/s), the angle
+// it rests at lying down, its ground friction, and how long it lies there before it puffs away
+// (the respawn is at 3 s).
+export const CORPSE = {
+  shotPush: 2.2,
+  meleePush: 4,
+  blastPush: 7,
+  blastUp: 5.5,
+  tipStart: 0.8,
+  lying: 1.5,
+  friction: 5,
+  time: 2.6,
+};
+
 export const MOVE = {
   walkSpeed: 7.0,
   sprintSpeed: 10.5,

@@ -274,7 +274,10 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   band (its lowest and highest point per head tilt come from the mesh at load): too high sinks
   the hips, too low gives back the hips' own drops first, then lifts the crouch or the neck.
   Keep poses inside the headshot band (lean 8 degrees or less).
-  `CharacterModel.reset()` clears carried state on every respawn (players and dummies), and
+  Smoked bodies go ragdoll-ish: `Player.startCorpse` / `updateCorpse` push, drop and tip the
+  body (numbers in `CORPSE`, `config.js`) and `CharacterModel.ragdoll()` poses it limp.
+  `CharacterModel.reset()` clears carried state on every respawn (players and dummies), puts
+  every body bone back at rest after a ragdoll, and
   `endSprint()` snaps the gun out of the sprint hold the tick a shot fires.
   `smokeem.poseViewer({ distance, time, turn })` (debug) runs bodies through every state.
 - `renderer.compile` skips hidden objects, so warm-up forces every effect, shield shell and
