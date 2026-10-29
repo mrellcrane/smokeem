@@ -97,6 +97,21 @@ export class Zones {
     return null;
   }
 
+  // A point on the monkey bars' frame (the bars and the posts holding them up, down to about
+  // where a hanging body's feet are), so nobody wall-kicks off the bars.
+  inBarsFrame(p) {
+    for (const b of this.bars) {
+      if (
+        p.x > b.minX - 0.2 && p.x < b.maxX + 0.2 &&
+        p.z > b.minZ - 0.2 && p.z < b.maxZ + 0.2 &&
+        p.y > b.y - 2.2 && p.y < b.y + 0.6
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Where a ray from origin along dir (a unit vector) first enters a mud surface, as a distance,
   // if that's before maxDist; otherwise null.
   mudAlong(origin, dir, maxDist) {

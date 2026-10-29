@@ -158,12 +158,42 @@ obstacle works at any setting.
 | Double jump | ~1.6 m more, redirects your momentum |
 | Air control | strong, momentum is kept when you sprint-jump |
 | Player height | 1.8 m standing, 1.2 m crouched |
+| Slide | starts at sprint speed +15%, about 0.9 s and 6.7 m on flat ground |
+| Wall kick | up like a double jump, 6 m/s away from the wall |
 
 - **Double jump**: one extra jump in the air. Refreshes when you land, mantle, or leap off a
-  climbable.
+  climbable. A wall kick doesn't use it.
 - **Sprint**: hold. Only while moving forward and not crouched. Mud blocks sprint.
 - **Crouch**: hold. On the ground it lowers you; in the air it tucks your legs so you clear
   higher ledges (crouch-jump).
+- **Sprint-slide**: crouch while sprinting on the ground to slide the way you were running,
+  starting 15% over sprint speed. Friction brings it down to crouch speed in about 0.9 s on
+  flat ground (4.6 m at the default 70%). Slopes pull on it: down the catwalk ramp a slide
+  runs the whole way, up it it lasts about half as long. Mud stops a slide in about a
+  quarter second and gives no boost (on Mudlark the pit is a drop, so no slide gets there).
+  - You're crouched the whole way (crouched head and camera) and steer only a little.
+    Shooting works, with the spread of moving, not crouching.
+  - Jumping out of a slide keeps its speed (a slide hop), but the next slide can't start
+    until 1 s after the last one ended.
+  - Letting go of crouch ends it early: you stand if there's room, otherwise you stay
+    crouched until there is. It also ends at crouch speed, against a wall, or off a ledge,
+    where you fall with its speed.
+  - The view drops to crouch height, widens a little more than sprinting and rolls a touch.
+- **Wall kick**: in the air within 0.4 m of a steep wall (within 30 degrees of upright),
+  jump kicks off it: up like a double jump, 6 m/s away from the wall, keeping 85% of your
+  speed along it. Air steering is weaker for 0.2 s after, so the push carries.
+  - It doesn't use the double jump. One kick every 0.25 s at most, and not off the same
+    wall twice before you touch the ground or another wall, so kicking back and forth
+    between two close walls climbs them a little.
+  - At most 3 kicks before you touch the ground, mantle or grab a climbable, and each one in
+    a chain lifts less (85% of the upward speed of the one before), so corners can't be
+    kicked up forever.
+  - Pushing into any wall in reach with the double jump left, jump is the double jump
+    instead, so the climbing walls (and corners) still go jump, double jump, mantle. Kick
+    with the stick along the wall, away from it or let go (or into it once the double jump
+    is spent).
+  - Not off nets, ropes or the monkey bars (they keep their own jump), players, grenades or
+    the invisible walls over the arena's edge.
 - **Mantle / vault**: push forward into a ledge to pull yourself up. On the ground this vaults
   anything from knee to chest height. In the air it grabs ledges up to about hand height.
   This is how the obstacle-course walls work.
@@ -455,9 +485,9 @@ as combat terrain.
 | --- | --- |
 | Move | WASD (or arrow keys) |
 | Look | Mouse / trackpad (pointer lock) |
-| Jump / double jump | Space |
+| Jump / double jump / wall kick | Space |
 | Sprint | Shift (hold) |
-| Crouch | C (hold) |
+| Crouch (slide from a sprint) | C (hold) |
 | Fire | Left mouse |
 | Zoom / aim | Right mouse |
 | Reload | R |
@@ -476,8 +506,8 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 | Action | Button |
 | --- | --- |
 | Move / look | Left stick / right stick |
-| Jump / double jump | A |
-| Crouch | B (hold) |
+| Jump / double jump / wall kick | A |
+| Crouch (slide from a sprint) | B (hold) |
 | Reload | X (tap) |
 | Pick up / swap weapon on the ground | X (hold) |
 | Switch weapon | Y |
@@ -707,3 +737,16 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Owner asked for a Halo motion tracker and everyone's scores on every view. The
   tracker follows Halo's rules (25 m, moving or firing shows you, sneaking doesn't); the
   standings list replaced the "1st · 3" line under the clock.
+- 2026-10-29: Owner asked for the movement ideas: sprint-slide and wall kick (see Movement),
+  built from the proposal with every number in `src/config.js` for the owner to tweak. One
+  change to it: jumping while pushing into a wall with the double jump left is still the
+  double jump, otherwise the climbing walls (jump, double jump, mantle) would kick you off
+  them, for bots too. Also decided while building: a kick never lowers how fast you're
+  rising, air steering is weaker for 0.2 s after a kick (strong air control undid the push
+  at once), slopes pull a slide 1.5x gravity's own pull so downhill really speeds up, and a
+  downhill slide tops out at 1.6x sprint speed. After review, kick chains got a limit:
+  mashing jump in a corner kicked up it without end and out over the invisible walls, so a
+  chain is now 3 kicks, each lifting less, and the invisible walls can't be kicked off (a
+  chain behind the net block still reaches its top). Bots don't slide or kick on purpose
+  yet; a Hard bot's random jump next to a wall kicks now and then, with no effect on their
+  routes in testing. The body has a sliding flag and a wall-kick counter to animate later.

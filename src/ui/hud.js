@@ -312,7 +312,7 @@ export class Hud {
     let debug = '';
     if (showDebug) {
       const c = player.center;
-      debug = `${player.mode}${player.grounded ? ' ground' : ' air'}${player.crouched ? ' crouch' : ''}${
+      debug = `${player.sliding ? 'slide' : player.mode}${player.grounded ? ' ground' : ' air'}${player.crouched ? ' crouch' : ''}${
         player.sprinting ? ' sprint' : ''
       } | ${player.speed().toFixed(1)} m/s | ${c.x.toFixed(1)}, ${player.feetY().toFixed(1)}, ${c.z.toFixed(1)} | ${Math.round(
         v.shield,

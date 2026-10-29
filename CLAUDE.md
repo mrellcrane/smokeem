@@ -253,7 +253,8 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Body language lives in `CharacterModel.update`, fed by `Player.pose` (one reused object:
   velocity along the facing and to the right, air and crouch state, event counters for landings,
   double jumps and shots (`fire()` bumps `pose.shots`), time since the last shot and how long the
-  aim pose holds after it). The hips turn toward the move direction while the
+  aim pose holds after it, plus `sliding`, a `wallKicks` counter and `kickSide` for the body to
+  animate later). The hips turn toward the move direction while the
   spine (Euler order YXZ) turns back and carries part of the aim pitch (the head and the gun
   bone take the rest), so the torso and gun stay on the aim. The hip height comes from the leg
   angles (`legDrop`), so feet stay on the floor; crouching is a deep squat (`CROUCH`) so the
