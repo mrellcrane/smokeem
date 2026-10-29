@@ -27,9 +27,19 @@ Then open the localhost URL it prints.
 ## Deploy
 
 GitHub Actions (`.github/workflows/deploy.yml`) builds on every push and deploys `dist/` to
-GitHub Pages when the push is to the repo's default branch. Pages source must be set to
+GitHub Pages when the push is to the repo's default branch. Pages source is set to
 "GitHub Actions" in the repo settings. The Pages URL is HTTPS, which the Xbox needs for the
 Gamepad API.
+
+Live build: https://mrellcrane.github.io/smokeem/
+
+## Pull request workflow
+
+- One PR per roadmap step (or per fix), into the repo's default branch.
+- Claude merges its own PRs once CI is green and nothing on the PR is waiting on a fix (the
+  owner asked for this on 2026-10-29, so they don't have to merge by hand). Use a merge
+  commit, then confirm the Pages deploy succeeded and share the live URL.
+- After a merge, restart the working branch from the default branch before new work.
 
 ## Tech
 
