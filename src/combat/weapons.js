@@ -3,9 +3,11 @@ import { GUNS } from './guns/index.js';
 // Weapon definitions (data only) and per-player weapon state. Angles in degrees.
 //
 // kind:
-//   hitscan  one ray per shot (Hickory)
-//   pellets  several rays per shot (Mesquite)
-//   missile  a guided rocket you fly from its own camera (Smoke Signal)
+//   hitscan   one ray per shot (Hickory)
+//   pellets   several rays per shot (Mesquite)
+//   missile   a guided rocket you fly from its own camera (Smoke Signal)
+//   launcher  throws a physics projectile described by `projectile` (Chimney coals)
+// spinUp / spinDown: a gun whose barrels must spin up before it fires (Rotisserie).
 // bot: { min, max, pref } is the range band (meters) bots like to use a gun in; `power` marks
 // a power weapon bots save for good moments.
 
@@ -55,6 +57,10 @@ export class WeaponState {
     this.bloom = 0;
     this.shots = 0;
     this.lastShotT = -99;
+    this.lastSoundT = -99;
+    // 0..1 barrel spin for spin-up guns (fires only at 1).
+    this.spin = 0;
+    this.spinSfx = null;
   }
 
   get reloading() {

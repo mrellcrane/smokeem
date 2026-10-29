@@ -65,6 +65,14 @@ export class Viewmodel {
     const mesh = new THREE.Mesh(partsGeometry([...g.parts, ...g.hands], this.armorColor), sharedMaterial);
     mesh.scale.setScalar(g.view.scale);
     mesh.visible = false;
+    if (g.spin) {
+      // Parts that spin (the Rotisserie's barrels): their own mesh, turning around `center`.
+      const c = g.spin.center;
+      const spinner = new THREE.Mesh(partsGeometry(g.spin.parts, this.armorColor, { offset: [-c[0], -c[1], -c[2]] }), sharedMaterial);
+      spinner.position.set(c[0], c[1], c[2]);
+      mesh.add(spinner);
+      mesh.userData.spinner = spinner;
+    }
     this.muzzles[id] = new THREE.Vector3(...g.muzzle);
     this.root.add(mesh);
     this.guns[id] = mesh;
@@ -147,6 +155,10 @@ export class Viewmodel {
       ry + 0.55 * this.sprint + 0.3 * bash,
       rz + 0.6 * reload + this.swayX * 2 + 0.5 * bash,
     );
+
+    // Rotisserie barrels turn with the spin-up.
+    const spinner = g.userData.spinner;
+    if (spinner) spinner.rotation.z -= p.weapon.spin * 28 * dt;
 
     if (this.flashT > 0) {
       this.flashT -= dt;

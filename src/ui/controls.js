@@ -46,9 +46,11 @@ export const CONTROL_ROWS = {
   ],
 };
 
-export function controlsHtml(kind) {
+// missile: false leaves out the missile hint (for a weapon set without the Smoke Signal).
+export function controlsHtml(kind, { missile = true } = {}) {
   const rows = CONTROL_ROWS[kind] ?? CONTROL_ROWS.keyboardMouse;
   return rows
+    .map((row) => row.filter(([k]) => missile || k !== 'Missile'))
     .map((row) => `<div class="ctl-row">${row.map(([k, a]) => `<span><kbd>${k}</kbd>${a}</span>`).join('')}</div>`)
     .join('');
 }

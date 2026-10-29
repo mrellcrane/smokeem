@@ -191,3 +191,15 @@ for name, path, onsets, length in [
 
 # Pistol reload: the whole short reload (mag out, mag in, slide) from the reload pack.
 write('reloadPistol', master(cut(gr, 0.05, 1.5, pre=0, fade=0.15), -4))
+
+# Chimney: Mossberg 190 bolt shotgun for the coal launcher's thoonk (played slowed down).
+mb = load(f'{L}/Mossberg/N_30P.wav')
+for i, t in enumerate([1.695, 4.96]):
+    write(f'chimney-{i + 1}', master(cut(mb, onset_near(mb, t), 0.8, fade=0.4)))
+
+# Rotisserie: steady 0.26 s slices from the middle of a long PPSh burst, re-triggered while
+# the barrels turn (one voice per gunner instead of 18 shots a second).
+pp = load(f'{L}/PPSh/P_34P.wav')
+start = onset_near(pp, 0.72)
+for i, off in enumerate([0.12, 0.45, 0.78]):
+    write(f'rotisserie-{i + 1}', master(cut(pp, start + off, 0.26, pre=0, fade=0.04, fade_in=0.01)))

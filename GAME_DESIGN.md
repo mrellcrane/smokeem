@@ -160,7 +160,7 @@ rosters and three judges.
 | Set | Heat | Primaries | Sidearm | Field | Power | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Backyard** (default) | Mild | Hickory, Kindling | Toothpick | Mesquite | Smoke Signal | built |
-| Competition Cut | Medium | Kindling, Cold Smoke | Toothpick | Chimney | Rotisserie | next |
+| Competition Cut | Medium | Kindling, Cold Smoke | Toothpick | Chimney | Rotisserie | built |
 | Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | planned |
 | Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
 | Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | planned |
@@ -178,9 +178,9 @@ Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n 
 | **Smoke Signal** | wacky | Guided rocket flown from its nose camera; the power weapon. | yes |
 | **Toothpick** | normal | Sidearm pistol, quick to draw: finish people off instead of reloading. | yes |
 | **Kindling** | normal | SMG: fastest close-range kill, accurate on the move, weak past 25 m. | yes |
-| **Cold Smoke** | normal | Marksman rifle with a 2.5x scope; three headshots smoke anyone. | yes (plays once Competition Cut is in) |
-| **Rotisserie** | normal | Spin-up rotary gun (power pad): huge sustained damage, slow to move. | next |
-| **Chimney** | normal | Bouncing coal launcher: small, fast blasts that flush campers. | next |
+| **Cold Smoke** | normal | Marksman rifle with a 2.5x scope; three headshots smoke anyone. | yes |
+| **Rotisserie** | normal | Spin-up rotary gun (power pad): huge sustained damage, slow to move. | yes |
+| **Chimney** | normal | Bouncing coal launcher: small, fast blasts that flush campers. | yes |
 | **Cast Iron** | wacky | Ricochet hand cannon: slugs bank off walls. | planned |
 | **Skewer** | wacky | Harpoon gun: two hits kill, and a hit near a wall pins you to it. | planned |
 | **Sauce Boss** | wacky | Goo lobber: slippery, slowing puddles. | planned |
@@ -214,9 +214,18 @@ Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n 
 - **Cold Smoke**: 2/s, 45 damage (67.5 heads), 8 + 32, 2.1 s reload, 2.5x scope (no gun on
   screen, a scope reticle instead), 2.6 degrees from the hip, 0.21 scoped and standing, much
   worse in the air. Long icy tracers point back at the shooter. 2.0 s body, 1.0 s heads.
+- **Chimney**: 1.4/s, 3 + 9 glowing coals loaded one at a time (0.55 s each, firing
+  interrupts). Launched at 26 m/s plus a little lift; they bounce, trail embers and burst on
+  touching anyone (you're safe for the first 0.25 s) or after 1.1 s. Blast 3.2 m, 85 inside
+  0.4 m, hurts you too. Field pads respawn it every 40 s.
+- **Rotisserie**: hold the trigger 0.5 s to spin up (no ammo used, everyone hears it), then
+  18/s, 8 damage, falls to 50% between 25 and 60 m, 100 + 100, 3 s reload, 0.7 s draw.
+  Spinning drops you to 60% speed with no sprint; the barrels take 1 s to stop, and pulling
+  again meanwhile only needs the windup that's left. 1.33 s to smoke once spun.
 
 **Sounds**: real CC0 recordings: AK-47 (Hickory), Benelli Nova (Mesquite), Walther PPQ
-(Toothpick), Carl Gustav M45 (Kindling), SKS (Cold Smoke). See `src/audio/samples/CREDITS.md`.
+(Toothpick), Carl Gustav M45 (Kindling), SKS (Cold Smoke), Mossberg 190 slowed down
+(Chimney), slices of a PPSh-41 burst (Rotisserie, with a synthesized spin whine). See `src/audio/samples/CREDITS.md`.
 
 **Pickups**
 - Weapon pads hold the set's field gun and power gun (see above), plus four grenade pads with
@@ -472,3 +481,6 @@ Need answers before the step that uses them gets built.
   zoom works in 2-player split views. Bots reload guns they put away dry once a fight is
   over, pick guns by meters from each gun's preferred range (so they swap both ways, shotgun
   up close included), and give up their sidearm rather than their primary at pickups.
+- 2026-10-29: Competition Cut is the second set (Chimney coal launcher, Rotisserie spin-up
+  rotary gun). The controls strip only shows the missile hint when the set has the Smoke
+  Signal.

@@ -473,13 +473,15 @@ export class Player {
 
     if (this.grounded) {
       this.sprinting =
-        inp.held.sprint && inp.moveY > 0.3 && !this.crouched && !this.inMud && this.sprintLock <= 0 && !inp.held.fire;
+        inp.held.sprint && inp.moveY > 0.3 && !this.crouched && !this.inMud && this.sprintLock <= 0 && !inp.held.fire && !this.weapon.spin;
     } else if (inp.moveY <= 0.3) {
       this.sprinting = false;
     }
     // Movement speed setting scales running, acceleration and air control together.
     const k = settings.moveSpeed;
     let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k;
+    // Turning Rotisserie barrels slow you down.
+    if (this.weapon.spin > 0) speed *= this.weapon.def.spinMoveMul ?? 1;
     if (this.inMud) speed *= MOVE.mudSpeedMul;
 
     this.knockT = Math.max(0, this.knockT - dt);

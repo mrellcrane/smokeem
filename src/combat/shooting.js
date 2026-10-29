@@ -69,6 +69,9 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.slot2 && p.slot !== 1 && p.slots[1]) want = 1;
   if (want >= 0) {
     cancelReload(game, p.weapon);
+    // Putting a spin-up gun away lets its barrels stop.
+    p.weapon.spin = 0;
+    game.sfx.stop(p.weapon.spinSfx);
     p.slot = want;
     p.switchT = p.weapon.def.switchTime ?? SWITCH_TIME;
     game.sfx.play('swap', { at: p.center, source: p });
@@ -89,7 +92,8 @@ export function updateShooting(game, p, dt, pressed) {
   // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
   // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
   // held through an auto-swap never launches it by surprise.
-  const trigger = d.kind === 'missile' ? pressed.fire : inp.held.fire || pressed.fire;
+  let trigger = d.kind === 'missile' ? pressed.fire : inp.held.fire || pressed.fire;
+  if (d.spinUp) trigger = spinBarrels(game, p, w, dt, trigger && !busy && !w.reloading && w.mag > 0) && trigger;
   // Shotguns fire straight out of a shell-by-shell reload.
   if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
   if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
@@ -133,6 +137,23 @@ function tickReload(game, p, w, dt, firing) {
   }
 }
 
+// Spin-up guns: the barrels wind up while the trigger is held (no ammo used) and wind down
+// when it's released; pulling again mid spin-down only needs the windup that's left.
+// Returns true once spun up.
+function spinBarrels(game, p, w, dt, want) {
+  const d = w.def;
+  const before = w.spin;
+  w.spin = want ? Math.min(1, w.spin + dt / d.spinUp) : Math.max(0, w.spin - dt / d.spinDown);
+  if (want && before < 1 && w.spinSfx?.name !== 'spinUp') {
+    game.sfx.stop(w.spinSfx);
+    w.spinSfx = game.sfx.play('spinUp', { at: p.center, source: p });
+  } else if (!want && before > 0 && w.spinSfx?.name !== 'spinDown') {
+    game.sfx.stop(w.spinSfx);
+    w.spinSfx = game.sfx.play('spinDown', { at: p.center, source: p, rate: 0.6 + 0.4 * before });
+  }
+  return w.spin >= 1;
+}
+
 function startReload(game, p) {
   const w = p.weapon;
   w.reloadT = w.def.reloadTime;
@@ -158,12 +179,25 @@ function fire(game, p) {
   p.sprinting = false;
   p.sprintLock = d.sprintLock ?? 0.35;
   p.viewmodel?.fired();
-  game.sfx.play(d.sound, { rate: 0.97 + Math.random() * 0.06, at: p.center, source: p });
+  // Fast guns can play their sound every so often instead of on every round.
+  if (!d.soundEvery || game.time - w.lastSoundT >= d.soundEvery) {
+    game.sfx.play(d.sound, { rate: (d.soundRate ?? 1) * (0.97 + Math.random() * 0.06), at: p.center, source: p });
+    w.lastSoundT = game.time;
+  }
   if (d.pump) game.sfx.play('pump', { delay: 0.18, at: p.center, source: p });
   game.noise(p, 30);
 
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
+
+  if (d.kind === 'launcher') {
+    // Out of the muzzle along the aim, with a little lift and half your own velocity.
+    _muzzle.copy(_o).addScaledVector(_f, 0.55).addScaledVector(_r, 0.16).addScaledVector(_u, -0.1);
+    _d.copy(_f).multiplyScalar(d.launchSpeed).addScaledVector(p.vel, 0.5);
+    _d.y += d.launchUp ?? 0;
+    game.grenades.throw(p, _muzzle, _d, d.projectile, d);
+    return;
+  }
 
   if (d.kind === 'missile') {
     _muzzle.copy(_o).addScaledVector(_f, 0.7).addScaledVector(_r, 0.22).addScaledVector(_u, 0.02);
