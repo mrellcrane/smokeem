@@ -15,7 +15,8 @@ const STREAK = 9;
 const RESIDUAL = 0.08;
 const RESIDUAL_ALPHA = 0.45;
 const MIN_PX = 1.6;
-// Default owner: nobody's (never equal to a viewer id or -1).
+// Default owner: nobody's (never equal to a viewer id or -1). An owner of 1000 + a viewer id
+// shows only in that viewer's view, from its first end (the death replay's tracers).
 const NO_OWNER = -2;
 
 const vertexShader = /* glsl */ `
@@ -36,7 +37,13 @@ const vertexShader = /* glsl */ `
   varying vec4 vColor;
   varying float vSide;
   void main() {
-    vec3 a = aOwner == uViewer ? aA : aA3;
+    bool only = aOwner >= 999.5;
+    if (only && abs(aOwner - 1000.0 - uViewer) > 0.5) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+    bool mine = only || aOwner == uViewer;
+    vec3 a = mine ? aA : aA3;
     vec3 pa = (viewMatrix * vec4(a, 1.0)).xyz;
     vec3 pb = (viewMatrix * vec4(position, 1.0)).xyz;
     float t = mix(aSpan.x, aSpan.y, aCorner.x);
@@ -51,7 +58,7 @@ const vertexShader = /* glsl */ `
     gl_Position = projectionMatrix * vec4(p, 1.0);
     // Dim at the tail, bright at the head. In the shooter's own view it fades out over the
     // first couple of meters (scoped, with no gun in view, the near end would be a wide wedge).
-    float nearFade = aOwner == uViewer ? smoothstep(0.5, 2.0, -p.z) : 1.0;
+    float nearFade = mine ? smoothstep(0.5, 2.0, -p.z) : 1.0;
     vColor = vec4(aColor * mix(0.3, 1.0, aCorner.x), aSpan.z * nearFade);
     vSide = aCorner.y;
   }

@@ -78,6 +78,7 @@ export class Hud {
         <div class="mc-fuel"><b></b></div>
         <div class="mc-reticle"></div>
       </div>
+      <div class="killcam"><b>KILLCAM</b><span></span></div>
       <div class="death"><h3>SMOKED</h3><p class="cause"></p><p class="timer"></p><p class="loadout"></p></div>
       <div class="hud-hint"></div>
       <div class="hud-controls">${controlsHtml(inputKind, { missile })}</div>
@@ -120,6 +121,7 @@ export class Hud {
       timer: q('.timer'),
       loadout: q('.death .loadout'),
       hint: q('.hud-hint'),
+      killcam: q('.killcam span'),
       debug: q('.hud-debug'),
     };
     this.radar = new Radar(this.el);
@@ -280,6 +282,13 @@ export class Hud {
     this.set('killMsg', km, (x) => {
       e.killMsg.textContent = x;
       e.killMsg.style.opacity = x ? '1' : '0';
+    });
+
+    // Death replay: the killer's view, with a banner (the death card drops to the bottom).
+    const kc = game.replay && game.replay.showing(player) >= 0 ? game.replay.killerOf(player)?.name ?? '' : '';
+    this.set('killcam', kc, (x) => {
+      e.killcam.textContent = x;
+      this.el.classList.toggle('killcam-on', !!x);
     });
 
     // Death screen.

@@ -330,6 +330,11 @@ export class Player {
     return this.topY() - 0.32;
   }
 
+  // The eye's height above the capsule center.
+  eyeOffset() {
+    return this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND;
+  }
+
   eyePosition(out) {
     return out.set(this.center.x, this.center.y + (this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND), this.center.z);
   }

@@ -118,6 +118,12 @@ more for melee, thrown up and away by blasts, punts and flying props), tips over
 flung out and flopping, slides to a stop against the floor or a wall, lies there and puffs away
 in its color just before the respawn (2.6 s). It's a visual only: nothing collides with it.
 
+Smoked by another player, your view replays it from their eyes (a killcam): "KILLCAM" and their
+name at the top, starting 1.8 s before the kill and running 2.3 s at normal speed, with their
+shots drawn again (only you see those) and your body going down. The death card stays up below
+it, so you can still pick your next loadout. Only bodies and shots replay; grenades, rockets and
+effects show as they are now.
+
 Character options (owner request, planned after the new bodies): Crash Bandicoot, Link and
 James Bond, each as close to the source as we can make them, with the shared skeleton so they
 animate like everyone else. You pick one on the join screen **(proposal)**.
@@ -790,3 +796,8 @@ Need answers before the step that uses them gets built.
   as one piece about its feet with a procedural limp pose (flailing while thrown), one floor and
   wall check per corpse per frame and no extra draw calls. The death puff moved from the moment
   of death to when the body disappears. Bodies that fall out of the world still just vanish.
+- 2026-10-29: Death replay (killcam). Every rendered frame records each body's and bone's
+  transforms and each player's eye and aim into a ring of about 3 s; a replaying view copies
+  the past onto the bodies, renders, and puts the present back. Replaying views render after
+  live ones so the shared shadow pass sees the present. Kills by yourself, fire or falling
+  don't replay.
