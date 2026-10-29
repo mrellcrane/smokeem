@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BODY, MOVE, CAMERA } from '../config.js';
+import { BODY, MOVE, CAMERA, AIM } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
@@ -26,8 +26,6 @@ export const RESPAWN_DELAY = 3;
 const FIRE_DPS = 45;
 // Zoomed past this with a scoped gun, you look through the scope.
 export const SCOPE_ZOOM = 1.6;
-// Controller aim slows to this fraction while the crosshair is on someone.
-const AIM_FRICTION = 0.6;
 export const PLAYER_COLORS = [0x3d7bd9, 0xd9443d, 0x3dbd5a, 0xe0b53a];
 
 const NO_ROTATION = { x: 0, y: 0, z: 0, w: 1 };
@@ -188,6 +186,7 @@ export class Player {
     this.stats = { kills: 0, deaths: 0, score: 0 };
     this.aimZoom = 1;
     this.aimTarget = null;
+    this.aimNear = null;
     this.sprintLock = 0;
     this.deathT = 0;
     this.deathInfo = null;
@@ -406,9 +405,11 @@ export class Player {
     // Slower turning while zoomed so aim feels the same on screen.
     lx /= this.aimZoom;
     ly /= this.aimZoom;
-    if (this.input.assist && this.aimTarget) {
-      lx *= AIM_FRICTION;
-      ly *= AIM_FRICTION;
+    // Controllers: slower over someone, and a little slower near them (Halo-style slowdown).
+    if (this.input.assist && !this.isBot && (this.aimTarget || this.aimNear)) {
+      const f = this.aimTarget ? AIM.frictionOn : AIM.frictionNear;
+      lx *= f;
+      ly *= f;
     }
     this.yaw -= lx;
     // Keep yaw in [-PI, PI] so long sessions never lose precision.
@@ -517,6 +518,7 @@ export class Player {
     this.deathT = 0;
     this.deathInfo = info;
     this.aimTarget = null;
+    this.aimNear = null;
     cancelReload(this.game, this.weapon);
     // A direction already held when you're smoked (mid-strafe) isn't a loadout pick.
     const x = this.input.moveX;
@@ -594,7 +596,9 @@ export class Player {
     } else if (this.sliding) {
       this.slideVelocity(dt, wx, wz, wishLen, k);
     } else if (this.grounded && this.knockT <= 0) {
-      approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel : MOVE.groundDecel) * k * dt);
+      // Pushing against the way you're moving turns you around faster.
+      const reverse = wishLen > 0.01 && v.x * wx + v.z * wz < 0 ? MOVE.reverseAccelMul : 1;
+      approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel * reverse : MOVE.groundDecel) * k * dt);
     } else if (wishLen > 0.01) {
       // Keep momentum from sprint jumps; steer toward the stick (less right after a wall kick).
       const cur = Math.hypot(v.x, v.z);

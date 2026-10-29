@@ -6,6 +6,8 @@ import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
 import { SWARM } from './swarms.js';
 import { GUNS } from './guns/index.js';
 import { gfx } from '../render/gfx.js';
+import { AIM } from '../config.js';
+import { assists, assistTarget, magnetize } from './aimAssist.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
 // reload, weapon switching, grenades, melee, launching and detonating the Smoke Signal.
@@ -135,11 +137,13 @@ export function updateShooting(game, p, dt, pressed) {
     }
   }
 
-  // What's under the crosshair (for the red reticle).
+  // What's under the crosshair (for the red reticle), and for a controller whether someone is
+  // near it (the wider aim slowdown).
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
   const hit = game.castShot(_o, _f, 150, p.collider);
   p.aimTarget = hit.entity && hit.entity.alive ? hit.entity : null;
+  p.aimNear = assists(p) && !p.aimTarget ? assistTarget(game, p, _o, _f, p.weapon.def.range ?? 60, AIM.nearCones, _c) : null;
 }
 
 function tickReload(game, p, w, dt, firing) {
@@ -252,6 +256,8 @@ function fire(game, p) {
     return;
   }
 
+  // Controllers: a near miss bends onto the body (spread still applies after).
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u, d.range, d.magnetism ?? 1);
   const spread = currentSpread(p) * DEG;
   w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
   // Tracers start near the first-person barrel in our own view, and at our third-person gun
@@ -393,6 +399,7 @@ function fireBeam(game, p) {
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
   _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.12);
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u, d.range, d.magnetism ?? 1);
   const hit = game.castShot(_o, _f, d.range, p.collider);
   const dist = hit.hit ? hit.distance : d.range;
   _end.copy(_o).addScaledVector(_f, dist);
