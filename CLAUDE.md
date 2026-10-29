@@ -111,7 +111,9 @@ Live build: https://mrellcrane.github.io/smokeem/
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
   played for local players (`!player.isBot`).
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
-  training dummies, per-map looks (`looks.js`) and the baked arena light (`bake.js`).
+  training dummies, per-map looks (`looks.js`), the baked arena light (`bake.js`) and the
+  pickup beacons (`beacons.js`: pad light columns, respawn rings and strip halos in one mesh,
+  fed by `Pickups.pads` each frame).
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
   (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
@@ -171,7 +173,7 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Pre-compile all shaders during the loading screen so nothing compiles mid-game. Warm up every material, lighting and shadow combination that can appear, including things spawned later (muzzle flashes, explosions, pickups), by rendering them once before gameplay starts.
 - Quality presets (low / medium / high) live in `src/settings.js`: pixel ratio cap, shadow map size, anti-aliasing, anisotropy.
 - The shadow map is rendered once per frame, not once per viewport (`shadowMap.autoUpdate = false`, set `needsUpdate` before the first view). The sun's shadow camera is fitted at load (`fitShadowCamera` in `game.js`: the smallest square around the arena over every roll about the sun's axis) so one map serves every view at the best texel density.
-- Static arena geometry is merged into one mesh per material to keep draw calls low. Add new static props through `StaticBuilder` so they get merged too. Glowing strips share one vertex-colored material: pass the `materials.glowCyan` / `glowOrange` / `ember` tints to `StaticBuilder` like materials.
+- Static arena geometry is merged into one mesh per material to keep draw calls low. Add new static props through `StaticBuilder` so they get merged too. Glowing strips share one vertex-colored material: pass the `materials.glowCyan` / `glowOrange` / `ember` tints to `StaticBuilder` like materials. Give a strip `halo: [nx, ny, nz]` (its open face) to get a soft halo there (Medium and High only, `preset.halos`).
 - Baked arena light (`src/world/bake.js`): `StaticBuilder` records every visible solid and
   glow source; before `build()` the arena bakes floor contact shadows, tone variation, stains
   (`B.stain`) and glow pools (`B.light`, glow strips add themselves) into one RGBA texture the

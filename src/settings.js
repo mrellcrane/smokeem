@@ -11,6 +11,8 @@ export const QUALITY_PRESETS = {
     bakeSize: 256,
     // Texels per side of the main surface textures (textures.js).
     textureSize: 256,
+    // Soft halos around glowing strips (beacons.js).
+    halos: false,
   },
   medium: {
     label: 'Medium',
@@ -20,6 +22,7 @@ export const QUALITY_PRESETS = {
     anisotropy: 4,
     bakeSize: 512,
     textureSize: 512,
+    halos: true,
   },
   high: {
     label: 'High',
@@ -29,6 +32,7 @@ export const QUALITY_PRESETS = {
     anisotropy: 8,
     bakeSize: 512,
     textureSize: 512,
+    halos: true,
   },
 };
 

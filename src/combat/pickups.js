@@ -21,7 +21,9 @@ export const PICKUP_SPOTS = [
   { type: 'grenades', count: 2, pos: [-25, 0, -19.5], respawn: 20 },
 ];
 
-const REACH = 1.4;
+// How close (m, across and up from the feet) a player must be to take a pickup.
+export const PICKUP_REACH = 1.4;
+export const PICKUP_REACH_Y = 1.6;
 const DROP_LIFETIME = 25;
 // At most this many dropped guns of one type lie around at once (the oldest goes first).
 const DROP_POOL = 4;
@@ -55,10 +57,14 @@ export class Pickups {
         active: true,
         timer: 0,
         look: gun ?? 'grenades',
+        // Which pad it sits on (its beacon's look).
+        kind: spot.type === 'grenades' ? 'grenades' : spot.pad,
       };
       this.resetAmmo(item);
       this.items.push(item);
     }
+    // The spawners, in PICKUP_SPOTS order (items also holds dropped guns).
+    this.pads = this.items.slice();
 
     // One instanced mesh per look (each gun in the set, and briquette pairs), so all pickups
     // of a kind are one draw call; nothing draws while none is out.
@@ -150,7 +156,7 @@ export class Pickups {
       if (!item.active) continue;
       const dx = item.pos.x - p.center.x;
       const dz = item.pos.z - p.center.z;
-      if (dx * dx + dz * dz > REACH * REACH || Math.abs(item.pos.y - feet) > 1.6) continue;
+      if (dx * dx + dz * dz > PICKUP_REACH * PICKUP_REACH || Math.abs(item.pos.y - feet) > PICKUP_REACH_Y) continue;
       if (item.type === 'grenades') {
         if (p.grenades >= GRENADE.max) continue;
         p.grenades = Math.min(GRENADE.max, p.grenades + item.count);

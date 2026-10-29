@@ -10,4 +10,8 @@ export const gfx = {
   vertexLight: true,
   // Muzzle flashes on other players' third-person guns.
   thirdPersonFlashes: true,
+  // Light columns and respawn rings on the pickup pads (world/beacons.js).
+  beacons: true,
+  // Soft halos around the glowing strips (medium and high presets only).
+  halos: true,
 };

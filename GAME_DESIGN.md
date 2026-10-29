@@ -273,6 +273,12 @@ synthesized.
 - Walking over a pickup takes it when it fits: a gun you already carry tops up its ammo,
   grenades fill up to the max. A different gun gets a prompt: press E (hold X on a
   controller) to swap it for the gun in your hands.
+- Every pad sends up a soft light column in its rim color while its pickup is up, so you can
+  see across the arena which ones are ready: a tall orange one for the power gun that clears
+  the walls, a mid-height cyan one for field guns, a short ember one for grenades. Columns fade
+  out when you stand next to them, and their lower part fades while someone stands on the pad
+  (so that player's armor color still reads; the short grenade column goes out). An empty pad shows a ring that fills like a clock
+  until its pickup is back, then pulses.
 
 ### Grenades and melee
 
@@ -468,7 +474,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   and glow pools, contact shading on walls and props, a light grade per map (done); (4) shots you
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
-  separate from legs, jumps and landings (done); (8) pickup beacons; (9) explosions, impacts and
+  separate from legs, jumps and landings (done); (8) pickup beacons (done); (9) explosions, impacts and
   decals; (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
   high only; (15) a shadowless low tier only if the Xbox bench needs it.
@@ -570,3 +576,7 @@ Need answers before the step that uses them gets built.
   metal walls in 1 m x 2 m panels with worn edges, grime and a little rust, pebbly ground with
   hairline cracks, cast concrete with tie holes, knotted planks, chipped crates. Stenciled
   numbers on walls and boot prints were dropped: on a 4 m tile they show the repeat.
+- 2026-10-29: Pickup beacons (graphics PR 8). Columns are soft on purpose so a player on a pad
+  still reads; they partly cover what's behind them so the orange one stays orange against the
+  bright sky instead of washing out to white. Halos around the cyan and orange wall strips are
+  on Medium and High only. Together they cost one draw call per view and no shadow pass draws.
