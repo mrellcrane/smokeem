@@ -149,7 +149,9 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
   training dummies, per-map looks (`looks.js`), the game show (`show.js`: the crowd on the
   arena's grandstands as one instanced mesh moved in its vertex shader by a hype uniform, and
-  the big screen's canvas texture), the baked arena light (`bake.js`) and the
+  the big screen's canvas texture; `finale.js`: the end-of-match podium, confetti and orbit
+  camera, which `Game.render` draws instead of the views once `endMatch` makes one), the baked
+  arena light (`bake.js`) and the
   pickup beacons (`beacons.js`: pad light columns, respawn rings and strip halos in one mesh,
   fed by `Pickups.pads` each frame).
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load

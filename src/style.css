@@ -68,6 +68,22 @@ body {
   overflow-y: auto;
 }
 
+/* The end of a match: the podium and confetti stay visible on the left (world/finale.js), the
+   results sit on the right. */
+.screen.finale {
+  justify-content: flex-end;
+  background: linear-gradient(90deg, rgba(10, 8, 7, 0) 30%, rgba(10, 8, 7, 0.85) 62%);
+}
+
+.screen.finale .panel.results {
+  margin: auto 3vw auto auto;
+  width: min(560px, 60%);
+}
+
+#hud.finale {
+  display: none;
+}
+
 .screen.dim {
   background: rgba(10, 8, 7, 0.72);
 }

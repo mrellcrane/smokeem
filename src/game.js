@@ -21,6 +21,7 @@ import { Props } from './world/props.js';
 import { Gravity } from './combat/gravity.js';
 import { Replay } from './render/replay.js';
 import { Show } from './world/show.js';
+import { Finale } from './world/finale.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -309,6 +310,11 @@ export class Game {
     this.pickups.warmup(true, fwd);
     this.oysters?.warmup(true, fwd);
     this.props?.updateVisuals(1);
+    const finaleBits = Finale.warmupMeshes();
+    for (const m of finaleBits) {
+      m.position.copy(fwd);
+      this.scene.add(m);
+    }
     this.fx.explosion(fwd, 5);
     this.fx.tracer(cam.position, fwd, 0xffffff);
     this.fx.beam(cam.position, fwd, 0xffffff, 0.03);
@@ -334,6 +340,11 @@ export class Game {
     this.swarms.warmup(false);
     this.pickups.warmup(false);
     this.oysters?.warmup(false);
+    for (const m of finaleBits) {
+      m.removeFromParent();
+      m.geometry.dispose();
+      m.material.dispose();
+    }
     this.fx.clear();
     this.needsRender = true;
   }
@@ -609,6 +620,9 @@ export class Game {
     this.state = 'over';
     this.needsRender = true;
     this.results = results;
+    // The podium, confetti and a camera of its own; the views' HUDs step aside.
+    this.finale = new Finale(this, results);
+    this.hudRoot.classList.add('finale');
     this.onMatchEnd?.(results);
   }
 
@@ -635,6 +649,12 @@ export class Game {
       const t0 = performance.now();
       this.render(this.acc / PHYSICS_DT, dt);
       this.stats.renderMs = performance.now() - t0;
+    } else if (this.finale) {
+      // The match is over: the finale animates behind the results.
+      this.finale.update(dt);
+      this.show?.update(dt);
+      this.fx.update(dt);
+      this.render(1, dt);
     } else if (this.needsRender) {
       // Paused or waiting: the canvas keeps showing the last frame, so only redraw on change.
       this.updateVisuals(0, 1);
@@ -689,6 +709,11 @@ export class Game {
 
   render(alpha, dt) {
     const r = this.renderer;
+    if (this.finale) {
+      r.info.reset();
+      this.finale.render(r);
+      return;
+    }
     const W = window.innerWidth;
     const H = window.innerHeight;
     const rects = viewportRects(this.humans.length, W, H);
@@ -756,6 +781,8 @@ export class Game {
     this.infoPanel?.dispose();
     this.oysters?.dispose();
     this.show?.dispose();
+    this.finale?.dispose();
+    this.hudRoot.classList.remove('finale');
     this.gravity?.clear();
     this.props?.dispose();
     for (const p of this.players) p.dispose();

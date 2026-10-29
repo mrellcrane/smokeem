@@ -147,7 +147,15 @@ export class Show {
     }
   }
 
+  // The match is over: the screen names the winner, and the crowd stays on its feet.
+  finale(winners) {
+    this.winners = winners ?? [];
+    this.hype = 1;
+    this.draw();
+  }
+
   update(dt) {
+    if (this.winners) this.hype = 1;
     this.uniforms.uTime.value += dt;
     this.hype = Math.max(0.18, this.hype - dt * 0.35);
     this.uniforms.uHype.value = this.hype;
@@ -174,6 +182,24 @@ export class Show {
     const standings = this.game.match.standings();
     const top = standings[0];
     g.textAlign = 'center';
+    if (this.winners) {
+      const w = this.winners;
+      g.fillStyle = '#ff9a40';
+      g.font = 'bold 30px sans-serif';
+      g.fillText(w.length > 1 ? "IT'S A TIE!" : 'AND THE WINNER IS', W / 2, 60);
+      // Names shrink to fit however many tied.
+      const size = w.length > 3 ? 26 : w.length > 2 ? 32 : w.length > 1 ? 46 : 72;
+      g.font = `bold ${size}px sans-serif`;
+      w.slice(0, 4).forEach((p, i) => {
+        g.fillStyle = hex(p.color);
+        g.fillText(p.name, W / 2, (w.length > 1 ? 84 + size : 150) + i * (size + 4));
+      });
+      g.fillStyle = '#f4ead8';
+      g.font = 'bold 28px sans-serif';
+      g.fillText(`${w[0]?.stats.score ?? 0} pts`, W / 2, 228);
+      this.texture.needsUpdate = true;
+      return;
+    }
     g.fillStyle = '#ff9a40';
     g.font = 'bold 26px sans-serif';
     g.fillText('SMOKE EM’ LIVE', W / 2, 38);

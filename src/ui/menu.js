@@ -532,7 +532,7 @@ export class Menu {
         </div>
       </div>`,
       'results',
-      'dim',
+      'finale',
     );
     // Players are usually mid-jump when the horn goes: give the results a second before a
     // stray Space or A press can skip them.
