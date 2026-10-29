@@ -62,8 +62,11 @@ Live build: https://mrellcrane.github.io/smokeem/
   `InputState`, so the player controller doesn't care where input comes from.
 - `src/player/`: the player controller (movement, climbing, mantling, camera), the skinned
   character body and the first-person viewmodel.
-- `src/combat/`: vitals (shields/health), weapon data and state, shooting/hitscan, and
-  `dealDamage`, the single path all damage goes through.
+- `src/combat/`: vitals (shields/health), weapon data and state (`weapons.js`), the shared
+  box-built gun shapes (`weaponModels.js`), the per-tick weapon controller (`shooting.js`:
+  trigger, pellets, missile launch, grenades, melee, switching, reloads), projectiles
+  (`projectiles.js`: Smoke Signal missiles, grenades as Rapier dynamic bodies), area damage
+  (`explosions.js`), pickups, and `dealDamage`, the single path all damage goes through.
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system.
 - `src/audio/`: placeholder WebAudio sounds synthesized at load (unlocked by the drop-in click).
 - `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
@@ -79,7 +82,11 @@ Live build: https://mrellcrane.github.io/smokeem/
 - Button presses are latched in `InputState` until a tick consumes them, so no press is lost
   between ticks.
 - Anything that can be shot registers its collider with `game.registerEntity`; `game.castShot`
-  maps ray hits back to entities. Targets implement `alive`, `vitals`, `headLineY()`, `die()`.
+  maps ray hits back to entities. Targets implement `alive`, `vitals`, `headLineY()`, `die()`,
+  `centerPosition()`, `facing()`, `distanceToBody()`; players also take `knockback()`.
+- The Rapier world has gravity (-16), but it only moves dynamic bodies (grenades). Players run
+  their own gravity in the character controller. Player movement, shots and line-of-sight
+  checks use `EXCLUDE_DYNAMIC`, so grenades bounce off people without blocking them or bullets.
 
 ### Target platforms
 
@@ -114,8 +121,11 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Each view renders the world, then clears depth and renders the viewmodel scene (its own
   camera and lights) so guns never clip into walls. `renderer.autoClear` is off; views clear
   themselves inside their scissor rect.
-- A player's own body sits on layer `1 + id`, which that player's camera disables. The sun's
-  shadow camera enables all layers so you still see your own shadow.
+- A player's own body sits on layer `1 + id`, which that player's camera disables (except while
+  flying a missile). The sun's shadow camera enables all layers so you still see your own
+  shadow.
+- Third-person guns are baked into the skinned body on their own bones; unheld guns are scaled
+  to ~0, so switching weapons costs no draw calls.
 - `renderer.compile` skips hidden objects, so warm-up forces every effect, shield shell and
   muzzle flash visible for one compile + render. New spawnable things must hook into
   `Game.warmUp()` the same way.

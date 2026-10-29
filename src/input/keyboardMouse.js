@@ -18,6 +18,8 @@ const KEY_ACTIONS = {
   KeyQ: 'melee',
   KeyF: 'melee',
   KeyX: 'switchWeapon',
+  Digit1: 'slot1',
+  Digit2: 'slot2',
   Tab: 'scoreboard',
 };
 

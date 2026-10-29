@@ -12,6 +12,8 @@ export const ACTIONS = [
   'grenade',
   'melee',
   'switchWeapon',
+  'slot1',
+  'slot2',
   'scoreboard',
 ];
 

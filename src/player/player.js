@@ -3,7 +3,8 @@ import { BODY, MOVE, CAMERA } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
-import { WEAPONS, WeaponState } from '../combat/weapons.js';
+import { WEAPONS, WeaponState, GRENADE, STARTING_WEAPON } from '../combat/weapons.js';
+import { InputState } from '../input/inputState.js';
 import { updateShooting } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
 import { CharacterModel } from './character.js';
@@ -35,6 +36,10 @@ const EYE_OFF_CROUCH = BODY.eyeCrouch - BODY.crouchHeight / 2;
 const HAND_ABOVE_TOP = BODY.handReach - BODY.standHeight;
 
 const _c = new THREE.Vector3();
+const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
+// While flying a missile the body gets no movement input.
+const NEUTRAL_INPUT = new InputState();
+const NO_PRESSES = NEUTRAL_INPUT.consumePressed();
 
 export class Player {
   constructor(game, { id, input, name }) {
@@ -47,7 +52,8 @@ export class Player {
     const { RAPIER, world } = game.physics;
     this.RAPIER = RAPIER;
     this.world = world;
-    this.filter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS;
+    // Grenades (dynamic bodies) bounce off players but never block or carry them.
+    this.filter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
     // Mantle probes ignore bodies, so nobody vaults onto someone's head.
     this.notBody = (c) => !game.entities.has(c.handle);
 
@@ -108,7 +114,19 @@ export class Player {
 
     // Combat.
     this.vitals = new Vitals();
-    this.weapon = new WeaponState(WEAPONS.hickory);
+    this.slots = [new WeaponState(WEAPONS[STARTING_WEAPON]), null];
+    this.slot = 0;
+    this.grenades = GRENADE.start;
+    this.switchT = 0;
+    this.meleeT = 0;
+    this.throwT = 0;
+    this.guiding = null;
+    this.pickupPrompt = null;
+    this.lungeT = 0;
+    this.lungeSpeed = 0;
+    this.lungeDir = new THREE.Vector3();
+    this.knockT = 0;
+    this.shake = 0;
     this.stats = { kills: 0, deaths: 0 };
     this.aimZoom = 1;
     this.aimTarget = null;
@@ -130,6 +148,56 @@ export class Player {
 
   get alive() {
     return this.vitals.alive;
+  }
+
+  get weapon() {
+    return this.slots[this.slot];
+  }
+
+  centerPosition(out) {
+    return out.copy(this.center);
+  }
+
+  facing(out) {
+    return out.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+  }
+
+  // Distance from a point to the surface of our capsule.
+  distanceToBody(p) {
+    const hh = this.halfHeight;
+    const y = clamp(p.y, this.center.y - hh, this.center.y + hh);
+    return Math.hypot(p.x - this.center.x, p.y - y, p.z - this.center.z) - BODY.radius;
+  }
+
+  // Put a weapon in the empty slot (or replace the held one). Returns the slot used.
+  giveWeapon(def, mag, reserve) {
+    const state = new WeaponState(def);
+    state.mag = mag;
+    state.reserve = reserve;
+    const slot = this.slots[0] && this.slots[1] ? this.slot : this.slots[0] ? 1 : 0;
+    this.slots[slot] = state;
+    this.slot = slot;
+    this.switchT = 0.25;
+    return slot;
+  }
+
+  knockback(dir, speed) {
+    if (this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars') this.leaveClimb(0, 0, 0, 0.4);
+    if (this.mode !== 'move') return;
+    this.vel.addScaledVector(dir, speed);
+    if (dir.y > 0.2) this.grounded = false;
+    this.knockT = 0.4;
+  }
+
+  startLunge(dir, speed, time) {
+    if (this.mode !== 'move') return;
+    this.lungeDir.copy(dir);
+    this.lungeSpeed = speed;
+    this.lungeT = time;
+  }
+
+  addShake(amount) {
+    this.shake = Math.min(1.2, this.shake + amount);
   }
 
   headLineY() {
@@ -180,7 +248,13 @@ export class Player {
     this.sprintLock = 0;
     this.input.clear();
     this.vitals.reset();
-    this.weapon.reset();
+    this.slots[0] = new WeaponState(WEAPONS[STARTING_WEAPON]);
+    this.slots[1] = null;
+    this.slot = 0;
+    this.grenades = GRENADE.start;
+    this.switchT = this.meleeT = this.throwT = this.lungeT = this.knockT = 0;
+    this.guiding = null;
+    this.pickupPrompt = null;
     this.deathInfo = null;
     this.collider.setEnabled(true);
     this.model.group.visible = true;
@@ -189,6 +263,11 @@ export class Player {
   // Called every rendered frame, so aiming stays responsive at any display rate.
   applyLook() {
     let [lx, ly] = this.input.takeLook();
+    if (this.guiding) {
+      this.guiding.steer(lx * 0.8, ly * 0.8);
+      this.lastLookX = this.lastLookY = 0;
+      return;
+    }
     // Slower turning while zoomed so aim feels the same on screen.
     lx /= this.aimZoom;
     ly /= this.aimZoom;
@@ -219,23 +298,28 @@ export class Player {
     this.inMud = zones.inMud(this.feet);
     this.inFire = zones.inFire(this.feet, this.height, BODY.radius);
 
+    // Flying a Smoke Signal: the body stands there, defenseless.
+    const realInput = this.input;
+    const movePressed = this.guiding ? NO_PRESSES : pressed;
+    if (this.guiding) this.input = NEUTRAL_INPUT;
     switch (this.mode) {
       case 'move':
-        this.tickMove(dt, pressed);
+        this.tickMove(dt, movePressed);
         break;
       case 'mantle':
         this.tickMantle(dt);
         break;
       case 'net':
-        this.tickNet(dt, pressed);
+        this.tickNet(dt, movePressed);
         break;
       case 'rope':
-        this.tickRope(dt, pressed);
+        this.tickRope(dt, movePressed);
         break;
       case 'bars':
-        this.tickBars(dt, pressed);
+        this.tickBars(dt, movePressed);
         break;
     }
+    this.input = realInput;
 
     if (this.inFire) {
       dealDamage(this.game, this, FIRE_DPS * dt, { cause: 'fire' });
@@ -248,6 +332,8 @@ export class Player {
     const wantZoom = this.input.held.aim && !this.sprinting && !w.reloading && this.mode !== 'mantle';
     this.aimZoom += ((wantZoom ? w.def.zoom : 1) - this.aimZoom) * damp(14, dt);
     updateShooting(this.game, this, dt, pressed);
+    if (!this.alive) return;
+    this.game.pickups.touch(this, pressed);
 
     this.body.setNextKinematicTranslation(this.center);
   }
@@ -267,6 +353,9 @@ export class Player {
   }
 
   die(info) {
+    this.game.pickups?.dropFrom(this);
+    this.guiding = null;
+    this.lungeT = this.knockT = 0;
     this.mode = 'dead';
     this.deathT = 0;
     this.deathInfo = info;
@@ -322,7 +411,12 @@ export class Player {
     let speed = this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed;
     if (this.inMud) speed *= MOVE.mudSpeedMul;
 
-    if (this.grounded) {
+    this.knockT = Math.max(0, this.knockT - dt);
+    if (this.lungeT > 0) {
+      this.lungeT -= dt;
+      v.x = this.lungeDir.x * this.lungeSpeed;
+      v.z = this.lungeDir.z * this.lungeSpeed;
+    } else if (this.grounded && this.knockT <= 0) {
       approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel : MOVE.groundDecel) * dt);
     } else if (wishLen > 0.01) {
       // Keep momentum from sprint jumps; steer toward the stick.
@@ -717,8 +811,22 @@ export class Player {
     this.deathRoll += ((dead ? 0.5 : 0) - this.deathRoll) * damp(dead ? 3 : 20, dt);
     this.landDip += (0 - this.landDip) * damp(9, dt);
     const cam = this.camera;
+    this.shake += (0 - this.shake) * damp(5, dt);
+    const sh = this.shake * this.shake * 0.04;
+    const sx = sh ? (Math.random() - 0.5) * sh : 0;
+    const sy = sh ? (Math.random() - 0.5) * sh : 0;
+
+    // Missile camera: ride the Smoke Signal, and see your own (defenseless) body.
+    if (this.guiding) {
+      this.game.missiles.pose(this.guiding, alpha, cam.position, _euler, 0.45);
+      cam.rotation.set(_euler.x + sx, _euler.y + sy, 0);
+      cam.layers.enable(1 + this.id);
+      this.setFov(settings.fov + 10, aspect);
+      return;
+    }
+    cam.layers.disable(1 + this.id);
     cam.position.set(_c.x, _c.y + this.eyeOff - this.landDip, _c.z);
-    cam.rotation.set(this.pitch, this.yaw, this.deathRoll);
+    cam.rotation.set(this.pitch + sx, this.yaw + sy, this.deathRoll);
 
     const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed + 0.5;
     this.fovBoost += ((fast ? CAMERA.sprintFovBoost : 0) - this.fovBoost) * damp(8, dt);
@@ -728,6 +836,7 @@ export class Player {
   // Body pose for other players' views, and the first-person rifle.
   updateVisuals(dt, alpha) {
     if (this.model.group.visible) {
+      this.model.setWeapon(this.weapon.def.id);
       _c.lerpVectors(this.prevCenter, this.center, alpha);
       this.model.update(dt, {
         x: _c.x,

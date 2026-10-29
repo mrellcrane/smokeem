@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { StaticBuilder } from './staticBuilder.js';
 import { Zones } from './zones.js';
 import { createFire } from './fire.js';
+import { PICKUP_SPOTS } from '../combat/pickups.js';
 
 // Map 1: Mudlark Gauntlet. A small obstacle-race arena inside tall metal walls.
 // Coordinates: x east, z south, y up. The playable floor is x, z in [-30, 30].
@@ -37,6 +38,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures }) {
   netBlock(B, M, zones);
   cover(B, M);
   lightPylons(B, M, H);
+  pickupPads(B, M);
 
   const meshes = B.build(scene);
 
@@ -345,5 +347,16 @@ function lightPylons(B, M, H) {
       B.box(M.metalDark, [x, 12.2, z], [1.6, 0.5, 0.8], { collide: false });
       B.box(M.glowCyan, [x, 11.93, z], [1.4, 0.05, 0.6], { collide: false, castShadow: false });
     }
+  }
+}
+
+// A pad with a glowing rim under every pickup spawner. Orange for the Smoke Signal, cyan for
+// other guns, ember for grenades.
+function pickupPads(B, M) {
+  for (const spot of PICKUP_SPOTS) {
+    const [x, y, z] = spot.pos;
+    const glow = spot.type === 'grenades' ? M.ember : spot.weapon === 'smokeSignal' ? M.glowOrange : M.glowCyan;
+    B.cylinder(glow, [x, y, z], 0.62, 0.04, { segments: 16, collide: false, castShadow: false });
+    B.cylinder(M.metalDark, [x, y + 0.01, z], 0.55, 0.07, { segments: 16, collide: false });
   }
 }

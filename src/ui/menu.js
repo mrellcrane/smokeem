@@ -6,26 +6,14 @@ import {
   FOV_RANGE,
   VOLUME_RANGE,
 } from '../settings.js';
+import { controlsHtml } from './controls.js';
 
 // All full-screen UI: title, settings, loading, ready, pause, error.
 // Plain DOM buttons so keyboard (and, later, gamepad) focus navigation works.
 
 const LOGO = `<h1 class="logo">SMOKE <span>EM'</span></h1>`;
 
-const CONTROLS = `
-  <div class="controls">
-    <div><kbd>WASD</kbd> move</div>
-    <div><kbd>Mouse</kbd> look</div>
-    <div><kbd>Space</kbd> jump, again for double jump</div>
-    <div><kbd>Shift</kbd> sprint (hold)</div>
-    <div><kbd>C</kbd> crouch (hold, also mid-air)</div>
-    <div><kbd>Click</kbd> fire, <kbd>Right click</kbd> zoom</div>
-    <div><kbd>R</kbd> reload</div>
-    <div>Push forward into ledges, nets and ropes to climb</div>
-    <div>Jump into the monkey bars to hang</div>
-    <div><kbd>Esc</kbd> pause, <kbd>\`</kbd> FPS counter</div>
-  </div>
-`;
+const CONTROLS = `<div class="controls-list">${controlsHtml('keyboardMouse')}</div>`;
 
 export class Menu {
   constructor(root, handlers) {
@@ -116,7 +104,7 @@ export class Menu {
           <button data-action="play">Play</button>
           <button data-action="settings" class="secondary">Settings</button>
         </div>
-        <p class="note">Step 2 build: the arena, movement and the Hickory rifle vs training dummies. More weapons, bots and split-screen come next.</p>
+        <p class="note">Step 3 build: three weapons, grenades, melee and pickups vs training dummies. Bots and split-screen come next.</p>
       </div>`,
       'title',
     );

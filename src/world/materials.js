@@ -20,6 +20,8 @@ export function createMaterials(tex) {
     glowOrange: new THREE.MeshBasicMaterial({ color: 0xff8a2a }),
     ember: new THREE.MeshBasicMaterial({ color: 0xff4e12 }),
     mesa: new THREE.MeshLambertMaterial({ color: 0x9c7a64, flatShading: true }),
+    // Vertex-colored props in the world: pickups, missiles, grenades.
+    props: new THREE.MeshLambertMaterial({ vertexColors: true }),
   };
   const tiles = {
     ground: 4,
