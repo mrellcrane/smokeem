@@ -21,6 +21,19 @@ export class Effects {
     this.tracerPool.spawn(a, b, color, width, life);
   }
 
+  // Heat beams get their own small pool (built only when the match has a beam gun), so they
+  // never steal bullet tracers. Each pulse redraws its segment for a moment.
+  enableBeams(scene) {
+    if (this.beamPool) return;
+    this.beamPool = new Tracers(16);
+    this.beamPool.mesh.name = 'beams';
+    scene.add(this.beamPool.mesh);
+  }
+
+  beam(a, b, color, width) {
+    (this.beamPool ?? this.tracerPool).spawn(a, b, color, width, 0.07, width * 0.2);
+  }
+
   // Sparks thrown out of a surface around its normal.
   burst(point, normal, color, count, speed, size) {
     for (let i = 0; i < count; i++) {
@@ -127,12 +140,14 @@ export class Effects {
 
   update(dt) {
     this.tracerPool.update(dt);
+    this.beamPool?.update(dt);
     this.sparks.update(dt);
     this.smoke.update(dt);
   }
 
   dispose() {
     this.tracerPool.dispose();
+    this.beamPool?.dispose();
     this.sparks.dispose();
     this.smoke.dispose();
   }

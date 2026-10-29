@@ -77,11 +77,14 @@ Live build: https://mrellcrane.github.io/smokeem/
   weapon sets and loadouts (`arsenal.js`: a match builds only its set's guns), weapon state
   (`weapons.js`), shared box helpers and colors (`weaponModels.js`), the per-tick weapon
   controller (`shooting.js`: trigger, spin-up, pellets, missile and launcher shots, grenades,
-  melee, switching, reloads), projectiles (`projectiles.js`: Smoke Signal missiles; grenades
-  and Chimney coals as Rapier dynamic bodies, one instanced mesh per look, with optional
-  contact fuses), area damage (`explosions.js`), pickups, and `dealDamage`, the single path
-  all damage goes through.
-- `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system.
+  melee, switching, reloads, the Brander's beam), projectiles (`projectiles.js`: Smoke Signal
+  missiles; grenades and Chimney coals as Rapier dynamic bodies, one instanced mesh per look,
+  with optional contact fuses), bolts (`bolts.js`: ballistic projectiles with no physics body,
+  one ray per tick, like the Swarm Jar's jar), bug swarms (`swarms.js`: pure-math seekers,
+  one instanced mesh), area damage (`explosions.js`), pickups, and `dealDamage`, the single
+  path all damage goes through.
+- `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system. Beams get
+  their own small tracer pool, built only when the match's set has a beam gun.
 - `src/audio/`: sound effects (unlocked by the drop-in click). Guns, reloads and explosions
   are CC0 recordings in `src/audio/samples/` (`name-N.wav` files are variations of `name`;
   credits in `CREDITS.md`, regenerate with `tools/build_sounds.py`); everything else is

@@ -52,6 +52,7 @@ export const WEAPON_SETS = {
     sidearm: 'toothpick',
     field: 'mesquite',
     power: 'swarmJar',
+    loadoutNames: ['Ice Pick', 'Branding Day'],
   },
   hogWild: {
     name: 'Hog Wild',

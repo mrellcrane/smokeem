@@ -80,3 +80,28 @@ export function missileGeometry() {
     0xd8d2c4,
   );
 }
+
+// Swarm Jar jar in flight: pale amber glass, a dark lid and bugs inside.
+export const JAR_AMBER = 0xd9b45a;
+export function jarGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0], [0.12, 0.13, 0.12], JAR_AMBER],
+      [[0, 0.078, 0], [0.1, 0.026, 0.1], WOOD_DARK],
+      [[0.02, -0.01, 0.061], [0.018, 0.018, 0.002], 0x2a1c10],
+      [[-0.025, 0.025, 0.061], [0.018, 0.018, 0.002], 0x2a1c10],
+    ],
+    JAR_AMBER,
+  );
+}
+
+// One bug: a small dark body with orange-tinted wings (big enough to read across a fight).
+export function bugGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0], [0.05, 0.04, 0.07], 0x22180f],
+      [[0, 0.022, 0], [0.12, 0.006, 0.04], 0xa86a2a],
+    ],
+    0x2a1e14,
+  );
+}

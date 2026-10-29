@@ -163,11 +163,12 @@ rosters and three judges.
 | Competition Cut | Medium | Kindling, Cold Smoke | Toothpick | Chimney | Rotisserie | built |
 | Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | planned |
 | Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
-| Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | planned |
+| Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | built |
 | Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | planned |
 
 Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n Fast**
-(Kindling + Toothpick).
+(Kindling + Toothpick). Hot and Cold loadouts: **Ice Pick** (Cold Smoke + Toothpick,
+preselected) and **Branding Day** (Brander + Toothpick).
 
 ### The guns
 
@@ -185,9 +186,9 @@ Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n 
 | **Skewer** | wacky | Harpoon gun: two hits kill, and a hit near a wall pins you to it. | planned |
 | **Sauce Boss** | wacky | Goo lobber: slippery, slowing puddles. | planned |
 | **Gust** | wacky | Leaf blower: shoves people, grenades and rockets with wind. | planned |
-| **Swarm Jar** | wacky | Jar of homing bugs that chase the nearest enemy. | planned |
+| **Swarm Jar** | wacky | Jar of homing bugs that chase the nearest enemy. | yes |
 | **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
-| **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | planned |
+| **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 
 **Shooting rules for every gun**
 - Hold the trigger to repeat at the gun's own rate (semi-autos too, so nobody has to mash).
@@ -222,10 +223,29 @@ Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n 
   18/s, 8 damage, falls to 50% between 25 and 60 m, 100 + 100, 3 s reload, 0.7 s draw.
   Spinning drops you to 60% speed with no sprint; the barrels take 1 s to stop, and pulling
   again meanwhile only needs the windup that's left. 1.33 s to smoke once spun.
+- **Brander**: hold for an exact beam out to 22 m (no spread, no headshots, no falloff), 20
+  pulses a second. 50 damage a second on a new target, climbing 100 a second while you stay
+  on them up to 150 (1 s in); slipping off for up to 0.25 s holds the heat (it only climbs
+  while the beam is on them), longer or a new target starts over. 100 damage by 1 s, 1.67 s to smoke. 4 s per cell (80 pulses, 3 spare
+  cells), 1.8 s vent. The beam tapers from the gun and turns from orange to white-hot as it
+  heats, so its victim sees it coming. Burns a bug swarm out of the air in 0.3 s.
+- **Swarm Jar**: lobs a jar (18 m/s plus lift, 15 on a direct hit) that smashes on whatever
+  it touches and lets out a swarm. 1 + 2 jars, 1.4 s reload, power pad every 60 s. The swarm
+  hunts the nearest enemy it can see within 15 m (never its thrower), flying at 80% of
+  sprint speed (so sprinting away works for a while), latches on within 1 m and stings 30 a
+  second for the rest of its 6 s (about 170 if ignored). It never latches through walls or
+  floors and can't pass through them. It dies to its victim's melee, fire, any explosion it's
+  inside, 0.3 s of anyone else's Brander beam, or 30 damage of anyone else's gunfire passing
+  close (three Hickory rounds); a swing aimed right at a free swarm in reach knocks it out
+  too. At most 4 swarms at once. Its stings don't move your damage arrow (it would point at
+  the thrower). Bots only lob jars inside 20 m (a jar reaches about 25 m), one per sighting
+  while chasing.
 
 **Sounds**: real CC0 recordings: AK-47 (Hickory), Benelli Nova (Mesquite), Walther PPQ
 (Toothpick), Carl Gustav M45 (Kindling), SKS (Cold Smoke), Mossberg 190 slowed down
 (Chimney), slices of a PPSh-41 burst (Rotisserie, with a synthesized spin whine). See `src/audio/samples/CREDITS.md`.
+The Brander's sizzle and vent and the Swarm Jar's cork pop, glass smash and buzz are
+synthesized.
 
 **Pickups**
 - Weapon pads hold the set's field gun and power gun (see above), plus four grenade pads with
@@ -495,3 +515,8 @@ Need answers before the step that uses them gets built.
   Signal.
 - 2026-10-29: Owner wants new maps and better graphics in the plan; both are now explicit
   Phase 2 items (the graphics pass goes with the Xbox performance pass).
+- 2026-10-29: Hot and Cold is the third set (Brander heat beam, Swarm Jar homing bugs).
+  Bots holding the Swarm Jar lob it at your last-seen spot while chasing; Normal and Hard
+  bots swat bugs on them, Easy bots run. The swarm's bugs were made bigger than the spec's
+  "tiny" so a swarm reads from across a fight, and the beam tapers toward the gun so it
+  doesn't fill the shooter's own screen.

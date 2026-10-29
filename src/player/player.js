@@ -394,26 +394,27 @@ export class Player {
 
   onDamaged(res, info) {
     this.feedback.hurtT = this.game.time;
-    // Where it came from, for the damage arrow (and so bots turn to face it).
+    // Where it came from, for the damage arrow (and so bots turn to face it). Bug stings come
+    // from your own head, so they don't point anywhere (or give away the thrower).
     const src = info.cause === 'explosion' ? info.point : info.attacker?.center;
-    if (src && info.attacker !== this) {
+    if (src && info.attacker !== this && info.cause !== 'swarm') {
       this.feedback.hurtFromX = src.x;
       this.feedback.hurtFromZ = src.z;
       this.feedback.hurtDirT = this.game.time;
     }
-    this.brain?.onHurt(info.attacker);
+    if (info.cause !== 'swarm') this.brain?.onHurt(info.attacker);
     // Hurt sounds and hit confirms are just for local players.
     if (this.isBot) return;
     if (res.broke) this.game.sfx.play('shieldBreak');
     else if (res.healthDamage > 0 && info.cause !== 'fire') this.game.sfx.play('hurt');
   }
 
-  // Our shot landed on something.
-  onHitConfirmed(res, headshot) {
+  // Our shot landed on something. `sound` false skips the tick (fast beams throttle it).
+  onHitConfirmed(res, headshot, sound = true) {
     const fb = this.feedback;
     fb.hitT = this.game.time;
     fb.hitKind = res.killed ? 'kill' : headshot ? 'head' : 'hit';
-    if (!this.isBot) this.game.sfx.play(res.killed ? 'kill' : headshot ? 'head' : 'hit');
+    if (sound && !this.isBot) this.game.sfx.play(res.killed ? 'kill' : headshot ? 'head' : 'hit');
   }
 
   die(info) {

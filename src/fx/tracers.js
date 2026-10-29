@@ -15,7 +15,7 @@ export class Tracers {
     this.max = max;
     this.items = [];
     for (let i = 0; i < max; i++) {
-      this.items.push({ a: new THREE.Vector3(), b: new THREE.Vector3(), color: new THREE.Color(), life: 0, maxLife: 1, width: 0.02 });
+      this.items.push({ a: new THREE.Vector3(), b: new THREE.Vector3(), color: new THREE.Color(), life: 0, maxLife: 1, width: 0.02, startWidth: 0.02 });
     }
     this.next = 0;
     const geom = new THREE.BufferGeometry();
@@ -45,7 +45,9 @@ export class Tracers {
     this.dirty = false;
   }
 
-  spawn(a, b, color, width = 0.022, life = 0.08) {
+  // startWidth (at `a`, the gun end) defaults to width; beams taper so they don't fill the
+  // shooter's own view right in front of the camera.
+  spawn(a, b, color, width = 0.022, life = 0.08, startWidth = width) {
     const t = this.items[this.next];
     this.next = (this.next + 1) % this.max;
     t.a.copy(a);
@@ -54,6 +56,7 @@ export class Tracers {
     t.life = life;
     t.maxLife = life;
     t.width = width;
+    t.startWidth = startWidth;
     this.dirty = true;
   }
 
@@ -77,16 +80,17 @@ export class Tracers {
       t.life -= dt;
       const k = Math.max(0, t.life / t.maxLife);
       _d.subVectors(t.b, t.a).normalize();
-      _p1.crossVectors(_d, Math.abs(_d.y) > 0.95 ? X : UP).normalize().multiplyScalar(t.width);
-      _p2.crossVectors(_d, _p1).normalize().multiplyScalar(t.width);
-      const quads = [_p1, _p2];
+      _p1.crossVectors(_d, Math.abs(_d.y) > 0.95 ? X : UP).normalize();
+      _p2.crossVectors(_d, _p1).normalize();
+      const wa = t.startWidth;
+      const wb = t.width;
       for (let q = 0; q < 2; q++) {
-        const p = quads[q];
+        const p = q === 0 ? _p1 : _p2;
         const base = o + q * 12;
-        P[base] = t.a.x - p.x; P[base + 1] = t.a.y - p.y; P[base + 2] = t.a.z - p.z;
-        P[base + 3] = t.a.x + p.x; P[base + 4] = t.a.y + p.y; P[base + 5] = t.a.z + p.z;
-        P[base + 6] = t.b.x - p.x; P[base + 7] = t.b.y - p.y; P[base + 8] = t.b.z - p.z;
-        P[base + 9] = t.b.x + p.x; P[base + 10] = t.b.y + p.y; P[base + 11] = t.b.z + p.z;
+        P[base] = t.a.x - p.x * wa; P[base + 1] = t.a.y - p.y * wa; P[base + 2] = t.a.z - p.z * wa;
+        P[base + 3] = t.a.x + p.x * wa; P[base + 4] = t.a.y + p.y * wa; P[base + 5] = t.a.z + p.z * wa;
+        P[base + 6] = t.b.x - p.x * wb; P[base + 7] = t.b.y - p.y * wb; P[base + 8] = t.b.z - p.z * wb;
+        P[base + 9] = t.b.x + p.x * wb; P[base + 10] = t.b.y + p.y * wb; P[base + 11] = t.b.z + p.z * wb;
       }
       // Dim at the gun end, bright at the far end.
       for (let v = 0; v < 8; v++) {
