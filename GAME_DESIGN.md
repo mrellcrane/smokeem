@@ -288,20 +288,29 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | planned, after maps |
 | **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | planned, rules need sign-off |
-| **Stickybomb Launcher** | wacky | TF2's: sticky bombs that cling to walls, floors and ceilings, set off together with the aim button (see below). | planned |
-| **Gravity Gun** | wacky | Half-Life 2's: grab and fling loose things, including other people's grenades, stickies and rockets (see below). | planned |
+| **Stickybomb Launcher** | wacky | TF2's: sticky bombs that cling to walls, floors and ceilings, set off together with the aim button (see below). | yes |
+| **Gravity Gun** | wacky | Half-Life 2's: grab and fling loose things, including other people's grenades and stickies (see below). | yes |
 
 **Stickybomb Launcher** (owner pick, 2026-10-29, TF2's). Fire lobs a sticky bomb; up to 6 can
-be out at once, stuck to walls, floors or ceilings (not to people), each armed after about
-0.7 s. The aim button sets them all off. Your own blast knocks you around, so sticky jumps work.
-Your bombs vanish when you're smoked.
+be out at once (a 7th sets off your oldest), stuck to walls, floors or ceilings where they first
+land (not to people), each armed after 0.7 s. The aim button sets all your armed ones off (95
+damage each, 3.6 m). Your own blast knocks you around, so sticky jumps work. Your bombs fizzle
+when you're smoked. Bots' stickies go off by themselves when someone steps near one.
 
-**Gravity Gun** (owner pick, 2026-10-29, Half-Life 2's). The aim button pulls a loose object
-toward you and holds it in front of you; fire launches it hard. It grabs grenades, sticky bombs,
-Chimney coals, Swarm Jars and Smoke Signal rockets in flight, so you can throw them back. Fire
-with nothing held punts: a shove that knocks a player back with a little damage. The arena gets
-loose physics props to throw (crates, barrels, a propane tank that explodes when it lands). The
-two come together as a new weapon set after Rocky Mountain Oysters, before maps.
+**Gravity Gun** (owner pick, 2026-10-29, Half-Life 2's). The aim button grabs the loose thing
+nearest your aim (within 12 degrees and 14 m, in sight) and holds it floating in front of you;
+the button again drops it, fire throws it at 30 m/s. It grabs the loose props, briquettes, Chimney
+coals and sticky bombs (stuck ones come off), and whatever you grab is yours from then on, so its
+blast or hit counts for you. Fire with nothing held punts: everyone within 5 m in front is shoved
+back and takes 14, and loose things there fly off. No ammo. A thrown prop hurts the first body it
+hits hard (up to about 75), once per throw; a propane tank goes off when a thrown one hits
+anything hard or a blast catches it. Matches with the Gravity Gun get the props: a crate, a
+barrel and a propane tank around every pickup pad, back 25 s after they're lost or blown up.
+They're physics objects like grenades, so people and bullets pass through them. Not in yet:
+catching Smoke Signal rockets and Swarm Jars.
+
+**Junkyard** (Hot): Hickory and Stickybomb Launcher primaries ("Pitmaster" and "Sticky Ribs"),
+the Toothpick, the Mesquite on the field pads and the Gravity Gun on the power pad.
 
 **Shrink Wrap** (owner request, 2026-10-29: one gun for both, built after the new maps). A power
 gun for a wacky set, never in a loadout. Its hitbox change is the point: a shrunk player really
@@ -767,3 +776,8 @@ Need answers before the step that uses them gets built.
   against the way you're moving turns you around 1.5x faster. The stick curve stays as it was
   until the owner has played with the rest. The 42 ms hitch seen once on the Mac bench didn't
   reproduce headless; the Xbox bench will say whether it's real.
+- 2026-10-29: Stickybomb Launcher and Gravity Gun built, in a new Junkyard set. The loose props
+  don't block people or shots (they're physics objects like grenades, which every movement and
+  shot check skips); making them solid would mean reworking those filters, left for later if
+  the owner wants it. Catching rockets and jars with the Gravity Gun is left out of this first
+  version.

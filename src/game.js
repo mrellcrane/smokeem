@@ -17,6 +17,8 @@ import { Effects } from './fx/effects.js';
 import { Beacons } from './world/beacons.js';
 import { renderGunIcons } from './ui/gunIcons.js';
 import { Oysters } from './modes/oysters.js';
+import { Props } from './world/props.js';
+import { Gravity } from './combat/gravity.js';
 import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
@@ -191,6 +193,11 @@ export class Game {
     onProgress('Teaching the bots the course', 0.55);
     await nextFrame();
     this.nav = new NavGraph(this, MUDLARK_LINKS);
+    // The Gravity Gun's set brings loose props to throw (after the nav graph, which ignores them).
+    if (this.arsenal.guns.includes('gravityGun')) {
+      this.gravity = new Gravity(this, WEAPONS.gravityGun);
+      this.props = new Props(this, this.materials.props, this.pickups.pads);
+    }
 
     if (practiceTargets) {
       for (const def of DUMMY_POSTS) this.dummies.push(new Dummy(this, def));
@@ -296,6 +303,7 @@ export class Game {
     this.swarms.warmup(true, fwd);
     this.pickups.warmup(true, fwd);
     this.oysters?.warmup(true, fwd);
+    this.props?.updateVisuals(1);
     this.fx.explosion(fwd, 5);
     this.fx.tracer(cam.position, fwd, 0xffffff);
     this.fx.beam(cam.position, fwd, 0xffffff, 0.03);
@@ -525,6 +533,11 @@ export class Game {
   onKill(victim, info) {
     this.match.onKill(victim, info);
     this.oysters?.onKill(victim, info, this.match);
+    // Smoked: your sticky bombs fizzle and what your gravity gun held drops.
+    if (victim.kind === 'player') {
+      this.grenades.removeStickies(victim);
+      this.gravity?.release(victim, false);
+    }
     const a = info.attacker;
     if (a && a !== victim && a.kind === 'player') {
       a.feedback.killT = this.time;
@@ -638,9 +651,12 @@ export class Game {
     this.bolts.tick(dt);
     this.swarms.tick(dt);
     this.pickups.tick(dt);
+    this.gravity?.tick();
+    this.props?.tick(dt);
     this.oysters?.tick(dt);
     for (const d of this.dummies) d.tick(dt);
     this.physics.world.step();
+    this.props?.settle();
     for (const p of this.players) {
       if (p.alive && p.center.y < -20) dealDamage(this, p, 1e6, { cause: 'fell' });
     }
@@ -656,6 +672,7 @@ export class Game {
     this.bolts.updateVisuals(alpha);
     this.swarms.updateVisuals(alpha);
     this.pickups.updateVisuals(this.time);
+    this.props?.updateVisuals(alpha);
     this.oysters?.updateVisuals(dt);
     this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
@@ -721,6 +738,8 @@ export class Game {
     for (const h of this.huds) h.dispose();
     this.infoPanel?.dispose();
     this.oysters?.dispose();
+    this.gravity?.clear();
+    this.props?.dispose();
     for (const p of this.players) p.dispose();
     for (const d of this.dummies) d.dispose();
     this.grenades.clear();

@@ -219,9 +219,11 @@ export class Hud {
 
     // Ammo.
     this.set('wname', w.def.name, (x) => (e.wname.textContent = x));
-    this.set('mag', w.mag, (x) => (e.mag.textContent = x));
-    this.set('reserve', w.reserve, (x) => (e.reserve.textContent = ` / ${x}`));
-    const lowMag = w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25));
+    // (The Gravity Gun has no ammo.)
+    const endless = !Number.isFinite(w.def.mag);
+    this.set('mag', w.mag, (x) => (e.mag.textContent = Number.isFinite(x) ? x : '∞'));
+    this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
+    const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
     this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
     const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : '';
     this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
@@ -367,6 +369,8 @@ function deathText(info, victim) {
   if (info.cause === 'explosion' && info.attacker === victim) {
     return `Smoked yourself with your own ${info.weapon?.name ?? 'explosion'}`;
   }
+  if (info.cause === 'punt') return `Punted by ${info.attacker?.name ?? 'someone'}`;
+  if (info.cause === 'prop') return `Flattened by ${info.attacker?.name ?? 'someone'}'s flying junk`;
   if (info.cause === 'melee') return `Tenderized by ${info.attacker?.name ?? 'someone'}${info.backstab ? ' from behind' : ''}`;
   if (info.cause === 'swarm') return `Stung to death by ${info.attacker?.name ?? 'someone'}'s bugs`;
   if (info.cause === 'explosion') return `Blown up by ${info.attacker?.name ?? 'someone'}'s ${info.weapon?.name ?? 'boom'}`;

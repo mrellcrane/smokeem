@@ -106,6 +106,7 @@ export function explode(game, pos, cfg, info) {
   });
   game.sfx.play('boom', { at: pos, volume: cfg.volume ?? 1, rate: cfg.rate ?? 1 });
   game.grenades.shove(pos, cfg);
+  game.props?.shove(pos, cfg, info);
   game.swarms.blast(pos, cfg.radius);
 
   // Each body registers exactly one collider, so every entity appears once here.

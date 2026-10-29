@@ -111,6 +111,18 @@ const SOUNDS = {
       const env = Math.min(1, t / 0.05) * Math.min(1, (0.4 - t) / 0.05);
       return 0.3 * saw * trem * env;
     }),
+  // Gravity Gun: the punt (a heavy whump with an electric zap) and the grab (a rising hum).
+  punt: (ctx) =>
+    synth(
+      ctx,
+      0.35,
+      (t) =>
+        0.8 * Math.sin(t * 2 * Math.PI * (70 + 40 * Math.exp(-t * 20))) * Math.exp(-t * 9) +
+        0.25 * noise() * Math.exp(-t * 30) +
+        0.15 * Math.sin(t * 2 * Math.PI * 1800) * Math.sin(t * 2 * Math.PI * 47) * Math.exp(-t * 14),
+    ),
+  grab: (ctx) =>
+    synth(ctx, 0.3, (t) => 0.35 * Math.sin(t * 2 * Math.PI * (180 + 520 * t)) * Math.sin((Math.PI * t) / 0.3) + 0.05 * noise() * Math.exp(-t * 12)),
   swat: (ctx) => synth(ctx, 0.14, (t) => 0.5 * noise() * Math.exp(-t * 40) + 0.4 * click(t, 0, 300, 40)),
   // Last seconds of the match clock, and time's up.
   tick: (ctx) => synth(ctx, 0.09, (t) => 0.35 * Math.sin(t * 1320 * Math.PI * 2) * Math.exp(-t * 40)),
