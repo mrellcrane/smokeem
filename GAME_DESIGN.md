@@ -416,8 +416,17 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 ### Phase 2: More game
 
-- More weapons: 15 guns in 6 weapon sets (in progress, one set per PR; see Weapons).
-- Abilities, the motorcycle, more maps, team modes.
+- **More weapons**: 15 guns in 6 weapon sets (in progress, one set per PR; see Weapons).
+- **Graphics pass** (owner wants this): still the early-2000s console look, just better made.
+  Candidates: richer procedural textures with normal maps, baked ambient occlusion on the
+  arena, fog and a better sky, more detailed character bodies with real walk, run, jump and
+  climb animation, first-person gun animations, better muzzle flashes, explosions and impacts.
+  Every change is measured against the Xbox budget (60 fps with 3 views) from step 7, so the
+  two go together.
+- **More maps** (owner wants this): Map 2 and beyond. Each map needs its own layout, bot
+  links (`src/ai/mapLinks.js`), pickup pads and a default weapon set, plus a map choice on
+  the title screen.
+- Abilities, the motorcycle, team modes.
 
 ### Phase 3: Online
 
@@ -484,3 +493,5 @@ Need answers before the step that uses them gets built.
 - 2026-10-29: Competition Cut is the second set (Chimney coal launcher, Rotisserie spin-up
   rotary gun). The controls strip only shows the missile hint when the set has the Smoke
   Signal.
+- 2026-10-29: Owner wants new maps and better graphics in the plan; both are now explicit
+  Phase 2 items (the graphics pass goes with the Xbox performance pass).
