@@ -506,7 +506,7 @@ export class Game {
     this.bolts.updateVisuals(alpha);
     this.swarms.updateVisuals(alpha);
     this.pickups.updateVisuals(this.time);
-    this.beacons?.update(dt, this.time, this.pickups.pads);
+    this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
   }
 

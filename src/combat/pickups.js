@@ -21,7 +21,9 @@ export const PICKUP_SPOTS = [
   { type: 'grenades', count: 2, pos: [-25, 0, -19.5], respawn: 20 },
 ];
 
-const REACH = 1.4;
+// How close (m, across and up from the feet) a player must be to take a pickup.
+export const PICKUP_REACH = 1.4;
+export const PICKUP_REACH_Y = 1.6;
 const DROP_LIFETIME = 25;
 // At most this many dropped guns of one type lie around at once (the oldest goes first).
 const DROP_POOL = 4;
@@ -154,7 +156,7 @@ export class Pickups {
       if (!item.active) continue;
       const dx = item.pos.x - p.center.x;
       const dz = item.pos.z - p.center.z;
-      if (dx * dx + dz * dz > REACH * REACH || Math.abs(item.pos.y - feet) > 1.6) continue;
+      if (dx * dx + dz * dz > PICKUP_REACH * PICKUP_REACH || Math.abs(item.pos.y - feet) > PICKUP_REACH_Y) continue;
       if (item.type === 'grenades') {
         if (p.grenades >= GRENADE.max) continue;
         p.grenades = Math.min(GRENADE.max, p.grenades + item.count);

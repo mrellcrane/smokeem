@@ -128,10 +128,15 @@ function summit(B, M, zones) {
   // Solid core under the deck for cover.
   B.boxMinMax(M.metal, [-1.2, 0, -1.2], [1.2, deckBottom, 1.2]);
   const glow = { collide: false, castShadow: false };
-  B.boxMinMax(M.glowCyan, [-0.5, 1.0, -1.24], [0.5, 4.5, -1.2], { ...glow, halo: [0, 0, -1] });
-  B.boxMinMax(M.glowCyan, [-0.5, 1.0, 1.2], [0.5, 4.5, 1.24], { ...glow, halo: [0, 0, 1] });
-  B.boxMinMax(M.glowCyan, [-1.24, 1.0, -0.5], [-1.2, 4.5, 0.5], { ...glow, halo: [-1, 0, 0] });
-  B.boxMinMax(M.glowCyan, [1.2, 1.0, -0.5], [1.24, 4.5, 0.5], { ...glow, halo: [1, 0, 0] });
+  // A pair of glow strips near the edges of each face (the middle stays dark, so the field
+  // pad's cyan beacon in front of the south face stands out against it).
+  for (const s of [-1, 1]) {
+    for (const [a0, a1] of [[-1.0, -0.75], [0.75, 1.0]]) {
+      const f0 = s > 0 ? 1.2 : -1.24;
+      B.boxMinMax(M.glowCyan, [a0, 1.0, f0], [a1, 4.5, f0 + 0.04], { ...glow, halo: [0, 0, s] });
+      B.boxMinMax(M.glowCyan, [f0, 1.0, a0], [f0 + 0.04, 4.5, a1], { ...glow, halo: [s, 0, 0] });
+    }
+  }
 
   // Rails: full on east and west, corners only on north and south so nets can arrive.
   const railTop = top + 0.9;

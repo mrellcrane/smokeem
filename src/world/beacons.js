@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { viewUniforms } from '../fx/viewUniforms.js';
+import { PICKUP_REACH, PICKUP_REACH_Y } from '../combat/pickups.js';
 
 // Light columns over the pickup pads, respawn rings on them and soft halos around glowing
 // strips, all in one mesh (one draw call) with no textures: every falloff is worked out in the
@@ -9,12 +10,14 @@ import { viewUniforms } from '../fx/viewUniforms.js';
 // - Columns: while a pad's pickup is up, a column rises from it in its rim's color: tall for
 //   the power gun (it clears the walls), mid-height for field guns, short for grenades. It
 //   turns about the vertical to face the camera, fades out when you stand next to it, and
-//   fades away when the pickup is taken.
+//   fades away when the pickup is taken. While someone stands on the pad, its lower part fades
+//   so their armor color still reads through it.
 // - Rings: while a pad is empty, a ring on it fills like a clock until the pickup is back;
 //   then it pulses.
 // - Halos: a rounded-rectangle glow just in front of every strip built with a `halo` face
 //   (StaticBuilder.box). They sit at the end of the index buffer, so the low preset leaves
 //   them out with a draw range.
+// Rings and halos face one way (up, or out of their strip), so they never show from behind.
 
 // Column height and width (m) per pad kind; colors match the pad rims (arena.js pickupPads).
 const COLUMN_H = { power: 9, field: 4, grenades: 2 };
@@ -33,8 +36,10 @@ const RING_LIFT = 0.02;
 const HALO_R = 0.2;
 const HALO_PEAK = 0.4;
 const HALO_LIFT = 0.012;
-// How fast a column fades in or out (per second).
+// How fast a column fades in or out (per second), and up to what height (m) it fades while the
+// pad is occupied (above a player's head, so the power column still shows over the walls).
 const FADE_RATE = 3;
+const OCCUPIED_FADE = [1.9, 2.6];
 // Columns are never thinner than this on screen (px).
 const MIN_PX = 5;
 
@@ -44,7 +49,7 @@ const KIND_HALO = 2;
 
 const vertexShader = /* glsl */ `
   uniform float uViewportH;
-  uniform vec2 uPad[PADS];
+  uniform vec3 uPad[PADS];
   // Columns and rings: the pad's base (position), corner (x across, y up; or ring x/z in -1..1)
   // and size (half width, height; or ring radius). Halos: the vertex itself, its offset from the
   // strip's center along the face (m), and the strip's half size.
@@ -59,12 +64,14 @@ const vertexShader = /* glsl */ `
   varying float vKind;
   varying float vReady;
   varying float vProgress;
+  varying float vOccupied;
   varying float vHeight;
   void main() {
     vec3 p = position;
-    vec2 pad = aInfo.x < 1.5 ? uPad[int(aInfo.y + 0.5)] : vec2(1.0);
+    vec3 pad = aInfo.x < 1.5 ? uPad[int(aInfo.y + 0.5)] : vec3(1.0, 2.0, 0.0);
     vReady = pad.x;
     vProgress = pad.y;
+    vOccupied = pad.z;
     if (aInfo.x < 0.5) {
       vec2 toCam = cameraPosition.xz - position.xz;
       float d = length(toCam);
@@ -95,15 +102,18 @@ const fragmentShader = /* glsl */ `
   varying float vKind;
   varying float vReady;
   varying float vProgress;
+  varying float vOccupied;
   varying float vHeight;
   void main() {
     float a;
     float cover = 0.0;
     if (vKind < 0.5) {
-      // Soft across, fading out toward the top, with faint bands rising through it.
-      float across = 1.0 - abs(vUv.x);
+      // Soft across, fading out toward the top, with faint bands rising through it. (Clamped:
+      // with MSAA, edge samples can read slightly past the quad.)
+      float across = max(1.0 - abs(vUv.x), 0.0);
       float bands = 0.85 + 0.15 * sin(vHeight * 3.0 - uTime * 2.5);
       a = across * sqrt(across) * (1.0 - vUv.y * vUv.y) * bands * ${COLUMN_PEAK} * vReady;
+      a *= 1.0 - vOccupied * (1.0 - smoothstep(${OCCUPIED_FADE[0].toFixed(1)}, ${OCCUPIED_FADE[1].toFixed(1)}, vHeight));
       cover = ${COLUMN_COVER};
     } else if (vKind < 1.5) {
       float r = length(vUv);
@@ -141,7 +151,9 @@ export class Beacons {
     const color = [];
     const info = [];
     const index = [];
-    const quad = (verts, kind, pad, c) => {
+    // Corners in order (-1, -1), (1, -1), (-1, 1), (1, 1) along two axes a and b: the quad faces
+    // a x b, or the other way when flipped.
+    const quad = (verts, kind, pad, c, flip = false) => {
       const v0 = pos.length / 3;
       _c.set(c);
       for (const [p, uv, s] of verts) {
@@ -151,22 +163,25 @@ export class Beacons {
         color.push(_c.r, _c.g, _c.b);
         info.push(kind, pad);
       }
-      index.push(v0, v0 + 1, v0 + 2, v0 + 1, v0 + 3, v0 + 2);
+      if (flip) index.push(v0, v0 + 2, v0 + 1, v0 + 1, v0 + 2, v0 + 3);
+      else index.push(v0, v0 + 1, v0 + 2, v0 + 1, v0 + 3, v0 + 2);
     };
 
     pads.forEach((pad, i) => {
       const base = [pad.pos.x, pad.pos.y + PAD_TOP, pad.pos.z];
       const c = tint[pad.kind];
+      // (The vertex shader turns a column's across axis so it always faces the camera.)
       const cs = [COLUMN_W[pad.kind] / 2, COLUMN_H[pad.kind]];
       quad([[base, [-1, 0], cs], [base, [1, 0], cs], [base, [-1, 1], cs], [base, [1, 1], cs]], KIND_COLUMN, i, c);
+      // Across x and z: x cross z points down, so flipped to face up.
       const ring = [base[0], base[1] + RING_LIFT, base[2]];
       const rs = [RING_R, 0];
-      quad([[ring, [-1, -1], rs], [ring, [1, -1], rs], [ring, [-1, 1], rs], [ring, [1, 1], rs]], KIND_RING, i, c);
+      quad([[ring, [-1, -1], rs], [ring, [1, -1], rs], [ring, [-1, 1], rs], [ring, [1, 1], rs]], KIND_RING, i, c, true);
     });
     this.padIndexCount = index.length;
 
     for (const h of halos) {
-      // The face's axis (k) and the two along it (i, j).
+      // The face's axis (k) and the two along it (i, j, so i cross j is +k).
       const k = h.normal.findIndex((n) => n !== 0);
       const i = (k + 1) % 3;
       const j = (k + 2) % 3;
@@ -182,7 +197,7 @@ export class Beacons {
         p[j] += lv;
         verts.push([p, [lu, lv], half]);
       }
-      quad(verts, KIND_HALO, 0, h.color);
+      quad(verts, KIND_HALO, 0, h.color, h.normal[k] < 0);
     }
 
     const geom = new THREE.BufferGeometry();
@@ -197,8 +212,8 @@ export class Beacons {
       ...viewUniforms,
       uTime: { value: 0 },
       // Per pad: x how far the column is faded in, y respawn progress (0 to 1, or 2 when it's
-      // up: a clear margin, since interpolated values wobble).
-      uPad: { value: Array.from({ length: Math.max(1, pads.length) }, () => new THREE.Vector2(1, 2)) },
+      // up: a clear margin, since interpolated values wobble), z how far its occupied fade is in.
+      uPad: { value: Array.from({ length: Math.max(1, pads.length) }, () => new THREE.Vector3(1, 2, 0)) },
     };
     this.material = new THREE.ShaderMaterial({
       name: 'beacons',
@@ -211,12 +226,14 @@ export class Beacons {
       blendDst: THREE.OneMinusSrcAlphaFactor,
       transparent: true,
       depthWrite: false,
-      side: THREE.DoubleSide,
     });
     this.mesh = new THREE.Mesh(geom, this.material);
     this.mesh.name = 'beacons';
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 4;
+    // Before smoke (4), with its own order: three would otherwise sort the two by their bounding
+    // spheres, which flips with the camera's pitch. Halos and rings sit on surfaces, so smoke
+    // over them is always in front.
+    this.mesh.renderOrder = 3;
     this.mesh.visible = index.length > 0;
   }
 
@@ -225,8 +242,8 @@ export class Beacons {
     this.mesh.geometry.setDrawRange(0, on ? Infinity : this.padIndexCount);
   }
 
-  // pads: Pickups.pads (active, timer, respawn).
-  update(dt, time, pads) {
+  // pads: Pickups.pads (active, timer, respawn, pos). players: everyone in the match.
+  update(dt, time, pads, players) {
     this.uniforms.uTime.value = time;
     const u = this.uniforms.uPad.value;
     for (let i = 0; i < pads.length; i++) {
@@ -234,6 +251,18 @@ export class Beacons {
       const v = u[i];
       v.x = Math.min(1, Math.max(0, v.x + (pad.active ? dt : -dt) * FADE_RATE));
       v.y = pad.active ? 2 : Math.min(1, Math.max(0, 1 - pad.timer / pad.respawn));
+      // Someone in pickup reach of the pad.
+      let occupied = false;
+      for (const p of players) {
+        if (!p.alive) continue;
+        const dx = p.center.x - pad.pos.x;
+        const dz = p.center.z - pad.pos.z;
+        if (dx * dx + dz * dz <= PICKUP_REACH * PICKUP_REACH && Math.abs(p.feetY() - pad.pos.y) <= PICKUP_REACH_Y) {
+          occupied = true;
+          break;
+        }
+      }
+      v.z = Math.min(1, Math.max(0, v.z + (occupied ? dt : -dt) * FADE_RATE));
     }
   }
 
