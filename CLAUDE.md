@@ -307,7 +307,12 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   velocity along the facing and to the right, air and crouch state, event counters for landings,
   double jumps and shots (`fire()` bumps `pose.shots`), time since the last shot and how long the
   aim pose holds after it, plus `sliding`, a `wallKicks` counter and `kickSide` for the body to
-  animate later). The hips turn toward the move direction while the
+  animate later, `reload` progress, and `throws`, `melees` and `hurts` counters with the last hit's
+  `hurtFwd` / `hurtSide`). On top of the holds (`RELOAD`, `THROW`, `MELEE_SWING`, `FLINCH`,
+  `CLIMB` in `character.js`): a reload rolls the gun over and takes the support hand to the belt,
+  a throw winds the free hand up over the shoulder and slings it, a melee swings the gun butt
+  across with the torso, a hit jolts the torso and head away from it, and climbing goes hand over
+  hand with the knees stepping and the gun slung on the back (`SLING_POS` / `SLING_Q`). The hips turn toward the move direction while the
   spine (Euler order YXZ) turns back and carries part of the aim pitch (the head and the gun
   bone take the rest), so the torso and gun stay on the aim. The hip height comes from the leg
   angles (`legDrop`), so feet stay on the floor; crouching is a deep squat (`CROUCH`) so the
@@ -328,7 +333,8 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   `CharacterModel.reset()` clears carried state on every respawn (players and dummies), puts
   every body bone back at rest after a ragdoll, and
   `endSprint()` snaps the gun out of the sprint hold the tick a shot fires.
-  `smokeem.poseViewer({ distance, time, turn })` (debug) runs bodies through every state.
+  `smokeem.poseViewer({ distance, time, turn, only })` (debug) runs bodies through every state
+  and action (`only`: state names).
 - `renderer.compile` skips hidden objects, so warm-up forces every effect, shield shell and
   muzzle flash visible for one compile + render. New spawnable things must hook into
   `Game.warmUp()` the same way.

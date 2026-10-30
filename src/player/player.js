@@ -184,6 +184,10 @@ export class Player {
       x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 0, fwd: 0, side: 0, velY: 0,
       grounded: true, crouched: false, climbing: false, sprinting: false, aiming: false, sliding: false,
       lands: 0, landSpeed: 0, airJumps: 0, wallKicks: 0, kickSide: 1, shots: 0, fireT: 99, fireHold: 0.6, kick: 1,
+      // Reload progress (0 when not reloading), and counters for throws, melee swings and hits
+      // taken (with where the last hit came from: hurtFwd 1 from the front, hurtSide 1 from the
+      // right).
+      reload: 0, reloadShell: false, throws: 0, melees: 0, hurts: 0, hurtFwd: 1, hurtSide: 0,
     };
     this.guiding = null;
     this.pickupPrompt = null;
@@ -562,6 +566,21 @@ export class Player {
     // Where it came from, for the damage arrow (and so bots turn to face it). Bug stings come
     // from your own head, so they don't point anywhere (or give away the thrower).
     const src = info.cause === 'explosion' ? info.point : info.attacker?.center;
+    // The body flinches away from the hit (fire and stings just jolt it back).
+    this.pose.hurts++;
+    this.pose.hurtFwd = 1;
+    this.pose.hurtSide = 0;
+    if (src && info.cause !== 'fire') {
+      const dx = src.x - this.center.x;
+      const dz = src.z - this.center.z;
+      const len = Math.hypot(dx, dz);
+      if (len > 0.01) {
+        const sy = Math.sin(this.yaw);
+        const cy = Math.cos(this.yaw);
+        this.pose.hurtFwd = (-dx * sy - dz * cy) / len;
+        this.pose.hurtSide = (dx * cy - dz * sy) / len;
+      }
+    }
     if (src && info.attacker !== this && info.cause !== 'swarm') {
       this.feedback.hurtFromX = src.x;
       this.feedback.hurtFromZ = src.z;
@@ -1420,6 +1439,8 @@ export class Player {
       // Slow guns stay at the shoulder until the next shot.
       s.fireHold = Math.max(0.6, 1.25 / w.def.fireRate);
       s.kick = GUNS[w.def.id].view.kick;
+      s.reload = w.reloadProgress;
+      s.reloadShell = !!w.def.reloadPerShell;
       this.model.update(dt, s);
     }
     this.viewmodel?.update(dt, this, this.lastLookX, this.lastLookY);

@@ -924,3 +924,8 @@ Need answers before the step that uses them gets built.
   fingers and thumbs wrapped on every grip, arms that reach off screen, mags that drop out while
   the support hand fetches a fresh one, the pump racking under the hand, a springier sway, a lean
   when strafing and a breath when still.
+- 2026-10-30: Character animation (overnight step 2). Other players now visibly reload (gun rolled
+  over, hand to the belt), wind up and sling grenades, swing the gun butt in a melee, flinch away
+  from hits, climb hand over hand with the gun slung on their back, and buckle at the knees when
+  shot down. Movements are exaggerated a little so they read across the arena; flinches stay
+  inside the headshot band.

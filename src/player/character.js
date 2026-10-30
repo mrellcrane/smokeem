@@ -219,6 +219,19 @@ const HEAD = { share: 0.5, down: -0.2, up: 0.3, pivot: 0.08, line: 0.32, below: 
 const BREATH = { amount: 0.012, rate: 1.9 };
 // The hips turn toward where the body is going (at most this far off the aim) while the spine
 // turns back, so the torso and gun stay on the aim.
+// Actions on top of the holds: a reload takes the support hand off the gun and the gun tips to
+// it, a grenade is wound up over the shoulder and slung, a melee swings the gun butt across, a
+// hit jolts the torso away from where it came from (radians, small enough to keep the helmet in
+// the head band), and climbing goes hand over hand with the knees stepping up.
+const RELOAD = { roll: 0.7, tip: -0.35, hand: [-0.08, -0.3, 0.16] };
+const THROW = { time: 0.55, wind: [-0.02, 0.34, 0.16], sling: [0.08, 0.08, -0.56], dip: 0.1 };
+const MELEE_SWING = { time: 0.4, twist: 0.4, thrust: 0.32, turn: 0.95 };
+const FLINCH = { time: 0.35, back: 0.11, side: 0.09, head: 0.12 };
+const CLIMB = { rate: 2.6, reach: 0.18, knee: 0.55 };
+// Climbing, the gun goes on the back, muzzle up over the shoulder (spine space).
+const SLING_POS = new THREE.Vector3(0.06, 0.12, 0.22);
+const SLING_Q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0.6));
+
 const HIP_TURN = 70 * (Math.PI / 180);
 const LEAN_MAX = 8 * (Math.PI / 180);
 // How far out the boots' outer edges are (meters).
@@ -587,7 +600,7 @@ export class CharacterModel {
     this.phase = 0;
     // Each body breathes on its own phase, so a crowd doesn't breathe in step.
     this.breath = Math.random() * Math.PI * 2;
-    this.lands = this.airJumps = this.shots = 0;
+    this.lands = this.airJumps = this.shots = this.throws = this.melees = this.hurts = 0;
     this.reset();
   }
 
@@ -600,6 +613,9 @@ export class CharacterModel {
     this.prevSide = this.sideAcc = 0;
     this.landT = this.kickT = this.djT = 9;
     this.landHard = this.kickAmount = 0;
+    this.throwT = this.meleeT = this.hurtT = 9;
+    this.hurtFwd = this.hurtSide = 0;
+    this.reloadW = this.climbPhase = 0;
     this.aimW = this.sprintW = 0;
     this.gunTip = 0;
     this.shieldFlash = 0;
@@ -649,7 +665,10 @@ export class CharacterModel {
     const t = c.t;
     const fl = c.air ? 1 : Math.max(0, 1 - t * 1.5);
     const w = (f, ph) => Math.sin(t * f + ph + c.seed) * fl;
+    // Shot down (not blown off its feet), the knees buckle first and the body sinks as it tips.
+    const buckle = c.air ? 0 : Math.min(1, t * 5) * Math.max(0, 1 - c.tip / 1.5);
     B.hips.position.copy(this.restPos[BODY_BONES.indexOf('hips')]);
+    B.hips.position.y -= 0.22 * buckle;
     B.hips.rotation.set(0.15 * k + 0.2 * w(9, 0), 0, 0.1 * w(7, 1));
     B.spine.rotation.set(c.front * 0.35 * k + 0.25 * w(8, 2), 0.25 * k * c.side, 0.15 * w(6, 3));
     B.head.rotation.set(c.front * 0.5 * k + 0.3 * w(11, 4), 0.5 * k * c.side, 0.25 * k * c.side);
@@ -663,10 +682,10 @@ export class CharacterModel {
       B[sd < 0 ? 'handL' : 'handR'].quaternion.identity();
     }
     // Legs fold at the knees, one more than the other.
-    B.legUL.rotation.set(0.3 * k + 0.5 * w(9, 6), 0, -0.12 * k);
-    B.legUR.rotation.set(0.6 * k + 0.5 * w(9, 7), 0, 0.12 * k);
-    B.legLL.rotation.set(-0.5 * k - 0.4 * Math.abs(w(10, 8)), 0, 0);
-    B.legLR.rotation.set(-1.0 * k - 0.4 * Math.abs(w(10, 9)), 0, 0);
+    B.legUL.rotation.set(0.3 * k + 0.5 * w(9, 6) + 0.6 * buckle, 0, -0.12 * k);
+    B.legUR.rotation.set(0.6 * k + 0.5 * w(9, 7) + 0.6 * buckle, 0, 0.12 * k);
+    B.legLL.rotation.set(-0.5 * k - 0.4 * Math.abs(w(10, 8)) - 1.1 * buckle, 0, 0);
+    B.legLR.rotation.set(-1.0 * k - 0.4 * Math.abs(w(10, 9)) - 1.1 * buckle, 0, 0);
     B.footL.rotation.set(0.4 * k, 0, 0);
     B.footR.rotation.set(0.4 * k, 0, 0);
     if (this.shieldFlash > 0) {
@@ -743,7 +762,27 @@ export class CharacterModel {
       this.lands = s.lands ?? 0;
       this.airJumps = s.airJumps ?? 0;
       this.shots = s.shots ?? 0;
+      this.throws = s.throws ?? 0;
+      this.melees = s.melees ?? 0;
+      this.hurts = s.hurts ?? 0;
     }
+    if ((s.throws ?? 0) !== this.throws) {
+      this.throws = s.throws;
+      this.throwT = 0;
+    }
+    if ((s.melees ?? 0) !== this.melees) {
+      this.melees = s.melees;
+      this.meleeT = 0;
+    }
+    if ((s.hurts ?? 0) !== this.hurts) {
+      this.hurts = s.hurts;
+      this.hurtT = 0;
+      this.hurtFwd = s.hurtFwd ?? 1;
+      this.hurtSide = s.hurtSide ?? 0;
+    }
+    this.throwT += dt;
+    this.meleeT += dt;
+    this.hurtT += dt;
     if ((s.lands ?? 0) !== this.lands) {
       this.lands = s.lands;
       this.landT = 0;
@@ -803,10 +842,14 @@ export class CharacterModel {
     legSolve(drop, sit, _leg);
     // The hips follow the stride's leg reach down a little: planting the feet fully would bob the
     // head through the head line at a run.
-    const swL = sw + tuck * 1.2 + dj * 0.9;
-    const swR = -sw + tuck * 0.8 + dj * 0.2;
-    const kL = -Math.max(0, -sn) * 1.1 * run - tuck * 1.6 - dj * 0.3;
-    const kR = -Math.max(0, sn) * 1.1 * run - tuck * 1.2 - dj * 1.3;
+    // Climbing, the knees step up in turn as the hands go over each other.
+    this.climbPhase += dt * CLIMB.rate * Math.min(1.5, Math.abs(velY) + speed * 0.5) * this.climb;
+    const stepL = this.climb * CLIMB.knee * (0.5 + 0.5 * Math.sin(this.climbPhase));
+    const stepR = this.climb * CLIMB.knee * (0.5 - 0.5 * Math.sin(this.climbPhase));
+    const swL = sw + tuck * 1.2 + dj * 0.9 + stepL;
+    const swR = -sw + tuck * 0.8 + dj * 0.2 + stepR;
+    const kL = -Math.max(0, -sn) * 1.1 * run - tuck * 1.6 - dj * 0.3 - stepL * 1.6;
+    const kR = -Math.max(0, sn) * 1.1 * run - tuck * 1.2 - dj * 1.3 - stepR * 1.6;
     const legReach = Math.max(legDrop(swL + _leg.thigh, kL + _leg.knee), legDrop(swR + _leg.thigh, kR + _leg.knee));
     const strideDip = Math.min(STRIDE_DIP_MAX, Math.max(0, legDrop(_leg.thigh, _leg.knee) - legReach) * STRIDE_DIP) * ground;
     // The hips sit back along the way the legs face.
@@ -831,7 +874,17 @@ export class CharacterModel {
     this.breath += dt * BREATH.rate;
     const breathe = Math.sin(this.breath) * BREATH.amount * (1 - run) * ground;
     const bend = PITCH.spineMax * Math.tanh((s.pitch * PITCH.spine) / PITCH.spineMax);
-    B.spine.rotation.set(bend - this.crouch * CROUCH.lean + kick + breathe, -this.hipYaw, 0);
+    const bump = (t, len) => (t < len ? Math.sin((Math.PI * t) / len) * (1 - t / len * 0.5) : 0);
+    const flinch = bump(this.hurtT, FLINCH.time);
+    const ml = this.meleeT / MELEE_SWING.time;
+    // The swing: wind up turned away (first third), whip across, settle.
+    const swing = ml < 1 ? (ml < 0.33 ? Math.sin((ml / 0.33) * Math.PI * 0.5) : Math.cos(((ml - 0.33) / 0.67) * Math.PI)) : 0;
+    const strike = ml < 1 && ml > 0.25 ? Math.sin(((ml - 0.25) / 0.75) * Math.PI) : 0;
+    B.spine.rotation.set(
+      bend - this.crouch * CROUCH.lean + kick + breathe - flinch * FLINCH.back * this.hurtFwd,
+      -this.hipYaw + swing * MELEE_SWING.twist,
+      flinch * FLINCH.side * this.hurtSide,
+    );
     // The bladed stance: the torso turns about its own (bent) axis, so the bend stays on the aim.
     const twist = TWIST * this.twoHand * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb);
     B.spine.quaternion.multiply(_qe.setFromAxisAngle(Y_AXIS, twist));
@@ -841,7 +894,7 @@ export class CharacterModel {
     // of the neck, then moved up or down to keep the helmet in the head band: a helmet too high
     // sinks the hips (the knees bend), one too low raises them out of a crouch or, standing,
     // lifts on the neck.
-    const tilt = clamp(s.pitch * HEAD.share, HEAD.down, HEAD.up);
+    const tilt = clamp(s.pitch * HEAD.share - flinch * FLINCH.head * this.hurtFwd, HEAD.down, HEAD.up);
     _qa.copy(B.root.quaternion).multiply(B.hips.quaternion).multiply(B.spine.quaternion);
     _qb.copy(_qa).invert();
     const qh = B.head.quaternion.copy(_qb).multiply(_qc.setFromAxisAngle(X_AXIS, tilt));
@@ -893,20 +946,35 @@ export class CharacterModel {
     const S = GUN_POSE.sprint;
     const bone = this.rig.gunBones[this.weaponId];
     const rest = bone ? this.gunRest[this.weaponId] : this.noGunRest;
+    // A reload tips the gun over toward the support hand (shell by shell it stays tipped).
+    const reloading = (s.reload ?? 0) > 0;
+    this.reloadW += ((reloading ? 1 : 0) - this.reloadW) * damp(10, dt);
+    const rw = this.reloadW * (1 - k);
+    const handOff = reloading ? (s.reloadShell ? Math.sin(Math.PI * s.reload) * 0.6 : Math.sin(Math.PI * s.reload)) * (1 - k) : 0;
+    const tw = this.throwT / THROW.time;
+    const throwing = tw < 1 ? Math.sin(Math.PI * tw) * (1 - k) : 0;
     _gp.set(
       rest.x + A.pos[0] * a + S.pos[0] * sp,
-      rest.y + A.pos[1] * a + S.pos[1] * sp,
-      rest.z + this.holdZ + A.pos[2] * a + S.pos[2] * sp + kick * 0.6,
+      rest.y + A.pos[1] * a + S.pos[1] * sp - THROW.dip * throwing - 0.03 * rw,
+      rest.z + this.holdZ + A.pos[2] * a + S.pos[2] * sp + kick * 0.6 - MELEE_SWING.thrust * strike,
     );
     // The gun tips the rest of the way to its share of the aim on top of the spine's bend (and
     // stays level through a crouch's forward lean and the breathing); out of a sprint endSprint()
     // uses the same tip.
     const gunPitch = s.pitch * (s.pitch > 0 ? PITCH.gunUp : PITCH.gunDown + (PITCH.crouchDown - PITCH.gunDown) * this.crouch);
     this.gunTip = (gunPitch - bend) * (1 - k) + this.crouch * CROUCH.lean * 0.9 - breathe;
-    _e.set(A.rot[0] * a + S.rot[0] * sp + kick * 0.5 + this.gunTip, A.rot[1] * a + S.rot[1] * sp, A.rot[2] * a + S.rot[2] * sp);
+    _e.set(
+      A.rot[0] * a + S.rot[0] * sp + kick * 0.5 + this.gunTip + RELOAD.tip * rw,
+      A.rot[1] * a + S.rot[1] * sp + MELEE_SWING.turn * (swing - strike * 0.6),
+      A.rot[2] * a + S.rot[2] * sp + RELOAD.roll * rw,
+    );
     // (Undoing the stance's turn, in the spine's frame.)
     _gq.setFromEuler(_e).premultiply(this.twistInv);
     _gp.applyQuaternion(this.twistInv);
+    if (k > 0.001) {
+      _gp.lerp(SLING_POS, k);
+      _gq.slerp(SLING_Q, k);
+    }
     if (bone) {
       B[bone].position.copy(_gp);
       B[bone].quaternion.copy(_gq);
@@ -918,7 +986,27 @@ export class CharacterModel {
       const gr = sd === 'R' ? this.grips.right : this.grips.left;
       _t.copy(gr.wrist).applyQuaternion(_gq).add(_gp);
       _sh.copy(arm.shoulder);
-      if (gr.slideMax > 0) {
+      // The support hand leaves the gun: down to the belt for a reload, over the shoulder and out
+      // for a throw (a free hand, so it doesn't slide along the gun).
+      let free = 0;
+      if (sd === 'L') {
+        if (handOff > 0) {
+          _t.x += RELOAD.hand[0] * handOff;
+          _t.y += RELOAD.hand[1] * handOff;
+          _t.z += RELOAD.hand[2] * handOff;
+          free = handOff;
+        }
+        if (throwing > 0) {
+          const W = THROW.wind;
+          const L = THROW.sling;
+          // Wound up behind the head for the first 40%, then slung forward.
+          const u = clamp((tw - 0.4) / 0.35, 0, 1);
+          _o.set(W[0] + (L[0] - W[0]) * u, W[1] + (L[1] - W[1]) * u, W[2] + (L[2] - W[2]) * u).add(_sh);
+          _t.lerp(_o, throwing);
+          free = Math.max(free, throwing);
+        }
+      }
+      if (gr.slideMax > 0 && free < 0.05) {
         // (Short of full reach, so the elbow keeps a bend.)
         const reach = (arm.l1 + arm.l2) * SUPPORT_REACH;
         _sh.addScaledVector(PROTRACT, clamp((_t.distanceTo(_sh) - reach) / 0.15, 0, 1) * (1 - k));
@@ -940,7 +1028,9 @@ export class CharacterModel {
       const ql = B[arm.lower].quaternion;
       const qw = B[arm.hand].quaternion;
       if (k > 0.001) {
-        _t.copy(_sh).addScaledVector(arm.upDir, (arm.l1 + arm.l2) * 0.97);
+        // Hand over hand: each arm reaches full height in turn.
+        const reachUp = 0.97 - CLIMB.reach * (0.5 + 0.5 * Math.sin(this.climbPhase + (sd === 'L' ? 0 : Math.PI)));
+        _t.copy(_sh).addScaledVector(arm.upDir, (arm.l1 + arm.l2) * reachUp);
         solveArm(arm, _sh, _t, arm.upPole, _qd, _qe);
         qu.slerpQuaternions(_qa, _qd, k);
         ql.slerpQuaternions(_qb, _qe, k);
