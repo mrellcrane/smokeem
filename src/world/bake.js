@@ -86,6 +86,15 @@ class ArenaBake {
     return t < 0 ? 1 : this.light[t];
   }
 
+  // The glow pools' light on the floor at a world point (linear RGB, about 0 to 2), into out (a
+  // THREE.Color): from the packed texture, which keeps it.
+  glowAt(x, z, out) {
+    const t = this.texel(x, z);
+    if (t < 0) return out.setRGB(0, 0, 0);
+    const d = this.texture.image.data;
+    return out.setRGB(d[t * 4] / 127.5, d[t * 4 + 1] / 127.5, d[t * 4 + 2] / 127.5);
+  }
+
   // Floor height (the floor boxes' top) at a world point, 0 outside the grid.
   groundAt(x, z) {
     const t = this.texel(x, z);

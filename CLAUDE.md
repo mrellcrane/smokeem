@@ -416,7 +416,13 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   `aGlow` (parts that glow on their own), `aShine` (how glossy: `SHINES` per Spartan region,
   `shine` per cast palette entry, `GUN_SHINES` per gun finish; the highlight's strength and a
   faint sky-and-ground reflection, strongest on the visor) and `aTeam` (the body's color, for a
-  distance-scaled rim light). Any geometry drawn with it needs all three attributes. `smokeem.lineup({ distance })`
+  distance-scaled rim light). Any geometry drawn with it needs all three attributes. Each body
+  has its own instance of it (one program) carrying where it stands: `CharacterModel.sampleLight`
+  reads the bake at the feet every frame (`lightAt`, darker under a deck; `glowAt`, the glow
+  pools' color) into `uLocal`, which scales the sky's fill and reflections, and `uBounce`, a
+  colored fill strongest on the underside (three only re-uploads a built-in material's uniforms
+  when the material changes between draws, hence one per body). The first-person gun's lights
+  follow too: its fill by the same local light, its sun by a ray from the eye toward the sun. `smokeem.lineup({ distance })`
   (debug) stands every body color in a row for readability checks.
 - The Spartan is bulked up at decode (`BONE_BULK` / `REGION_BULK` in `character.js`): armor
   pushed out along the averaged normals by bone and region, most on the chest and pauldrons,
