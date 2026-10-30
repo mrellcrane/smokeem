@@ -303,6 +303,12 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Cap render resolution on high-DPI screens: use `Math.min(window.devicePixelRatio, cap)` for the renderer pixel ratio. On the medium quality preset the cap is about 1.5. Retina Macs report 2, which is roughly 1.8x the pixels of 1.5.
 - Pre-compile all shaders during the loading screen so nothing compiles mid-game. Warm up every material, lighting and shadow combination that can appear, including things spawned later (muzzle flashes, explosions, pickups), by rendering them once before gameplay starts.
 - Quality presets (low / medium / high) live in `src/settings.js`: pixel ratio cap, shadow map size, anti-aliasing, anisotropy.
+- Dynamic resolution (`render/dynres.js`, `game.dynres`, gfx switch `dynamicResolution`): when
+  frames average under about 51 fps for 0.6 s, the render scale (a multiple of the preset's
+  pixel ratio, down to 0.55) steps down 15%; after a hold of frames on time (4 s, doubling up to
+  32 s when a step up costs frames again) it steps back up 8%. Each change reallocates the
+  canvas, so it stays rare. The FPS counter shows the scale when it's under 100%, and the bench
+  reports it (`resScale`); turn it off there with `off=dynamicResolution` for fixed numbers.
 - The shadow map is rendered once per frame, not once per viewport (`shadowMap.autoUpdate = false`, set `needsUpdate` before the first view). The sun's shadow camera is fitted at load (`fitShadowCamera` in `game.js`: the smallest square around the arena over every roll about the sun's axis) so one map serves every view at the best texel density.
 - Static arena geometry is merged into one mesh per material to keep draw calls low. Add new static props through `StaticBuilder` so they get merged too. Glowing strips share one vertex-colored material: pass the `materials.glowCyan` / `glowOrange` / `ember` tints to `StaticBuilder` like materials. Give a strip `halo: [nx, ny, nz]` (its open face) to get a soft halo there (Medium and High only, `preset.halos`).
 - Baked arena light (`src/world/bake.js`): `StaticBuilder` records every visible solid and
