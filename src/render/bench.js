@@ -159,6 +159,8 @@ export async function runBench({ stage, hudRoot, uiRoot, fps, sfx }) {
     off: Object.keys(gfx).filter((k) => !gfx[k]),
     canvas: `${game.renderer.domElement.width}x${game.renderer.domElement.height}`,
     pixelRatio: game.renderer.getPixelRatio(),
+    // Dynamic resolution's scale at the end (1: never needed to drop; off with off=dynamicResolution).
+    resScale: +(game.dynres?.scale ?? 1).toFixed(2),
     frames: frameMs.length,
     fps: +(1000 / summary(frameMs).avg).toFixed(1),
     frameMs: summary(frameMs),

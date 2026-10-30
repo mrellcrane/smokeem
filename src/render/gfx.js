@@ -39,4 +39,6 @@ export const gfx = {
   flare: true,
   // God rays from the sun through gaps (high preset, outdoor maps; render/bloom.js).
   godRays: true,
+  // Dynamic resolution: the render scale drops when frames run long (render/dynres.js).
+  dynamicResolution: true,
 };

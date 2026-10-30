@@ -4,6 +4,7 @@ import { PHYSICS_DT, MAX_STEPS_PER_FRAME, VIEWMODEL } from './config.js';
 import { DEG } from './util/math.js';
 import { qualityPreset, onSettingsChange } from './settings.js';
 import { createRenderer, pixelRatioFor } from './render/renderer.js';
+import { DynamicResolution } from './render/dynres.js';
 import { viewportRects } from './render/splitscreen.js';
 import { warmUp } from './render/warmup.js';
 import { gfx } from './render/gfx.js';
@@ -145,6 +146,8 @@ export class Game {
     const preset = qualityPreset();
     this.renderer = createRenderer(this.stage, preset);
     this.renderer.autoClear = false;
+    // The render scale steps down when frames run long (render/dynres.js).
+    this.dynres = new DynamicResolution(this.renderer, pixelRatioFor(preset));
     // Count the shared shadow pass's draw calls (it only runs once a frame, inside view 1).
     const shadowMap = this.renderer.shadowMap;
     const renderShadows = shadowMap.render.bind(shadowMap);
@@ -420,7 +423,7 @@ export class Game {
   onSettings(patch) {
     if ('quality' in patch) {
       const preset = qualityPreset();
-      this.renderer.setPixelRatio(pixelRatioFor(preset));
+      this.dynres.setBase(pixelRatioFor(preset));
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
       if (this.sun.shadow.map) {
@@ -717,6 +720,8 @@ export class Game {
       }
       if (steps === MAX_STEPS_PER_FRAME) this.acc = 0;
       for (let i = 0; i < this.humans.length; i++) this.inputs[i].feel?.(this.humans[i]);
+      this.dynres.update(dt);
+      this.stats.resScale = this.dynres.scale;
       this.infoPanel?.update(dt);
       this.updateVisuals(dt, this.acc / PHYSICS_DT);
       const t0 = performance.now();

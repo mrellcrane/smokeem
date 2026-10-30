@@ -1116,3 +1116,6 @@ Need answers before the step that uses them gets built.
   the roof's gap (it used to rise out toward the creek to a platform in mid air), the side doors
   are near the front inside the walls (the walls used to stick out past the front), and the
   smoker, the porch and the smokestack are where they belong (inside, in front, on the roof).
+- 2026-10-30: Dynamic resolution (feel research, Halo 3 gave up pixels for a steady frame rate):
+  when frames run long, the render scale steps down instead of the frame rate dropping, and
+  creeps back up when there's room. On by default; the FPS counter shows it.

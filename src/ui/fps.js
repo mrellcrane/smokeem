@@ -32,6 +32,8 @@ export class FpsCounter {
           let views = '';
           for (let i = 0; i < stats.views; i++) views += `${i ? '/' : ''}${stats.viewCalls[i]}`;
           this.text += ` (shadow ${stats.shadowCalls}, views ${views})`;
+          // (Dynamic resolution has stepped the render scale down.)
+          if (stats.resScale < 0.999) this.text += ` | res ${Math.round(stats.resScale * 100)}%`;
         }
         this.el.textContent = this.text;
       }
