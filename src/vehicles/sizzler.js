@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SIZZLER, MOVE } from '../config.js';
+import { SIZZLER, MOVE, BODY } from '../config.js';
 import { Vitals } from '../combat/vitals.js';
 import { dealDamage } from '../combat/damage.js';
 import { explode } from '../combat/explosions.js';
@@ -32,6 +32,20 @@ const SEAT_FEET = 0.12;
 const MUZZLES = [new THREE.Vector3(-0.3, 0.72, -1.24), new THREE.Vector3(0.3, 0.72, -1.24)];
 const NOSE = 1.1;
 const BALL_R = 0.48;
+// The ball floats this far over the ground (the ground ray carries the bike), so terrain's
+// creases and gentle slopes never catch it; it only meets walls, rocks and the like.
+const BALL_LIFT = 0.35;
+// Ground under the bike: how far it snaps down to stay on it, and the steepest slope it drives up
+// (as the ground normal's y: about 38 degrees). The probe is a ball cast down from PROBE_UP over
+// the ground (so it steps up anything lower than the floating ball's bottom and catches rocks
+// and edges a single ray would miss).
+const SNAP = 0.3;
+const PROBE_R = 0.4;
+const PROBE_UP = 0.75;
+const MAX_SLOPE_Y = Math.cos(38 * DEG);
+// Climbing a slope pulls it back by this share of gravity along the slope (and going down speeds
+// it up).
+const SLOPE_PULL = 0.35;
 const BOX = [0.48, 0.5, 1.08];
 const BOX_Y = 0.62;
 const GRAVITY = MOVE.gravity * 1.3;
@@ -105,6 +119,8 @@ const _a = new THREE.Vector3();
 const _one = new THREE.Vector3(1, 1, 1);
 const _down = new THREE.Vector3(0, -1, 0);
 const _hit = { point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null };
+const NO_ROT = { x: 0, y: 0, z: 0, w: 1 };
+const DOWN = { x: 0, y: -1, z: 0 };
 
 const wrap = (a) => {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -140,16 +156,20 @@ class Bike {
     this.spot = spot;
     this.vitals = new Vitals({ maxShield: 0, maxHealth: SIZZLER.health, shieldDelay: Infinity, shieldRechargeRate: 0, healthRegenRate: 0 });
     this.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
-    this.ball = world.createCollider(RAPIER.ColliderDesc.ball(BALL_R).setTranslation(0, BALL_R + 0.02, 0), this.body);
+    this.ball = world.createCollider(RAPIER.ColliderDesc.ball(BALL_R).setTranslation(0, BALL_LIFT + BALL_R, 0), this.body);
     this.box = world.createCollider(RAPIER.ColliderDesc.cuboid(...BOX).setTranslation(0, BOX_Y, 0), this.body);
     game.registerEntity(this.box, this);
     this.cc = world.createCharacterController(0.02);
     this.cc.setUp({ x: 0, y: 1, z: 0 });
     this.cc.setMaxSlopeClimbAngle(40 * DEG);
     this.cc.setMinSlopeSlideAngle(40 * DEG);
-    this.cc.enableAutostep(0.3, 0.3, false);
-    this.cc.enableSnapToGround(0.4);
     this.filter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
+    // The ground ray: level geometry only (not bodies, not this bike).
+    this.ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+    this.probe = new RAPIER.Ball(PROBE_R);
+    this.probeAt = { x: 0, y: 0, z: 0 };
+    this.notBody = (c) => !game.entities.has(c.handle);
+    this.ground = { y: 0, ny: 1, nx: 0, nz: 0 };
     // (Not its own box, and not its rider.)
     this.ignore = (c) => c.handle !== this.box.handle && c.handle !== this.rider?.collider.handle;
     this.desired = { x: 0, y: 0, z: 0 };
@@ -180,6 +200,8 @@ class Bike {
     this.steer = 0;
     this.grounded = true;
     this.airT = 0;
+    // How fast the ground under us was rising (m/s): leaving it, we keep that (off a ramp's lip).
+    this.climb = 0;
     this.vitals.reset();
     this.heat = 0;
     this.overheatT = 0;
@@ -324,12 +346,14 @@ class Bike {
       }
       if (inMud && Math.abs(vF) > S.mudSpeed) vF -= Math.sign(vF) * S.overDrag * 2 * dt;
       vS *= Math.exp(-S.grip * dt);
+      // Hills pull it back going up and push it going down.
+      vF -= GRAVITY * Math.sin(this.pitch) * SLOPE_PULL * dt;
       if (pressed?.jump) {
-        this.vel.y = S.hop;
+        this.vel.y = S.hop + Math.max(0, this.climb);
         this.grounded = false;
         this.game.sfx.play('wallKick', { at: this.pos, source: r, rate: 0.7 });
       } else {
-        this.vel.y = -2;
+        this.vel.y = 0;
       }
     } else {
       this.vel.y = Math.max(-MOVE.maxFallSpeed, this.vel.y - GRAVITY * dt);
@@ -339,29 +363,53 @@ class Bike {
 
     this.runInto(vF, dt);
 
-    // Move.
+    // Move. The ball (floating over the ground) takes walls, rocks and the rest of the level; a
+    // ray down from the middle finds the ground the bike rides on.
     const d = this.desired;
     d.x = this.vel.x * dt;
-    d.y = this.vel.y * dt;
+    d.y = this.grounded ? 0 : this.vel.y * dt;
     d.z = this.vel.z * dt;
     this.cc.computeColliderMovement(this.ball, d, this.filter, undefined, this.ignore);
     const m = this.cc.computedMovement();
+    const oldY = this.pos.y;
     this.pos.x += m.x;
     this.pos.y += m.y;
     this.pos.z += m.z;
-    const wasAir = !this.grounded;
-    const fall = -this.vel.y;
-    this.grounded = this.cc.computedGrounded() && this.vel.y <= 0.5;
     // Hitting a wall eats the speed into it.
     const want = Math.hypot(d.x, d.z);
     if (want > 1e-4) {
-      const got = Math.hypot(m.x, m.z);
-      if (got < want * 0.6 && want / dt > 9) {
+      if (Math.hypot(m.x, m.z) < want * 0.6 && want / dt > 9) {
         this.game.sfx.play('smash', { at: this.pos, volume: 0.5, rate: 0.8 });
         r?.addShake?.(0.4);
       }
       this.vel.x = m.x / dt;
       this.vel.z = m.z / dt;
+    }
+    const wasAir = !this.grounded;
+    const fall = -this.vel.y;
+    const g = this.groundBelow();
+    if (this.grounded) {
+      if (g && g.ny < MAX_SLOPE_Y && g.y > oldY + 0.02 && g.nx * this.vel.x + g.nz * this.vel.z < 0) {
+        // Too steep to drive up: it stops it like a wall, keeping the speed along it.
+        this.pos.x -= m.x;
+        this.pos.z -= m.z;
+        const h = Math.hypot(g.nx, g.nz) || 1;
+        const into = (this.vel.x * g.nx + this.vel.z * g.nz) / h;
+        this.vel.x -= (into * g.nx) / h;
+        this.vel.z -= (into * g.nz) / h;
+      } else if (g && g.y >= this.pos.y - SNAP && !(this.climb > 2.5 && g.y < oldY + (this.climb - GRAVITY * dt) * dt - 0.02)) {
+        this.pos.y = g.y;
+      } else {
+        // The ground dropped away (or fell off faster than our climb's arc): fly, carrying the
+        // climb (off a ramp's lip or a crest at speed).
+        this.grounded = false;
+        this.vel.y = Math.max(0, this.climb);
+      }
+      if (this.grounded) this.climb = clamp((this.pos.y - oldY) / dt, -20, 20);
+    } else if (g && this.vel.y <= 0 && this.pos.y <= g.y + 0.02) {
+      this.pos.y = g.y;
+      this.grounded = true;
+      this.climb = 0;
     }
     if (this.grounded) {
       this.vel.y = 0;
@@ -412,6 +460,30 @@ class Bike {
     this.steer += (clamp(this.yawRate * 0.18, -0.4, 0.4) - this.steer) * damp(10, dt);
   }
 
+  // The ground under the bike: its height (the probe ball's lowest point where it lands) and the
+  // slope under the middle (a ray; flat if the ray finds nothing), in this.ground; or null.
+  groundBelow() {
+    const world = this.game.physics.world;
+    const reach = this.grounded ? SNAP + 0.05 : Math.max(0.05, -this.vel.y * (1 / 60) + 0.05);
+    const at = this.probeAt;
+    at.x = this.pos.x;
+    at.y = this.pos.y + PROBE_UP;
+    at.z = this.pos.z;
+    const hit = world.castShape(at, NO_ROT, DOWN, this.probe, 0, PROBE_UP - PROBE_R + reach, false, this.filter, undefined, undefined, this.body, this.notBody);
+    if (!hit) return null;
+    const g = this.ground;
+    g.y = at.y - (hit.time_of_impact ?? hit.timeOfImpact) - PROBE_R;
+    const ray = this.ray;
+    ray.origin.x = at.x;
+    ray.origin.y = at.y;
+    ray.origin.z = at.z;
+    const r = world.castRayAndGetNormal(ray, PROBE_UP + reach + 0.3, true, this.filter, undefined, undefined, this.body, this.notBody);
+    g.nx = r ? r.normal.x : 0;
+    g.ny = r ? r.normal.y : 1;
+    g.nz = r ? r.normal.z : 0;
+    return g;
+  }
+
   // The ground's height under a point `z` along the bike (bike space), or null.
   groundAt(z) {
     _v.set(Math.sin(this.yaw) * z, 0, Math.cos(this.yaw) * z).add(this.pos);
@@ -429,19 +501,22 @@ class Bike {
     const killer = this.rider ?? this.lastRider;
     const now = this.game.time;
     _a.set(-Math.sin(this.yaw) * NOSE * 0.6 * dir, 0, -Math.cos(this.yaw) * NOSE * 0.6 * dir).add(this.pos);
-    for (const p of this.game.players) {
+    // (Players, and the training dummies too.)
+    const targets = this.game.dummies.length ? [...this.game.players, ...this.game.dummies] : this.game.players;
+    for (const p of targets) {
       if (!p.alive || p === this.rider || p.vehicle) continue;
-      if (p.feetY() > this.pos.y + 1.3 || p.topY() < this.pos.y) continue;
-      const dx = p.center.x - _a.x;
-      const dz = p.center.z - _a.z;
-      const reach = p.radius + 0.55 + speed * dt;
+      p.centerPosition(_v2);
+      const feet = p.feetY();
+      if (feet > this.pos.y + 1.3 || feet + (p.height ?? BODY.standHeight) < this.pos.y) continue;
+      const dx = _v2.x - _a.x;
+      const dz = _v2.z - _a.z;
+      const reach = (p.radius ?? BODY.radius) + 0.55 + speed * dt;
       if (dx * dx + dz * dz > reach * reach) continue;
       // Only what's ahead (or behind, reversing).
       if ((dx * -Math.sin(this.yaw) + dz * -Math.cos(this.yaw)) * dir < -0.3) continue;
       if (now - (this.bumped.get(p) ?? -9) < 0.6) continue;
       this.bumped.set(p, now);
       _v.set(-Math.sin(this.yaw) * dir, 0.35, -Math.cos(this.yaw) * dir).normalize();
-      _v2.set(p.center.x, p.center.y, p.center.z);
       const info = { attacker: killer && killer !== p ? killer : null, weapon: SIZZLER_WEAPON, cause: 'splatter', point: this.pos, dir: _v };
       if (speed >= S.splatter) {
         this.game.sfx.play('smash', { at: _v2, volume: 1 });
@@ -449,7 +524,7 @@ class Bike {
         if (res) this.rider?.onHitConfirmed(res, false);
       } else {
         this.game.sfx.play('bash', { at: _v2 });
-        p.knockback(_v, speed * 0.9);
+        p.knockback?.(_v, speed * 0.9);
         const res = dealDamage(this.game, p, S.bumpDamage * (speed / S.splatter), info);
         if (res) this.rider?.onHitConfirmed(res, false);
         this.vel.multiplyScalar(0.55);

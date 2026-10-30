@@ -500,8 +500,10 @@ Owner ask (2026-10-30): a one-player motorcycle with guns on it, on the Valhalla
 - **Driving**, Halo style: the bike turns toward where you look (mouse or right stick), and A / D
   (or the left stick) also steer it directly. W / S (stick forward and back) is throttle, brake
   and reverse. Shift (left stick click) boosts from a tank that refills. Space (A) hops.
-  Top speed 15 m/s, 21 boosting; the creek slows it to 6. It leans into turns and tips with
-  the ground.
+  Top speed 15 m/s, 21 boosting; the creek slows it to 6. Hills slow it a little going up and
+  speed it going down; anything steeper than about 38 degrees stops it like a wall, and it gets
+  air off ramps and crests at speed. It leans into turns and tips with the ground. It runs over
+  training dummies too.
 - **Twin guns** under the bars, firing in turn (9 rounds a second, 12 damage each, 70 m). They
   swing a little off the bike's heading. Hold the trigger too long and they overheat for 2 s
   (the HUD's ticks are the heat; the number is the hull).
@@ -1106,3 +1108,6 @@ Need answers before the step that uses them gets built.
   Halo's: per-gun cones and ranges, cones that shrink with zoom, a red reticle that turns on
   exactly when assist engages (and never past the gun's range), and a little tracking on a
   strafing target while you're aiming.
+- 2026-10-30: The Sizzler got stuck on hills and in the creek (owner report). It now floats its
+  collision ball over the ground and rides on a ground probe, so slopes up to about 38 degrees,
+  the creek's banks and terrain creases don't catch it; it gets air off crests at speed.
