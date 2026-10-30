@@ -356,9 +356,14 @@ blast or hit counts for you. Fire with nothing held punts: everyone within 5 m i
 back and takes 14, and loose things there fly off. No ammo. A thrown prop hurts the first body it
 hits hard (up to about 75), once per throw; a propane tank goes off when a thrown one hits
 anything hard or a blast catches it. Matches with the Gravity Gun get the props: a crate, a
-barrel and a propane tank around every pickup pad, back 25 s after they're lost or blown up.
-They're physics objects like grenades, so people and bullets pass through them. Not in yet:
-catching Smoke Signal rockets and Swarm Jars.
+barrel and a propane tank around every pickup pad, back 25 s after they're lost or blown up, and
+the map's own small crates (up to 1.15 m) and drums come loose too (bigger crates stay solid
+cover). People bump into props and shove them along; bullets pass through them. Owner call
+(2026-10-30): it grabs everything else too: dropped guns, smoked bodies, training dummies, live
+players (they hang helpless and break free after 1.4 s) and Sizzlers, rider and all. Thrown,
+any of those hurts the first one it flies into (a gun 30, a body 45, a dummy 55, a player 45,
+and the thrown player takes most of that too, a bike 90). Not in yet: catching Smoke Signal
+rockets and Swarm Jars.
 
 **Junkyard** (Hot): Hickory and Stickybomb Launcher primaries ("Pitmaster" and "Sticky Ribs"),
 the Toothpick, the Mesquite on the field pads and the Gravity Gun on the power pad.
@@ -1143,3 +1148,7 @@ Need answers before the step that uses them gets built.
   better). First-person guns get panel seams, worn paint, a top-lit falloff, softer rounded edges
   (bevels up to 1 cm) and a dented surface, so highlights stop washing whole faces white. All in
   the shader: no new textures or geometry. Characters and Creek's terrain are next.
+- 2026-10-30: The Gravity Gun grabs everything (owner picked all four: map clutter, grenades and
+  projectiles, bodies, dummies and guns, live players and bikes). Small crates and drums on every
+  map come loose in a Gravity Gun match and people now shove props instead of walking through
+  them.

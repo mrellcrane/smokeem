@@ -31,7 +31,8 @@ const cache = new Map();
 // B: the StaticBuilder with everything added (before build()). half: the grid covers x and z in
 // [-half, half]. size: texels per side.
 export function bakeArena(B, { id, half = 32, size = 512, seed = 1 }) {
-  const key = `${id}:${size}`;
+  // (Loose crates and drums aren't in a Gravity Gun match's bake.)
+  const key = `${id}:${size}${B.loose ? ':loose' : ''}`;
   let bake = cache.get(key);
   if (!bake) {
     const t0 = performance.now();

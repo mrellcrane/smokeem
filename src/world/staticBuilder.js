@@ -159,9 +159,12 @@ const smooth = (a, b, x) => {
 const mix = (a, b, t) => a + (b - a) * t;
 
 export class StaticBuilder {
-  constructor(RAPIER, world) {
+  // loose: in a match with the Gravity Gun, small crates and drums (parts.js) aren't built here
+  // but listed in `loose` for world/props.js to make into things it can throw.
+  constructor(RAPIER, world, { loose = false } = {}) {
     this.RAPIER = RAPIER;
     this.world = world;
+    this.loose = loose ? [] : null;
     this.groups = new Map();
     this.meshes = [];
     // For the bake: visible solids, glow sources and floor stains.

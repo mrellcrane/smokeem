@@ -91,6 +91,25 @@ export class Dummy {
       return;
     }
     this.vitals.update(dt);
+    // In a Gravity Gun (combat/gravity.js carries it), or thrown: flying until it lands, then it
+    // carries on from there.
+    if (this.heldBy) return;
+    if (this.fly) {
+      this.feet.addScaledVector(this.fly, dt);
+      this.fly.y -= 16 * dt;
+      const floor = this.game.bake ? this.game.bake.floorBelow(this.feet.x, this.feet.y + 0.6, this.feet.z) : this.post.y;
+      if (this.feet.y < -20) {
+        this.fly = null;
+        this.feet.copy(this.post);
+      } else if (Number.isFinite(floor) && this.feet.y <= floor && this.fly.y <= 0) {
+        this.feet.y = floor;
+        this.fly = null;
+        this.post.copy(this.feet);
+        if (this.patrol) this.t = 0;
+      }
+      this.placeBody(false);
+      return;
+    }
     if (this.patrol) {
       // Ping-pong along the rail with a short pause at each end.
       this.t += dt;

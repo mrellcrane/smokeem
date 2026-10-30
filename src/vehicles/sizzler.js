@@ -283,6 +283,8 @@ class Bike {
       if ((this.deadT += dt) >= S.respawn && this.vehicles.spotClear(this)) this.reset();
       return;
     }
+    // In a Gravity Gun (combat/gravity.js carries it, rider and all).
+    if (this.heldBy) return;
     const r = this.rider;
     const inp = r ? r.input : null;
     const pressed = r ? r.ridePressed : null;
