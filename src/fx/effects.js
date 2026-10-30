@@ -42,6 +42,9 @@ const MARK_LIFE = 15;
 const SCORCH_LIFE = 30;
 const MARK_FADE = 3;
 
+// Shields flare gold, Halo's way.
+const SHIELD_GOLD = 0xffcf5a;
+
 export class Effects {
   // opts: decals (how many marks can lie around at once: 0 for none), fxScale (multiplies smoke
   // and ember counts; the quality preset's).
@@ -113,14 +116,15 @@ export class Effects {
     });
   }
 
-  // A shield breaking: a cyan ring blooming out and a burst of shards.
+  // A shield breaking: a golden ring blooming out and a burst of shards (the body's shell flares
+  // and pops with it, character.js).
   shieldPop(pos) {
-    this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, 0x7ff0ff, 0.2, 0.25, { cell: RING, grow: 7, minPx: 10 });
+    this.sparks.spawn(pos.x, pos.y, pos.z, 0, 0, 0, SHIELD_GOLD, 0.2, 0.25, { cell: RING, grow: 7, minPx: 10 });
     for (let i = 0; i < 14; i++) {
       randomInHemisphere(UP, _t);
       _t.y -= 0.6;
       const s = 3 + Math.random() * 3;
-      this.sparks.spawn(pos.x, pos.y, pos.z, _t.x * s, _t.y * s + 1.5, _t.z * s, 0x7ff0ff, 0.09, 0.35 + Math.random() * 0.15, {
+      this.sparks.spawn(pos.x, pos.y, pos.z, _t.x * s, _t.y * s + 1.5, _t.z * s, SHIELD_GOLD, 0.09, 0.35 + Math.random() * 0.15, {
         cell: SHARD,
         gravity: 9,
         drag: 1,

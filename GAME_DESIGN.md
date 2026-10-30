@@ -970,3 +970,6 @@ Need answers before the step that uses them gets built.
   real reflections, shield shimmer and bloom. Reflections first: the arena is captured into a
   small cube map at load, and armor, visors and gun metal reflect it (blurry on plates, sharp on
   the visor glass) instead of a sky-and-ground gradient. No per-frame cost.
+- 2026-10-30: Shield shimmer, Halo's way: a hit on shields flares the body gold, brightest at the
+  edges, with energy bands rippling up it; a break bulges the shell out in a white-gold pop and the
+  burst of shards is gold too (it was cyan).
