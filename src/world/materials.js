@@ -56,6 +56,9 @@ export function createMaterials(tex) {
     rope: new THREE.MeshLambertMaterial({ map: tex.rope, ...vc }),
     // The factory's: slab floor, conveyor belts, the grease vat and orange pallet-rack paint.
     slab: new THREE.MeshLambertMaterial({ map: tex.slab, ...vc }),
+    // Smokehouse Creek's meadow and its creek's water (not vertex lit: drawn on its own).
+    grass: new THREE.MeshLambertMaterial({ map: tex.grass, ...vc }),
+    water: new THREE.MeshPhongMaterial({ color: 0x2c5a5e, specular: 0x9ab8c0, shininess: 90, transparent: true, opacity: 0.8, depthWrite: false }),
     belt: new THREE.MeshLambertMaterial({ map: tex.belt, ...vc }),
     grease: new THREE.MeshPhongMaterial({ map: tex.mud, color: 0x8a8478, specular: 0x6a6258, shininess: 120, ...vc }),
     paint: new THREE.MeshPhongMaterial({ color: 0xd8641c, specular: 0x302418, shininess: 20, ...vc }),
@@ -76,6 +79,7 @@ export function createMaterials(tex) {
     concrete: 3,
     mud: 3,
     slab: 4,
+    grass: 4,
     belt: 1,
     grease: 3,
     net: 1.2,
@@ -93,6 +97,7 @@ export function createMaterials(tex) {
     concrete: 'concrete',
     mud: 'mud',
     slab: 'concrete',
+    grass: 'dirt',
     belt: 'cloth',
     grease: 'mud',
     paint: 'metal',
@@ -114,7 +119,7 @@ export function createMaterials(tex) {
   }
   // World-space grime over the level's surfaces, how much on each (gfx switch `grime`).
   if (gfx.grime && tex.grime) {
-    const amounts = { ground: 0.5, metal: 0.75, metalDark: 0.65, concrete: 0.85, slab: 0.8, plank: 0.5, paint: 0.55, steel: 0.45, hazard: 0.55 };
+    const amounts = { grass: 0.35, ground: 0.5, metal: 0.75, metalDark: 0.65, concrete: 0.85, slab: 0.8, plank: 0.5, paint: 0.55, steel: 0.45, hazard: 0.55 };
     for (const [name, a] of Object.entries(amounts)) applyGrime(m[name], tex.grime, a);
   }
   // A little grime low down on tall faces (StaticBuilder).

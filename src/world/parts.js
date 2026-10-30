@@ -5,9 +5,9 @@ export function crate(B, M, x, y, z, s, rotY = 0) {
   B.box(M.crate, [x, y + s / 2, z], [s, s, s], { uv: 'fit', rotY });
 }
 
-export function barrier(B, M, x, z, rotY) {
-  B.box(M.concrete, [x, 0.5, z], [3, 1.0, 0.6], { rotY });
-  B.box(M.hazard, [x, 0.85, z], [3.02, 0.12, 0.62], { rotY, collide: false });
+export function barrier(B, M, x, z, rotY, y = 0) {
+  B.box(M.concrete, [x, y + 0.5, z], [3, 1.0, 0.6], { rotY });
+  B.box(M.hazard, [x, y + 0.85, z], [3.02, 0.12, 0.62], { rotY, collide: false });
 }
 
 export function drum(B, M, x, z, y = 0) {

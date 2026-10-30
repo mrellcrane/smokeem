@@ -32,3 +32,17 @@ export const FACTORY_LOOK = {
   vm: { hemi: 2.5, sun: 2.0 },
   grade: { sat: 0.7, contrast: 1.15, tint: [0.93, 1.0, 1.08], lift: [0.0, 0.008, 0.022], knee: 0.62, open: 1.02, shade: 1.15, sky: 1.8, haze: 1.0 },
 };
+
+// Smokehouse Creek: a green valley under a high afternoon sun, a big sky, distant mesas, a long
+// haze. The two smokehouses' smoke drifts up from each end.
+export const VALLEY_LOOK = {
+  sun: { dir: [-30, 58, 22], color: 0xffe6c4, intensity: 3.0 },
+  hemi: { sky: 0xa8c8ff, ground: 0x6a7448, intensity: 1.5 },
+  fog: { near: 110, far: 460 },
+  sky: { zenith: 0x2a5ea8, mid: 0x8ab8e0, horizon: 0xcfdcdc, below: 0x7f8a6a },
+  flare: true,
+  godRays: true,
+  vm: { hemi: 2.4, sun: 2.4 },
+  grade: { sat: 0.74, contrast: 1.12, tint: [0.96, 1.0, 1.06], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.7, haze: 1.3 },
+};
+

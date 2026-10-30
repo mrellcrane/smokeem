@@ -13,10 +13,14 @@ import * as THREE from 'three';
 // Map links add the obstacle-course moves the grid can't see: walls, nets, ropes, bars.
 
 const GRID = 2;
+// The sampled area (half sizes, meters) and the height the column casts start from, unless the
+// map sets its own (arena.nav: { halfX, halfZ, top }).
 const HALF = 29;
+const TOP = 14;
 const NO_ROT = { x: 0, y: 0, z: 0, w: 1 };
 // Obstacles are priced cheap on purpose: bots should run the course, not avoid it.
-const TYPE_COST = { walk: 1, drop: 1, jump: 1.6, doublejump: 2.6, firejump: 4, over: 1.2, net: 1.2, rope: 1.3, bars: 0.9 };
+// (A launch pad throws you far for nothing: walking onto it is all it takes.)
+const TYPE_COST = { walk: 1, drop: 1, jump: 1.6, doublejump: 2.6, firejump: 4, over: 1.2, net: 1.2, rope: 1.3, bars: 0.9, launch: 0.4 };
 
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
@@ -34,6 +38,10 @@ export class NavGraph {
     this.sweepShape = new RAPIER.Capsule(0.45, 0.33);
     this.nodes = [];
     this.cells = new Map();
+    const nav = game.arena.nav ?? {};
+    this.halfX = nav.halfX ?? HALF;
+    this.halfZ = nav.halfZ ?? HALF;
+    this.top = nav.top ?? TOP;
     const t0 = performance.now();
     this.sampleNodes();
     this.connect();
@@ -50,13 +58,13 @@ export class NavGraph {
   sampleNodes() {
     const zones = this.game.zones;
     const feet = new THREE.Vector3();
-    for (let x = -HALF; x <= HALF; x += GRID) {
-      for (let z = -HALF; z <= HALF; z += GRID) {
+    for (let x = -this.halfX; x <= this.halfX; x += GRID) {
+      for (let z = -this.halfZ; z <= this.halfZ; z += GRID) {
         for (const y of this.floorsAt(x, z)) {
           if (!this.standable(x, y, z)) continue;
           feet.set(x, y, z);
           if (zones.inFire(feet, 1.8, 0.4)) continue;
-          const node = { id: this.nodes.length, x, y, z, ix: (x + HALF) / GRID, iz: (z + HALF) / GRID, mud: zones.inMud(feet), edges: [] };
+          const node = { id: this.nodes.length, x, y, z, ix: (x + this.halfX) / GRID, iz: (z + this.halfZ) / GRID, mud: zones.inMud(feet), edges: [] };
           this.nodes.push(node);
           const k = this.key(node.ix, node.iz);
           if (!this.cells.has(k)) this.cells.set(k, []);
@@ -69,7 +77,7 @@ export class NavGraph {
   // Every upward-facing surface in a column, top to bottom.
   floorsAt(x, z) {
     const out = [];
-    let y = 14;
+    let y = this.top;
     for (let i = 0; i < 40 && y > -1.5; i++) {
       const hit = this.castDown(x, y, z, y + 1.5);
       if (!hit) break;

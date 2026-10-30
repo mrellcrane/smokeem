@@ -579,7 +579,26 @@ Gun and plenty of crates and barrels to throw).
   across it (monkey bars) between two loading docks.
 - Presses, crates and drums for cover; pipes and high windows on the end walls.
 
-The title screen has a Map choice: Mudlark, Smokestack or Random (a different map each match,
+### Map 3: Smokehouse Creek (name is a proposal)
+
+Owner pick (2026-10-30): Halo's Valhalla shape. A 100 m x 64 m grass valley under a big
+afternoon sky, rimmed by steep slopes. Wide open, long sight lines, built for the field guns and
+(later) the Sizzler: its default set is Competition Cut.
+
+- **The smokehouses** (west and east ends): one on each plateau, 3 m above the valley. Doors on
+  every side, a smoker with a glowing firebox on the porch, a smokestack, and a roof deck with a
+  parapet reached by a ramp on the south side. The west one has orange strips, the east one
+  cyan. Grenades on each roof.
+- **Launch pads**: one in front of each smokehouse. Step on it and it throws you out over the
+  valley to land by the creek (about 1.75 s in the air, no steering), like Valhalla's man
+  cannons.
+- **The creek** (north to south down the middle): wade it (it slows you like the mud), cross on
+  one of two plank bridges, or hop the stepping stones to the island in the middle, where the
+  power gun sits.
+- **The hills**: one on each flank (northwest and southeast), with a field gun on top and boulders
+  for cover, plus low rises and scattered crates, drums and barriers.
+
+The title screen has a Map choice: Mudlark, Smokestack, Creek or Random (a different map each match,
 never the same one twice in a row). Guns on "Map default" use each map's own set.
 
 ## Controls
@@ -642,7 +661,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 ## Settings
 
-- Map: Mudlark, Smokestack or Random (title screen).
+- Map: Mudlark, Smokestack, Creek or Random (title screen).
 - Graphics quality: Low / Medium / High (resolution cap, shadows, anti-aliasing).
 - Movement speed for everyone, players and bots (default 70%).
 - Mouse sensitivity (saved to `localStorage`).
@@ -711,7 +730,8 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   decals (done); (10) arena dressing (done); (11) first-person feel (done); gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
   flinch and death animation (done); (13) animated reloads in first person (done); (14) normal maps on
   high only (done); (15) a shadowless low tier only if the Xbox bench needs it.
-- **More maps** (owner wants this): Map 2, Smokestack Works, and the map choice are done.
+- **More maps** (owner wants this): Map 2, Smokestack Works, Map 3, Smokehouse Creek, and the
+  map choice are done.
   Each new map needs its own layout, bot links (`src/ai/mapLinks.js`), pickup pads and a
   default weapon set, registered in `src/world/maps.js`.
 - Abilities, the motorcycle, team modes.
@@ -1039,4 +1059,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Glowing projectiles: briquettes glow like hot coals, Chimney coals deeper orange,
   sticky bombs red (pulsing once armed), and the Smoke Signal's motor bright, each leaving a short
   light trail while it flies, like Halo's plasma grenades. Sparks only, no new draw calls.
-
+- 2026-10-30: Map 3 is Valhalla-shaped (owner's pick): Smokehouse Creek (see Maps). Two rival
+  smokehouses on plateaus at the ends of a grass valley, a creek down the middle with two bridges
+  and stepping stones, a hill on each flank, and a launch pad in front of each base that throws
+  you to the creek (the bots path through them too). The ground is one terrain mesh and collider,
+  shaded by slope and wetness. Default set Competition Cut. Fewer draw calls than Mudlark.
