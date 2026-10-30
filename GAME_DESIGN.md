@@ -919,3 +919,8 @@ Need answers before the step that uses them gets built.
   themselves. Same models in the loadout pictures and on pickups; bodies carry a lighter version
   (about 12% more vertices per body). Draw calls unchanged. Next: gloves with fingers, then the
   characters.
+- 2026-10-30: Overnight queue (owner said go): gloves and first-person feel, character
+  animation, character detail, arena dressing, smarter bots, one PR each. First up: gloves with
+  fingers and thumbs wrapped on every grip, arms that reach off screen, mags that drop out while
+  the support hand fetches a fresh one, the pump racking under the hand, a springier sway, a lean
+  when strafing and a breath when still.

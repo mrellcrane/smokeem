@@ -57,10 +57,10 @@ export default {
     [[0, -0.008, -0.6], [0.04, 0.04, 0.016], METAL_LIGHT, { shape: 'cyl' }],
     [[0, 0.02, -0.56], [0.03, 0.08, 0.02], METAL],
     // The pump, ribbed.
-    [[0, -0.01, -0.36], [0.07, 0.062, 0.17], WOOD, { shape: 'cyl', seg: 14 }],
-    [[0, -0.01, -0.31], [0.074, 0.066, 0.012], WOOD_DARK, { shape: 'cyl', seg: 14 }],
-    [[0, -0.01, -0.36], [0.074, 0.066, 0.012], WOOD_DARK, { shape: 'cyl', seg: 14 }],
-    [[0, -0.01, -0.41], [0.074, 0.066, 0.012], WOOD_DARK, { shape: 'cyl', seg: 14 }],
+    [[0, -0.01, -0.36], [0.07, 0.062, 0.17], WOOD, { shape: 'cyl', seg: 14, group: 'pump' }],
+    [[0, -0.01, -0.31], [0.074, 0.066, 0.012], WOOD_DARK, { shape: 'cyl', seg: 14, group: 'pump' }],
+    [[0, -0.01, -0.36], [0.074, 0.066, 0.012], WOOD_DARK, { shape: 'cyl', seg: 14, group: 'pump' }],
+    [[0, -0.01, -0.41], [0.074, 0.066, 0.012], WOOD_DARK, { shape: 'cyl', seg: 14, group: 'pump' }],
     // Stock and butt pad, pistol grip.
     [[0, -0.02, 0.12], [0.062, 0.09, 0.22], WOOD, { taper: [0.85, 0.7], rot: [0.1, 0, 0] }],
     [[0, -0.04, 0.236], [0.068, 0.122, 0.026], RUBBER],

@@ -33,6 +33,7 @@ export function renderGunIcons(renderer, ids) {
   // The first-person material (shine by finish), with the reflection's up the picture's up.
   const material = viewmodelMaterial();
   viewmodelUniforms.uUp.value.set(0, 1, 0);
+  for (const off of viewmodelUniforms.uGroupOff.value) off.set(0, 0, 0);
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 20);
   camera.position.set(5, 0, 0);
   camera.lookAt(0, 0, 0);

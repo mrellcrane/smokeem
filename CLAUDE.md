@@ -280,6 +280,12 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   sky-and-ground reflection on metal and paint (`viewmodelUniforms`, the world's up set per view
   in `Game.render`), wood grain and grit from the gun-space position, and self-lit glow parts.
   Chamfers are painted lighter, so edges catch the light.
+- First-person gloves are built from each gun's `hands` boxes (`player/gloves.js`: a fist on
+  the grip with the index on the trigger, a support hand that cradles, grips or holds a handle,
+  forearms as rods from the wrist). Parts tagged `group: 'mag' | 'pump'` and the support hand
+  (`'support'`) move on their own in the vertex shader (`aGroup`, `uGroupOff`, set per view by
+  `Viewmodel.bind()`), so reloads (mag out, hand fetches a new one) and the pump cost no draws.
+  The sway is a spring that overshoots a little; strafing leans the gun; standing still it breathes.
 - Bodies share one Lambert material with a small `onBeforeCompile` addition: per-vertex
   `aGlow` (parts that glow on their own) and `aTeam` (the body's color, for a distance-scaled
   rim light). Any geometry drawn with it needs both attributes. `smokeem.lineup({ distance })`
