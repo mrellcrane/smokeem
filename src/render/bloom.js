@@ -57,14 +57,24 @@ const UP = /* glsl */ `
     gl_FragColor = vec4(c / 16.0, 1.0);
   }
 `;
+// Frame plus glow, then the color grade (render/grade.js) at each view's own exposure: drawing
+// into the frame skipped the materials' own tone mapping, so it happens here instead.
 const COMPOSITE = /* glsl */ `
   uniform sampler2D uFrame;
   uniform sampler2D uGlow;
   uniform float uStrength;
+  uniform vec4 uRects[4];
+  uniform float uExposure[4];
   varying vec2 vUv;
   void main() {
     vec3 c = texture2D(uFrame, vUv).rgb + texture2D(uGlow, vUv).rgb * uStrength;
-    gl_FragColor = vec4(c, 1.0);
+    float e = uExposure[0];
+    for (int i = 1; i < 4; i++) {
+      vec4 r = uRects[i];
+      if (vUv.x >= r.x && vUv.x < r.x + r.z && vUv.y >= r.y && vUv.y < r.y + r.w) e = uExposure[i];
+    }
+    gl_FragColor = vec4(c * e, 1.0);
+    #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;
@@ -87,7 +97,15 @@ export class Bloom {
     this.levels = Array.from({ length: LEVELS }, () => target());
     this.down = pass(DOWN, { uSrc: { value: null }, uTexel: { value: new THREE.Vector2() }, uBright: { value: 0 } });
     this.up = pass(UP, { uSrc: { value: null }, uTexel: { value: new THREE.Vector2() } }, THREE.AdditiveBlending);
-    this.composite = pass(COMPOSITE, { uFrame: { value: this.frame.texture }, uGlow: { value: this.levels[0].texture }, uStrength: { value: STRENGTH } });
+    this.composite = pass(COMPOSITE, {
+      uFrame: { value: this.frame.texture },
+      uGlow: { value: this.levels[0].texture },
+      uStrength: { value: STRENGTH },
+      // Each view's rectangle (0..1 of the canvas, from the bottom left) and exposure.
+      uRects: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      uExposure: { value: [1, 1, 1, 1] },
+    });
+    this.views = 0;
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.down);
     this.quad.frustumCulled = false;
     this.scene = new THREE.Scene();
@@ -112,12 +130,21 @@ export class Bloom {
       }
     }
     this.pr = renderer.getPixelRatio();
+    this.views = 0;
+    for (const r of this.composite.uniforms.uRects.value) r.set(0, 0, 0, 0);
   }
 
   // Point the frame at one view's rectangle (CSS pixels, from the bottom left) and draw into it.
-  // (A render target uses its own viewport and scissor, not the renderer's.)
-  view(renderer, rect) {
+  // (A render target uses its own viewport and scissor, not the renderer's.) exposure: the view's.
+  view(renderer, rect, exposure = 1) {
     const pr = this.pr;
+    const i = this.views++;
+    if (i < 4) {
+      const W = this.size.x / pr;
+      const H = this.size.y / pr;
+      this.composite.uniforms.uRects.value[i].set(rect.x / W, rect.y / H, rect.w / W, rect.h / H);
+      this.composite.uniforms.uExposure.value[i] = exposure;
+    }
     const f = this.frame;
     f.viewport.set(rect.x * pr, rect.y * pr, rect.w * pr, rect.h * pr);
     f.scissor.copy(f.viewport);
@@ -155,7 +182,11 @@ export class Bloom {
     renderer.setRenderTarget(null);
     renderer.setViewport(0, 0, this.size.x / this.pr, this.size.y / this.pr);
     this.quad.material = this.composite;
+    // (The views' exposures are in the composite; the grade itself adds none.)
+    const exposure = renderer.toneMappingExposure;
+    renderer.toneMappingExposure = 1;
     renderer.render(this.scene, this.camera);
+    renderer.toneMappingExposure = exposure;
     renderer.autoClear = prevAutoClear;
   }
 

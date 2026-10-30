@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../util/rng.js';
 import { gfx } from '../render/gfx.js';
 import { createSkyline } from './skyline.js';
+import { skyBoost } from '../render/grade.js';
 
 // Gradient sky dome with the sun's glow painted in, a band of clouds around the horizon, a
 // ringed gas giant, two rings of distant mesas and (outdoors, look.sky.skyline) the facility
@@ -42,7 +43,8 @@ export function createSky(textures, materials, look) {
   domeGeom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   const dome = new THREE.Mesh(
     domeGeom,
-    new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }),
+    // (Brighter under the color grade, which rolls the horizon off to white.)
+    new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color().setScalar(skyBoost(look)), side: THREE.BackSide, fog: false, depthWrite: false }),
   );
   // Drawn after the opaque arena, so the arena's depth hides most of the dome's pixels.
   dome.renderOrder = gfx.skyLast ? 1 : -10;
@@ -67,7 +69,7 @@ export function createSky(textures, materials, look) {
     new THREE.CylinderGeometry(480, 480, 150, 48, 1, true).translate(0, 62, 0),
     new THREE.MeshBasicMaterial({
       map: cloudTexture(),
-      color: new THREE.Color(look.sky.horizon).lerp(new THREE.Color(0xffffff), 0.5),
+      color: new THREE.Color(look.sky.horizon).lerp(new THREE.Color(0xffffff), 0.5).multiplyScalar(skyBoost(look)),
       transparent: true,
       fog: false,
       depthWrite: false,

@@ -31,4 +31,6 @@ export const gfx = {
   reflections: true,
   // Bloom (high preset only).
   bloom: true,
+  // The color grade and adapting exposure (render/grade.js).
+  grade: true,
 };

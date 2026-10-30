@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hazeBoost } from '../render/grade.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../util/rng.js';
 import { DISPLAY_OUT } from '../render/displayOut.js';
@@ -322,7 +323,7 @@ export function createSkyline(look) {
   const uniforms = {
     uTime: { value: 0 },
     uColor: { value: new THREE.Color(0xc4bdb2) },
-    uFogColor: { value: new THREE.Color(look.sky.horizon) },
+    uFogColor: { value: new THREE.Color(look.sky.horizon).multiplyScalar(hazeBoost(look)) },
     uFog: { value: new THREE.Vector2(look.fog.near, look.fog.far) },
   };
   const material = new THREE.MeshLambertMaterial({ vertexColors: true });

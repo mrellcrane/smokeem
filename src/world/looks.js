@@ -12,6 +12,10 @@ export const MUDLARK_LOOK = {
   sky: { zenith: 0x2a5aa0, mid: 0x86b4dc, horizon: 0xcad7d9, below: 0xa58d78, skyline: true },
   // The first-person gun and hands have their own lights in their own scene.
   vm: { hemi: 2.4, sun: 2.4 },
+  // The color grade (render/grade.js): saturation, contrast, white balance, a blue lift in the shadows,
+  // where the highlight shoulder starts, the exposure under open sky and under full cover, and how
+  // much brighter the sky and the distance haze are drawn (so the horizon blows out).
+  grade: { sat: 0.7, contrast: 1.12, tint: [0.95, 1.0, 1.07], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.7, haze: 1.35 },
 };
 
 // Smokestack Works: indoors. The sun comes steeply through the skylights in bright bands; the
@@ -23,4 +27,5 @@ export const FACTORY_LOOK = {
   fog: { near: 30, far: 150 },
   sky: { zenith: 0x3a68a8, mid: 0x8fb2d2, horizon: 0x9c9284, below: 0x6e6256, mesas: false },
   vm: { hemi: 2.5, sun: 2.0 },
+  grade: { sat: 0.7, contrast: 1.15, tint: [0.93, 1.0, 1.08], lift: [0.0, 0.008, 0.022], knee: 0.62, open: 1.02, shade: 1.15, sky: 1.8, haze: 1.0 },
 };
