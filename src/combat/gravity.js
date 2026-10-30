@@ -40,6 +40,17 @@ export class Gravity {
       this.release(p, false);
       return;
     }
+    const best = this.pick(p);
+    if (!best) {
+      this.game.sfx.play('empty', { at: p.center, source: p });
+      return;
+    }
+    this.take(p, best);
+  }
+
+  // The loose thing a grab would take: closest to the crosshair within the grab cone and range,
+  // then nearer things; [kind, obj] or null.
+  pick(p) {
     const d = this.def;
     aimBasis(p, _f, _r, _u);
     p.eyePosition(_o);
@@ -53,18 +64,16 @@ export class Gravity {
       const c = _to.dot(_f) / dist;
       if (c < cos) continue;
       if (this.game.lineBlocked(_o, obj.pos)) continue;
-      // Prefer what's closest to the crosshair, then nearer things.
       const score = c * 4 - dist / d.range;
       if (score > bestScore) {
         bestScore = score;
         best = [kind, obj];
       }
     }
-    if (!best) {
-      this.game.sfx.play('empty', { at: p.center, source: p });
-      return;
-    }
-    const [kind, obj] = best;
+    return best;
+  }
+
+  take(p, [kind, obj]) {
     if (kind === 'grenade') {
       this.game.grenades.unstick(obj);
       obj.owner = p;
@@ -72,6 +81,21 @@ export class Gravity {
     obj.heldBy = p;
     this.held.set(p, { kind, obj });
     this.game.sfx.play('grab', { at: p.center, source: p });
+  }
+
+  // Someone alive close in front, inside the punt's reach and cone.
+  someoneToPunt(p) {
+    const d = this.def;
+    aimBasis(p, _f, _r, _u);
+    p.eyePosition(_o);
+    const cos = Math.cos((d.puntCone * Math.PI) / 180);
+    for (const e of this.game.entities.values()) {
+      if (e === p || !e.alive) continue;
+      e.centerPosition(_to).sub(_o);
+      const dist = _to.length();
+      if (dist <= d.puntRange && _to.dot(_f) / dist >= cos) return true;
+    }
+    return false;
   }
 
   // Let go: thrown along the aim, or just dropped.
@@ -94,12 +118,20 @@ export class Gravity {
     }
   }
 
-  // The trigger: throw what you hold, or punt what's right in front.
+  // The trigger: throw what you hold; with nothing held, grab what's under the crosshair (the aim
+  // button grabs too, Half-Life 2's way), or punt whoever is right in front.
   fire(p) {
     if (this.held.has(p)) {
       this.release(p, true);
       this.game.sfx.play('punt', { at: p.center, source: p });
       return;
+    }
+    if (!this.someoneToPunt(p)) {
+      const best = this.pick(p);
+      if (best) {
+        this.take(p, best);
+        return;
+      }
     }
     const d = this.def;
     aimBasis(p, _f, _r, _u);

@@ -231,7 +231,7 @@ export class Hud {
     this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
     const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
     this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
-    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : '';
+    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
     this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
     const o = player.slots[1 - player.slot];
     this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
