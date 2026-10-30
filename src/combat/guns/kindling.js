@@ -43,6 +43,8 @@ export default {
     [[0, 0.067, -0.08], [0.04, 0.012, 0.2], METAL_LIGHT],
     [[0, 0.082, 0.02], [0.026, 0.02, 0.02], METAL],
     [[0, 0.08, -0.19], [0.006, 0.02, 0.006], METAL],
+    // The ammo counter's housing on the rail (the number is `display`).
+    [[0, 0.088, -0.075], [0.05, 0.03, 0.07], BORE, { rot: [0.45, 0, 0] }],
     [[-0.0345, 0.03, -0.08], [0.002, 0.03, 0.08], BORE, { bevel: 0 }],
     // The drum magazine and its neck.
     [[0, -0.08, -0.14], [0.062, 0.12, 0.12], ORANGE, { shape: 'cyl', axis: 'x', seg: 18, group: 'mag' }],
@@ -76,6 +78,8 @@ export default {
     [[-0.04, -0.12, -0.1], [0.05, 0.05, 0.1], GLOVE],
   ],
   muzzle: [0, 0.03, -0.38],
+  // First-person ammo counter (viewmodel.js).
+  display: { at: [0, 0.1025, -0.0683], size: [0.042, 0.056], rot: [-Math.PI / 2 + 0.45, 0, 0] },
   view: { pos: [0.2, -0.2, -0.44], rot: [0.025, 0.06, 0], scale: 0.8, kick: 0.7, flash: 0.8, flashColor: 0xffd080 },
   carry: [0.12, 1.2, -0.3],
 };

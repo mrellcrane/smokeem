@@ -65,8 +65,11 @@ const DEFAULTS = {
   // Controller look speed multiplier (right stick).
   stickSensitivity: 1.0,
   rumble: true,
+  // The view bobs with each footstep.
+  headBob: true,
   invertY: false,
-  fov: 95,
+  // Horizontal, Halo's (Player.setFov).
+  fov: 78,
   showFps: false,
   volume: 0.7,
   bots: 3,
@@ -107,6 +110,13 @@ function load() {
   if (!Number.isFinite(out.sensitivity)) out.sensitivity = DEFAULTS.sensitivity;
   if (!Number.isFinite(out.stickSensitivity)) out.stickSensitivity = DEFAULTS.stickSensitivity;
   if (!Number.isFinite(out.fov)) out.fov = DEFAULTS.fov;
+  // Saved settings from before the field of view's default went from 95 to 78 (rev 2): anyone
+  // who never moved it gets the new default.
+  if (!(out.rev >= 2)) {
+    if (out.fov === 95) out.fov = DEFAULTS.fov;
+    out.rev = 2;
+  }
+  if (typeof out.headBob !== 'boolean') out.headBob = DEFAULTS.headBob;
   if (!Number.isFinite(out.volume)) out.volume = DEFAULTS.volume;
   out.bots = Number.isInteger(out.bots) ? Math.max(0, Math.min(MAX_BOTS, out.bots)) : DEFAULTS.bots;
   if (!BOT_SKILLS[out.botSkill]) out.botSkill = DEFAULTS.botSkill;

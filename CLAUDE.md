@@ -18,7 +18,7 @@ Then open the localhost URL it prints.
 
 - `npm run build` builds to `dist/`, `npm run preview` serves that build.
 - Add `?debug` to the URL to expose `window.smokeem` in the console (current game, input,
-  menu, pads, seats). `smokeem.playWithoutLock()` starts play without pointer lock, for
+  menu, pads, seats, and `config`: the live tuning numbers from `src/config.js`). `smokeem.playWithoutLock()` starts play without pointer lock, for
   headless browser tests. Headless Chromium (Playwright) renders the game fine with
   SwiftShader; drive it by pausing the game and calling `game.tick(1 / 60)` with values
   written into the player's `InputState`, since headless frame rates are too low for
@@ -158,7 +158,12 @@ Live build: https://mrellcrane.github.io/smokeem/
   synthesized at unlock. `sfx.play(name, { at, source })` places a sound in the world: it
   fades and muffles with distance from the nearest local player and plays up close when
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
-  played for local players (`!player.isBot`).
+  played for local players (`!player.isBot`). Footsteps (`step`, `stepMetal`, `stepDirt`,
+  `stepWood`, `stepMud`, four synthesized takes each) come from everyone: `Player.tickStride`
+  runs a stride clock at the body's own stride length (`strideLength`, `character.js`), and each
+  whole step plays the sound for the surface under the feet (a short ray down) unless crouched;
+  landings play a louder one. The same clock drives the head bob (`CAMERA.bob*`, the eye dips at
+  each footfall and sways toward the planted foot) and the first-person gun's bob.
 - `src/world/`: procedural textures, materials, sky, fire, trigger zones, training dummies,
   per-map looks (`looks.js`), the maps, the game show (`show.js`: the crowd on the
   arena's grandstands as one instanced mesh moved in its vertex shader by a hype uniform, and
@@ -305,6 +310,13 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   with `DISPLAY_OUT` (blended) or `DISPLAY_ADD` (additive) from `render/displayOut.js`, so they
   look the same drawn into that linear frame as on the canvas; shaders that build on three's
   chunks or end with `colorspace_fragment` need nothing.
+- First-person framing is Halo's: big, close and low on the right with the barrel nearly level.
+  `VIEWMODEL` in `config.js` sits on top of every gun's own `view` pose: the viewmodel camera's
+  field of view, a size multiplier, `place` (each gun's place and all its motions pulled in by
+  the same ratios per axis, so guns keep their sizes relative to each other), a turn and the
+  muzzle flash size. Guns with a `display` (Hickory, Kindling, Rotisserie) show the mag count on
+  a small screen on the gun (a canvas redrawn only when the count changes, orange when low; one
+  plane on the held gun, placed by Euler `rot` or by `normal` and `up`).
 - First-person guns (and the loadout pictures) use `viewmodelMaterial()` (`viewmodel.js`): Phong
   whose shine follows each vertex's finish (`aFinish`: matte, wood, paint, metal, glow), a
   sky-and-ground reflection on metal and paint (`viewmodelUniforms`, the world's up set per view
@@ -382,7 +394,9 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 ### Settings menu
 
 - Mouse sensitivity setting: a multiplier applied to pointer lock `movementX` / `movementY`, saved to `localStorage` so it persists between sessions.
-- Also saved: quality preset, invert Y, field of view, FPS counter, volume, bot count and skill,
+- Also saved: quality preset, invert Y, field of view (horizontal, default 78 like Halo; `rev`
+  marks saves migrated off the old 95 default), head bob (`headBob`), FPS counter, volume, bot
+  count and skill,
   match length (`timeLimit`, minutes, 0 = no limit), movement speed (`settings.moveSpeed`,
   read live by the player controller every tick),
   controller look speed (`stickSensitivity`), vibration (`rumble`) and the weapon set
