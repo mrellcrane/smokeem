@@ -966,3 +966,7 @@ Need answers before the step that uses them gets built.
   the mud pit and the Summit; you walk through them) and damp, trodden patches baked into the
   floor. Smokestack's floor got a hazard-striped keep-clear border round the smoker, dashed lane
   lines along the belts, drains and tire scuffs. No new draw calls.
+- 2026-10-30: Owner asked what makes Halo 3 look so good and queued the three biggest gaps:
+  real reflections, shield shimmer and bloom. Reflections first: the arena is captured into a
+  small cube map at load, and armor, visors and gun metal reflect it (blurry on plates, sharp on
+  the visor glass) instead of a sky-and-ground gradient. No per-frame cost.

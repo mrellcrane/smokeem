@@ -308,6 +308,11 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   (`'support'`) move on their own in the vertex shader (`aGroup`, `uGroupOff`, set per view by
   `Viewmodel.bind()`), so reloads (mag out, hand fetches a new one) and the pump cost no draws.
   The sway is a spring that overshoots a little; strafing leans the gun; standing still it breathes.
+- Reflections (`render/reflections.js`, gfx switch `reflections`): at the end of `warmUp` the
+  arena is captured once into a 128 px cube map from 3 m above the podium, with every body hidden.
+  The body and first-person gun materials sample it (`envUniforms`: `uEnv`, `uEnvOn`, and
+  `uCamRot`, the view's rotation for the gun, set per view) at a blurry mip for plates and a
+  sharp one for glass; until it's captured they fall back to the sky-and-ground gradient.
 - Bodies share one Phong material with a small `onBeforeCompile` addition: per-vertex
   `aGlow` (parts that glow on their own), `aShine` (how glossy: `SHINES` per Spartan region,
   `shine` per cast palette entry, `GUN_SHINES` per gun finish; the highlight's strength and a

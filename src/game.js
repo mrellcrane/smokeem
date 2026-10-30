@@ -33,6 +33,7 @@ import { BotBrain, BOT_NAMES, BOT_COLORS } from './ai/bot.js';
 import { Player } from './player/player.js';
 import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial, viewmodelUniforms } from './player/viewmodel.js';
+import { captureReflections, releaseReflections, envUniforms } from './render/reflections.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
@@ -361,6 +362,12 @@ export class Game {
       m.material.dispose();
     }
     this.fx.clear();
+    // The arena's reflection for armor, visors and guns, from above the podium with nobody in it.
+    if (gfx.reflections) {
+      const pod = this.arena.podium;
+      const hide = [...this.players.map((p) => p.model.group), ...this.dummies.map((d) => d.model.group)];
+      this.reflections = captureReflections(this.renderer, this.scene, new THREE.Vector3(pod.x, pod.y + 3, pod.z), hide);
+    }
     this.needsRender = true;
   }
 
@@ -774,6 +781,7 @@ export class Game {
         _invQ.copy(p.camera.quaternion).invert();
         this.vmSun.position.copy(_sunDir).applyQuaternion(_invQ).multiplyScalar(5);
         viewmodelUniforms.uUp.value.set(0, 1, 0).applyQuaternion(_invQ);
+        envUniforms.uCamRot.value.setFromMatrix4(p.camera.matrixWorld);
         p.viewmodel.bind();
         r.clearDepth();
         r.render(this.vmScene, vc);
@@ -806,6 +814,7 @@ export class Game {
     this.infoPanel?.dispose();
     this.oysters?.dispose();
     this.portals?.dispose();
+    releaseReflections(this.reflections);
     this.show?.dispose();
     this.finale?.dispose();
     this.hudRoot.classList.remove('finale');
