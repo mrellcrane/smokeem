@@ -193,6 +193,10 @@ export class Player {
     this.vitals = new Vitals();
     this.slots = [null, null];
     this.slot = 0;
+    // Dual wielding: the gun in the left hand (null for none), and whether it's the one firing
+    // right now (then `weapon` is it, so the shooting code works for either hand).
+    this.left = null;
+    this.firingLeft = false;
     this.loadout = loadout;
     // The loadout last armed, and when this life began (cycleLoadout).
     this.armedLoadout = loadout;
@@ -263,12 +267,18 @@ export class Player {
     const loadouts = this.game.arsenal.loadouts;
     this.loadout = ((this.loadout % loadouts.length) + loadouts.length) % loadouts.length;
     this.armedLoadout = this.loadout;
-    loadouts[this.loadout].guns.forEach((id, i) => {
+    const l = loadouts[this.loadout];
+    l.guns.forEach((id, i) => {
       const w = new WeaponState(WEAPONS[id]);
       w.spawnGun = true;
       this.slots[i] = w;
     });
     this.slot = 0;
+    this.left = null;
+    if (l.left) {
+      this.left = new WeaponState(WEAPONS[l.left]);
+      this.left.spawnGun = true;
+    }
   }
 
   // Picks the next or previous loadout (dir 1 or -1). It's armed now when `now` (before the
@@ -315,7 +325,7 @@ export class Player {
   }
 
   get weapon() {
-    return this.slots[this.slot];
+    return this.firingLeft ? this.left : this.slots[this.slot];
   }
 
   centerPosition(out) {
@@ -326,7 +336,11 @@ export class Player {
   // behind): where other players see our shots and flashes come from.
   worldMuzzle(out) {
     const id = this.weapon.def.id;
-    const bone = this.model.bones[`gun:${id}`];
+    const bone = this.model.bones[this.firingLeft ? `gun:${id}:L` : `gun:${id}`];
+    if (bone && this.firingLeft) {
+      const m = GUNS[id].muzzle;
+      return out.set(-m[0], m[1], m[2]).applyMatrix4(bone.matrixWorld);
+    }
     if (!bone) return this.eyePosition(out);
     return out.fromArray(GUNS[id].muzzle).applyMatrix4(bone.matrixWorld);
   }
@@ -674,7 +688,8 @@ export class Player {
     if (this.vitals.update(dt) && !this.isBot) this.game.sfx.play('shieldCharge');
 
     const w = this.weapon;
-    const wantZoom = this.input.held.aim && !this.sprinting && !w.reloading && this.mode !== 'mantle';
+    // (No zoom with a gun in each hand: the aim button fires the left one.)
+    const wantZoom = this.input.held.aim && !this.sprinting && !w.reloading && this.mode !== 'mantle' && !this.left;
     this.aimZoom += ((wantZoom ? w.def.zoom : 1) - this.aimZoom) * damp(14, dt);
     updateShooting(this.game, this, dt, pressed);
     if (!this.alive) return;
@@ -740,6 +755,8 @@ export class Player {
     this.aimTarget = null;
     this.aimNear = null;
     cancelReload(this.game, this.weapon);
+    cancelReload(this.game, this.left);
+    this.left = null;
     // A direction already held when you're smoked (mid-strafe) isn't a loadout pick.
     const x = this.input.moveX;
     this.pickDir = x > 0.5 ? 1 : x < -0.5 ? -1 : 0;
@@ -1623,6 +1640,7 @@ export class Player {
     } else if (this.model.group.visible) {
       const w = this.weapon;
       this.model.setWeapon(w.def.id);
+      this.model.setLeft(this.left ? this.left.def.id : null);
       // Shrink Wrap: the body morphs to our size (scaled about the feet).
       if (this.sizeShown !== this.size) {
         this.sizeShown += (this.size - this.sizeShown) * damp(4 / SIZE.morph, dt);

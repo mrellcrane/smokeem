@@ -6,7 +6,7 @@ import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
 import { SWARM } from './swarms.js';
 import { GUNS } from './guns/index.js';
 import { gfx } from '../render/gfx.js';
-import { AIM, SIZE } from '../config.js';
+import { AIM, SIZE, DUAL } from '../config.js';
 import { assists, assistOf, assistTarget, magnetize } from './aimAssist.js';
 import { PORTAL_COLORS } from './portals.js';
 
@@ -57,6 +57,8 @@ export function currentSpread(p) {
   // A slide aims like moving, not like crouching.
   if (p.crouched && p.grounded && !p.sliding) s *= d.crouchSpreadMul;
   if (p.mode === 'net' || p.mode === 'rope' || p.mode === 'bars') s *= d.climbSpreadMul;
+  // A gun in each hand: each one looser.
+  if (p.left) s *= DUAL.spreadMul;
   return s;
 }
 
@@ -104,6 +106,7 @@ export function updateShooting(game, p, dt, pressed) {
   // A cooldown that runs out mid-tick keeps the leftover (below 0), so a held trigger fires
   // at the gun's real rate instead of rounding up to whole ticks; a gun already ready sits at 0.
   for (const w of p.slots) if (w) w.cooldown = w.cooldown > 0 ? w.cooldown - dt : 0;
+  if (p.left) p.left.cooldown = p.left.cooldown > 0 ? p.left.cooldown - dt : 0;
 
   // Flying a missile: the trigger blows it up early; nothing else works meanwhile.
   if (p.guiding) {
@@ -115,12 +118,17 @@ export function updateShooting(game, p, dt, pressed) {
   // Switching weapons. An empty gun swaps itself out.
   let want = -1;
   const other = p.slots[1 - p.slot];
-  if (p.weapon.empty && other && !other.empty && p.switchT <= 0) want = 1 - p.slot;
+  if (p.weapon.empty && (!p.left || p.left.empty) && other && !other.empty && p.switchT <= 0) want = 1 - p.slot;
   if (pressed.switchWeapon && p.slots[1 - p.slot]) want = 1 - p.slot;
   if (pressed.slot1 && p.slot !== 0 && p.slots[0]) want = 0;
   if (pressed.slot2 && p.slot !== 1 && p.slots[1]) want = 1;
   if (want >= 0) {
     cancelReload(game, p.weapon);
+    // Dual wielding: switching guns drops the left one (Halo 2's way).
+    if (p.left) {
+      cancelReload(game, p.left);
+      game.pickups.dropLeft(p);
+    }
     // Putting a spin-up gun away lets its barrels stop.
     if (p.weapon.def.spinUp) {
       p.weapon.spin = 0;
@@ -138,14 +146,21 @@ export function updateShooting(game, p, dt, pressed) {
   // Spread recovers only once you stop firing for a moment, so a long spray really blooms.
   if (game.time - w.lastShotT > (d.bloomDelay ?? BLOOM_DELAY)) w.bloom = Math.max(0, w.bloom - d.spreadRecovery * dt);
   tickReload(game, p, w, dt, inp.held.fire);
+  const lw = p.left;
+  if (lw) {
+    if (game.time - lw.lastShotT > (lw.def.bloomDelay ?? BLOOM_DELAY)) lw.bloom = Math.max(0, lw.bloom - lw.def.spreadRecovery * dt);
+    tickReload(game, p, lw, dt, inp.held.fire2);
+  }
 
   const busy = p.mode === 'mantle' || p.switchT > 0;
   if (pressed.melee && !busy && p.meleeT <= 0) melee(game, p);
-  if (pressed.grenade && !busy && p.throwT <= 0 && p.grenades > 0) throwGrenade(game, p);
+  // (Both hands full: no grenades, and the aim button fires the left gun.)
+  if (pressed.grenade && !busy && p.throwT <= 0 && p.grenades > 0 && !lw) throwGrenade(game, p);
   if (pressed.reload && w.canReload()) startReload(game, p);
+  if (pressed.reload && lw?.canReload()) leftHand(p, () => startReload(game, p));
   // Guns whose aim button acts: the Stickybomb Launcher sets off your stickies, the Gravity Gun
   // grabs or drops, the Shrink Wrap fires its grow ray, the Portal Gun opens the orange portal.
-  if (pressed.aim && !busy) {
+  if (pressed.aim && !busy && !lw) {
     if (d.detonateOnAim) game.grenades.detonateStickies(p);
     else if (d.kind === 'gravity') game.gravity?.toggle(p);
     else if ((d.kind === 'size' || d.kind === 'portal') && w.cooldown <= 0 && w.mag > 0 && p.meleeT < MELEE.cooldown - 0.25) {
@@ -154,28 +169,8 @@ export function updateShooting(game, p, dt, pressed) {
     }
   }
 
-  // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
-  // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
-  // held through an auto-swap never launches it by surprise.
-  let trigger = d.kind === 'missile' ? pressed.fire : inp.held.fire || pressed.fire;
-  // Spin-up guns only fire once the barrels turn. An empty one just winds down, so a pull still
-  // reloads it like any other gun.
-  if (d.spinUp && w.mag > 0) trigger = spinBarrels(game, p, w, dt, trigger && !busy && !w.reloading) && trigger;
-  else if (d.spinUp) spinBarrels(game, p, w, dt, false);
-  // Shotguns fire straight out of a shell-by-shell reload.
-  if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
-  if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
-    if (w.mag <= 0) {
-      if (w.canReload()) startReload(game, p);
-      else if (pressed.fire && !p.isBot) game.sfx.play('empty');
-    } else {
-      while (w.cooldown <= 0 && w.mag > 0) {
-        fire(game, p);
-        w.cooldown += 1 / d.fireRate;
-        if (!d.auto || p.guiding) break;
-      }
-    }
-  }
+  pullTrigger(game, p, w, inp.held.fire || pressed.fire, pressed.fire, busy, dt);
+  if (lw) leftHand(p, () => pullTrigger(game, p, lw, inp.held.fire2 || pressed.fire2, pressed.fire2, busy, dt));
 
   // What's under the crosshair (for the red reticle), and for a controller whether someone is
   // near it (the wider aim slowdown).
@@ -189,6 +184,44 @@ export function updateShooting(game, p, dt, pressed) {
   const assist = assists(p);
   p.aimTarget = onIt ?? (assist ? assistTarget(game, p, _o, _f, 1, _c) : null);
   p.aimNear = assist && !p.aimTarget ? assistTarget(game, p, _o, _f, AIM.nearCones, _c) : null;
+}
+
+// Runs fn with the left-hand gun as the player's weapon (fire, spread and reloads all go by
+// p.weapon), however it ends.
+function leftHand(p, fn) {
+  p.firingLeft = true;
+  try {
+    fn();
+  } finally {
+    p.firingLeft = false;
+  }
+}
+
+// One gun's trigger this tick (held: down now; pulled: pressed since the last tick).
+function pullTrigger(game, p, w, held, pulled, busy, dt) {
+  const d = w.def;
+  // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
+  // mash); the cooldown is what limits the rate. The missile needs a fresh pull, so a trigger
+  // held through an auto-swap never launches it by surprise.
+  let trigger = d.kind === 'missile' ? pulled : held;
+  // Spin-up guns only fire once the barrels turn. An empty one just winds down, so a pull still
+  // reloads it like any other gun.
+  if (d.spinUp && w.mag > 0) trigger = spinBarrels(game, p, w, dt, trigger && !busy && !w.reloading) && trigger;
+  else if (d.spinUp) spinBarrels(game, p, w, dt, false);
+  // Shotguns fire straight out of a shell-by-shell reload.
+  if (trigger && w.reloading && d.reloadPerShell && w.mag > 0) cancelReload(game, w);
+  if (trigger && !busy && !w.reloading && p.meleeT < MELEE.cooldown - 0.25) {
+    if (w.mag <= 0) {
+      if (w.canReload()) startReload(game, p);
+      else if (pulled && !p.isBot) game.sfx.play('empty');
+    } else {
+      while (w.cooldown <= 0 && w.mag > 0) {
+        fire(game, p);
+        w.cooldown += 1 / d.fireRate;
+        if (!d.auto || p.guiding) break;
+      }
+    }
+  }
 }
 
 function tickReload(game, p, w, dt, firing) {
@@ -256,7 +289,9 @@ function fire(game, p, alt = false) {
   p.sprinting = false;
   p.model.endSprint();
   p.sprintLock = d.sprintLock ?? 0.35;
-  p.viewmodel?.fired();
+  p.viewmodel?.fired(p.firingLeft);
+  // Out of the right hand, or mirrored for the left.
+  const side = p.firingLeft ? -1 : 1;
   if (d.kind === 'beam') return fireBeam(game, p);
   if (d.kind === 'gravity') return game.gravity?.fire(p);
   if (d.kind === 'size') return fireSize(game, p, alt);
@@ -275,7 +310,7 @@ function fire(game, p, alt = false) {
 
   if (d.kind === 'launcher') {
     // Out of the muzzle along the aim, with a little lift and half your own velocity.
-    _muzzle.copy(_o).addScaledVector(_f, 0.55).addScaledVector(_r, 0.16).addScaledVector(_u, -0.1);
+    _muzzle.copy(_o).addScaledVector(_f, 0.55).addScaledVector(_r, 0.16 * side).addScaledVector(_u, -0.1);
     _d.copy(_f).multiplyScalar(d.launchSpeed).addScaledVector(p.vel, 0.5);
     _d.y += d.launchUp ?? 0;
     game.grenades.throw(p, _muzzle, _d, d.projectile, d);
@@ -284,7 +319,7 @@ function fire(game, p, alt = false) {
 
   if (d.kind === 'bolt') {
     // Lobbed the same way, but it flies as a bolt (no physics body) and breaks on contact.
-    _muzzle.copy(_o).addScaledVector(_f, 0.55).addScaledVector(_r, 0.16).addScaledVector(_u, -0.05);
+    _muzzle.copy(_o).addScaledVector(_f, 0.55).addScaledVector(_r, 0.16 * side).addScaledVector(_u, -0.05);
     // Facing a wall: launch from just in front of it, never from inside it.
     _c.subVectors(_muzzle, _o);
     const reach = _c.length();
@@ -311,7 +346,7 @@ function fire(game, p, alt = false) {
   w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
   // Tracers start near the first-person barrel in our own view, and at our third-person gun
   // in everyone else's.
-  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.14);
+  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2 * side).addScaledVector(_u, -0.14);
   p.worldMuzzle(_m3);
   const rays = d.pellets ?? 1;
   pelletHits.clear();
@@ -339,7 +374,7 @@ function fire(game, p, alt = false) {
     }
     if (!hit.hit) continue;
     if (hit.entity) {
-      let dmg = d.damage;
+      let dmg = d.damage * (p.left ? DUAL.damageMul : 1);
       const t = (hit.distance - d.falloffStart) / (d.falloffEnd - d.falloffStart);
       if (t > 0) dmg *= 1 - Math.min(1, t) * (1 - d.falloffMin);
       if (hit.headshot) dmg *= d.headshotMul;

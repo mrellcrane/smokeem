@@ -7,6 +7,8 @@ export default {
     name: 'Kindling',
     blurb: 'SMG. Melts up close and stays accurate on the move; weak past 25 m.',
     kind: 'hitscan',
+    // One in each hand (Halo 2's dual wielding): the left fires on LT or right click.
+    dual: true,
     auto: true,
     fireRate: 14,
     damage: 10,

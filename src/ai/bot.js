@@ -261,7 +261,9 @@ export class BotBrain {
     // the gun in hand, so first draw the one worth least; hold still for that unless fighting.
     const prompt = p.pickupPrompt;
     this.swapping = false;
-    if (prompt && !prompt.def.bot.skip && (prompt === this.goalItem || (prompt.def.bot.power && !p.slots.some((w) => w?.def.bot.power)))) {
+    // A second dual-wield gun under us: take it in the left hand (it costs nothing).
+    if (prompt && p.pickupDual) s.press('interact');
+    else if (prompt && !prompt.def.bot.skip && (prompt === this.goalItem || (prompt.def.bot.power && !p.slots.some((w) => w?.def.bot.power)))) {
       const give = keepValue(p.slots[0]) <= keepValue(p.slots[1]) ? 0 : 1;
       if (keepValue(p.slots[give]) <= gunValue(prompt.def)) {
         if (p.switchT <= 0 && give === p.slot) {
@@ -487,9 +489,12 @@ export class BotBrain {
     if (!flinging && this.reactT <= 0 && this.throwT <= 0 && inRange && onTarget) {
       if (w.auto) {
         if (this.burstOn || w.bot.hold) s.held.fire = true;
+        // A gun in each hand: both triggers.
+        if (p.left && s.held.fire) s.held.fire2 = true;
       } else if (p.weapon.cooldown <= 0 && this.tapT <= 0) {
         // Semi-autos: tap at the skill's share of the full rate.
         s.press('fire');
+        if (p.left) s.press('fire2');
         this.tapT = 1 / (w.fireRate * sk.semiRate);
       }
     }
@@ -500,7 +505,8 @@ export class BotBrain {
     this.grenadeT -= dt;
     if (this.grenadeT <= 0) {
       this.grenadeT = 2 + Math.random() * 2;
-      if (p.grenades > 0 && dist > 7 && dist < 22) {
+      // (Not with a gun in each hand: no hand free to throw.)
+      if (p.grenades > 0 && dist > 7 && dist < 22 && !p.left) {
         let chance = sk.grenadeChance * 0.5;
         if (tg.vel && Math.hypot(tg.vel.x, tg.vel.z) < 1.5) chance *= 1.8;
         if (p.weapon.reloading || p.weapon.mag === 0) chance *= 2;
@@ -558,6 +564,8 @@ export class BotBrain {
     const p = this.player;
     const other = p.slots[1 - p.slot];
     if (!other || other.empty || p.switchT > 0 || this.swapping) return;
+    // A gun in each hand: a switch would drop the left one, so only once both are dry.
+    if (p.left && (p.weapon.mag > 0 || p.left.mag > 0 || p.weapon.reserve + p.left.reserve > 0)) return;
     // Primary dry mid-fight: finish with the sidearm instead of reloading (refill() loads the
     // primary once the fight is over). Once the sidearm is dry too, reload the primary.
     const w = p.weapon;
@@ -643,6 +651,11 @@ export class BotBrain {
     const p = this.player;
     const w = p.weapon;
     if (p.switchT > 0 || w.reloading || this.swapping) return;
+    // (Dual wielding: reload both, never switch away.)
+    if (p.left) {
+      if (w.canReload() || p.left.canReload()) this.state.press('reload');
+      return;
+    }
     const other = p.slots[1 - p.slot];
     if (other && other.mag === 0 && other.reserve > 0 && w.mag > 0) this.switchWeapon();
     else if (w.canReload()) this.state.press('reload');
@@ -697,7 +710,7 @@ export class BotBrain {
       return true;
     }
     this.grenadeT -= dt;
-    if (this.grenadeT > 0 || p.grenades <= 0 || this.game.time - this.lastSeenT > 2.5) return false;
+    if (this.grenadeT > 0 || p.grenades <= 0 || p.left || this.game.time - this.lastSeenT > 2.5) return false;
     this.grenadeT = 3 + Math.random() * 2;
     const dist = p.center.distanceTo(this.lastSeen);
     if (dist < 8 || dist > 20 || Math.random() > this.skill.grenadeChance * 1.5) return false;

@@ -371,8 +371,25 @@ rockets and Swarm Jars.
 
 **Cookoff** (Medium, owner request 2026-10-30: Halo's rocket launcher and Halo 1's zoom pistol,
 as original BBQ guns): Hickory and Kindling primaries ("Pitmaster" and "Hot n Fast") with the
-Carver as the sidearm, the Mesquite on the field pads and Hot Links on the power pad. Dual
-wielding (also asked for) is next.
+Carver as the sidearm, the Mesquite on the field pads and Hot Links on the power pad. Loadouts:
+**Pitmaster** (Hickory + Carver) and **Double Down** (a Kindling in each hand + Carver).
+
+**Dual wielding** (owner request 2026-10-30, Halo 2's rules). The Kindling and the Toothpick
+can be held one in each hand.
+- Getting a second one: with one in hand, stand on another (any dual-wield gun) and press E /
+  hold X: "dual wield". Cookoff's Double Down loadout spawns with two Kindlings.
+- The trigger fires the right gun, the left gun fires on right click / LT. No grenades and no
+  zoom with both hands full (the aim button is the left trigger); melee still works.
+- Reload reloads both; an empty gun reloads when its own trigger is pulled.
+- Switching weapons drops the left gun (to the floor if you picked it up; a loadout's just goes),
+  and so does swapping your gun for one that can't be dual wielded. Smoked, you drop it too.
+- Each gun is looser (spread x1.3) and its rounds do 75% damage, so two Kindlings smoke in about
+  0.9 s up close instead of 0.68 (one alone: 1.36 s).
+- The HUD shows both mags (left | right) and "fires left" with the button. In first person the
+  left gun is the right one's mirror image, glove and all, with its own kick and flash; other
+  players see one in each hand.
+- Bots fire both, take a second dual-wield gun when they stand on one, and don't switch away
+  until both are dry.
 
 **Junkyard** (Hot): Hickory and Stickybomb Launcher primaries ("Pitmaster" and "Sticky Ribs"),
 the Toothpick, the Mesquite on the field pads and the Gravity Gun on the power pad.
@@ -675,7 +692,7 @@ never the same one twice in a row). Guns on "Map default" use each map's own set
 | Sprint | Shift (hold) |
 | Crouch (slide from a sprint) | C (hold) |
 | Fire | Left mouse |
-| Zoom / aim | Right mouse |
+| Zoom / aim (the left gun when dual wielding) | Right mouse |
 | Reload | R |
 | Pick up / interact (get on or off a Sizzler) | E |
 | Grenade | G |
@@ -699,7 +716,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 | Pick up / swap weapon on the ground, get on or off a Sizzler | X (hold) |
 | Switch weapon | Y |
 | Fire | RT |
-| Grenade | LT |
+| Grenade (the left gun when dual wielding) | LT |
 | Melee | RB |
 | Grapple | LB |
 | Sprint | Left stick click (stays on until you let off forward or crouch) |
@@ -1199,3 +1216,7 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Halo guns, as original BBQ designs (owner request): the Carver (a scoped hand
   cannon like Halo 1's pistol, three headshots) and Hot Links (twin straight-flying rockets,
   zoomed ones home on bikes), in a new Medium set, Cookoff. Dual wielding is the next step.
+- 2026-10-30: Dual wielding, Halo 2's rules (owner request): the Kindling and the Toothpick, one in
+  each hand; the left gun on right click / LT; no grenades or zoom meanwhile; switching drops the
+  left gun. Each does 75% damage (two SMGs at full damage halved the time to kill). Cookoff's
+  Kindling loadout is now Double Down: a Kindling in each hand.

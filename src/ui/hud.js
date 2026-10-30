@@ -11,8 +11,8 @@ import { SIZZLER } from '../config.js';
 // DOM is only touched when a value actually changes.
 
 const KEY_LABELS = {
-  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'F', grapple: 'Q', sprint: 'Shift', turn: 'A / D' },
-  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB', grapple: 'LB', sprint: 'LS click', turn: 'Left stick' },
+  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'F', grapple: 'Q', sprint: 'Shift', turn: 'A / D', fire2: 'Right click' },
+  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB', grapple: 'LB', sprint: 'LS click', turn: 'Left stick', fire2: 'LT' },
 };
 
 const HITMARKER_TIME = 0.18;
@@ -196,6 +196,7 @@ export class Hud {
     if (game.swarms.on(player)) return `Bugs on you! ${k.melee} to swat them`;
     if (game.swarms.after(player)) return 'Bugs coming: sprint away or swat them';
     const prompt = player.pickupPrompt;
+    if (prompt && player.pickupDual) return `${k.interact}: dual wield ${prompt.def.name}`;
     if (prompt) return `${k.interact}: swap ${player.weapon.def.name} for ${prompt.def.name}`;
     if (player.vehiclePrompt) return `${k.interact}: ride the Sizzler`;
     if (player.inFire) return 'Too hot!';
@@ -260,11 +261,13 @@ export class Hud {
       this.set('ammoNote', bike.overheated ? 'Overheated' : 'Hull', (x) => (e.ammoNote.textContent = x));
       this.set('other', `Boost ${Math.round(bike.boost * 100)}%`, (x) => (e.other.textContent = x));
     } else {
-      this.set('wname', w.def.name, (x) => (e.wname.textContent = x));
+      // Dual wielding: both names, and the left gun's mag before the right's.
+      const lw = player.left;
+      this.set('wname', lw ? (lw.def === w.def ? `${w.def.name} x2` : `${lw.def.name} + ${w.def.name}`) : w.def.name, (x) => (e.wname.textContent = x));
       // (The Gravity Gun has no ammo.)
       const endless = !Number.isFinite(w.def.mag);
-      this.set('mag', w.mag, (x) => (e.mag.textContent = Number.isFinite(x) ? x : '∞'));
-      this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
+      this.set('mag', lw ? `${lw.mag} | ${w.mag}` : w.mag, (x) => (e.mag.textContent = typeof x === 'string' || Number.isFinite(x) ? x : '∞'));
+      this.set('reserve', endless ? -1 : w.reserve + (lw ? lw.reserve : 0), (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
       const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
       this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
       // A row of ticks, one per round (bigger mags share ticks), emptying as you fire.
@@ -278,7 +281,7 @@ export class Hud {
         const shown = Math.ceil((w.mag / w.def.mag) * cap);
         this.set('tickFill', shown, (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
       }
-      const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
+      const note = lw ? (lw.reloading || w.reloading ? 'Reloading' : `${this.keys.fire2} fires left`) : w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
       this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
       const o = player.slots[1 - player.slot];
       this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));

@@ -220,7 +220,11 @@ export class GamepadInput {
     if (edge(PAD.B)) s.press('crouch');
     s.held.fire = down(PAD.RT);
     if (edge(PAD.RT)) s.press('fire');
-    if (edge(PAD.LT)) s.press('grenade');
+    if (edge(PAD.LT)) {
+      s.press('grenade');
+      // (LT also fires the left-hand gun when dual wielding.)
+      s.press('fire2');
+    }
     if (edge(PAD.RB)) s.press('melee');
     if (edge(PAD.LB)) s.press('grapple');
     if (edge(PAD.Y)) s.press('switchWeapon');
@@ -245,6 +249,7 @@ export class GamepadInput {
     s.held.reload = down(PAD.X);
     s.held.interact = down(PAD.X);
     s.held.grenade = down(PAD.LT);
+    s.held.fire2 = down(PAD.LT);
     s.held.melee = down(PAD.RB);
     s.held.grapple = down(PAD.LB);
 

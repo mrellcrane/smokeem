@@ -6,7 +6,7 @@ import { gloveParts } from './gloves.js';
 import { envUniforms } from '../render/reflections.js';
 import { GUNS } from '../combat/guns/index.js';
 import { SWITCH_TIME } from '../combat/weapons.js';
-import { VIEWMODEL } from '../config.js';
+import { VIEWMODEL, DUAL } from '../config.js';
 
 // First-person weapon with gloved hands. Lives in its own scene, rendered after the world with a
 // cleared depth buffer and its own camera, so it never clips into walls and keeps the same size
@@ -198,6 +198,16 @@ export class Viewmodel {
     this.gun = null;
     this.setWeapon(guns[0]);
 
+    // Dual wielding: a mirror image of each dual-wield gun for the left hand (glove and all),
+    // sharing its geometry, with its own flash; built when first needed.
+    this.leftGuns = {};
+    this.leftGun = null;
+    this.leftFlash = new THREE.Mesh(this.flash.geometry, this.flashMaterial);
+    this.leftFlash.visible = false;
+    this.kickL = 0;
+    this.flashTL = 0;
+    for (const id of guns) if (GUNS[id].def.dual) this.addLeftGun(id);
+
     this.kick = 0;
     this.flashT = 0;
     this.bashT = 0;
@@ -237,6 +247,28 @@ export class Viewmodel {
     this.muzzles[id] = new THREE.Vector3(...g.muzzle);
     this.root.add(mesh);
     this.guns[id] = mesh;
+  }
+
+  addLeftGun(id) {
+    if (!this.guns[id]) this.addGun(id);
+    const mesh = new THREE.Mesh(this.guns[id].geometry, sharedMaterial);
+    mesh.userData.mag = this.guns[id].userData.mag;
+    mesh.visible = false;
+    this.root.add(mesh);
+    this.leftGuns[id] = mesh;
+  }
+
+  // The left hand's gun (null for none).
+  setLeft(id) {
+    const want = id ? (this.leftGuns[id] ?? (this.addLeftGun(id), this.leftGuns[id])) : null;
+    if (want === this.leftGun) return;
+    if (this.leftGun) this.leftGun.visible = false;
+    this.leftGun = want;
+    if (!want) return;
+    want.visible = true;
+    want.add(this.leftFlash);
+    this.leftFlash.position.copy(this.muzzles[id]);
+    this.leftFlash.scale.setScalar(GUNS[id].view.flash * VIEWMODEL.flash);
   }
 
   setWeapon(id) {
@@ -295,7 +327,14 @@ export class Viewmodel {
     this.displayTexture.needsUpdate = true;
   }
 
-  fired() {
+  // left: the left hand's gun fired.
+  fired(left = false) {
+    if (left) {
+      this.kickL = GUNS[this.current].view.kick;
+      this.flashTL = 0.05;
+      this.leftFlash.rotation.z = Math.random() * Math.PI;
+      return;
+    }
     const g = GUNS[this.current];
     this.kick = g.view.kick;
     this.flashT = 0.05;
@@ -316,6 +355,7 @@ export class Viewmodel {
     this.root.visible = p.showsViewmodel();
     const id = p.weapon.def.id;
     this.setWeapon(id);
+    this.setLeft(p.left ? p.left.def.id : null);
     const pose = GUNS[id].view;
     if (this.display.visible && this.shownAmmo !== p.weapon.mag) {
       this.shownAmmo = p.weapon.mag;
@@ -346,6 +386,7 @@ export class Viewmodel {
     this.slide += ((p.sliding ? 1 : 0) - this.slide) * damp(10, dt);
     this.vy += (clamp(-p.vel.y * 0.004, -0.035, 0.035) - this.vy) * damp(8, dt);
     this.kick = Math.max(0, this.kick - dt * 12);
+    this.kickL = Math.max(0, this.kickL - dt * 12);
 
     const curve = (t) => (t > 0 && t < 1 ? Math.sin(Math.PI * t) : 0);
     const advance = (t, dur) => (t > 0 ? (t + dt / dur >= 1 ? 0 : t + dt / dur) : 0);
@@ -391,6 +432,16 @@ export class Viewmodel {
       ry + 0.55 * this.sprint + 0.3 * bash + 0.22 * cant,
       rz + 0.6 * reload + 0.5 * cant + this.swayX * 2 + 0.5 * bash + 0.12 * this.slide + this.roll * (1 - 0.6 * a),
     );
+    // A gun in each hand: both a little wider and lower, the left one the right's mirror image
+    // with its own kick.
+    const L = this.leftGun;
+    if (L) {
+      g.position.x += DUAL.spread * VIEWMODEL.place[0];
+      g.position.y -= DUAL.drop * VIEWMODEL.place[1];
+      L.scale.set(-g.scale.x, g.scale.y, g.scale.z);
+      L.position.set(-g.position.x, g.position.y, g.position.z + 0.012 * (this.kickL - this.kick) * VIEWMODEL.place[2]);
+      L.rotation.set(g.rotation.x + 0.035 * (this.kickL - this.kick), -g.rotation.y, -g.rotation.z);
+    }
     this.moveGroups(w, pump, g.userData.mag);
 
     // Rotisserie barrels turn with the spin-up.
@@ -402,6 +453,12 @@ export class Viewmodel {
       this.flash.visible = true;
     } else if (this.flash.visible) {
       this.flash.visible = false;
+    }
+    if (this.flashTL > 0) {
+      this.flashTL -= dt;
+      this.leftFlash.visible = true;
+    } else if (this.leftFlash.visible) {
+      this.leftFlash.visible = false;
     }
   }
 
@@ -454,6 +511,8 @@ export class Viewmodel {
     if (on) this.display.visible = true;
     else this.display.visible = !!GUNS[this.current]?.display;
     for (const m of Object.values(this.guns)) m.visible = on || m === this.gun;
+    for (const m of Object.values(this.leftGuns)) m.visible = on || m === this.leftGun;
+    this.leftFlash.visible = on;
   }
 
   dispose() {

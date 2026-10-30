@@ -14,7 +14,7 @@ export const CONTROL_ROWS = {
     ],
     [
       ['Click', 'fire'],
-      ['Right click', 'zoom'],
+      ['Right click', 'zoom, or the left gun'],
       ['R', 'reload'],
       ['G', 'grenade'],
       ['F', 'melee'],
@@ -38,7 +38,7 @@ export const CONTROL_ROWS = {
       ['RT', 'fire'],
       ['RS click', 'zoom'],
       ['X', 'reload'],
-      ['LT', 'grenade'],
+      ['LT', 'grenade, or the left gun'],
       ['RB', 'melee'],
       ['LB', 'grapple'],
       ['X hold', 'pick up'],
