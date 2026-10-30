@@ -397,12 +397,13 @@ function smokehouse(B, M, s) {
   // Foundation slab (floor for the bake), a little proud of the ground.
   B.boxMinMax(M.concrete, [x0 - 0.6, y0 - 1.2, z0 - 0.6], [x1 + 0.6, y0 + 0.1, z1 + 0.6], { floor: true });
   const yF = y0 + 0.1;
-  // Back wall.
-  B.boxMinMax(M.metal, [Math.min(back, back - s * T), yF, z0], [Math.max(back, back - s * T), ROOF, z1]);
+  // Back wall (between the side walls, which run the full length: overlapping at the corners,
+  // their faces would sit flush and flicker).
+  B.boxMinMax(M.metal, [Math.min(back, back - s * T), yF, z0 + T], [Math.max(back, back - s * T), ROOF, z1 - T]);
   // Front wall with a wide door in the middle (4 m), a lintel over it.
   const [fa, fb] = fx(front, front + s * T);
-  B.boxMinMax(M.metal, [fa, yF, z0], [fb, ROOF, -2]);
-  B.boxMinMax(M.metal, [fa, yF, 2], [fb, ROOF, z1]);
+  B.boxMinMax(M.metal, [fa, yF, z0 + T], [fb, ROOF, -2]);
+  B.boxMinMax(M.metal, [fa, yF, 2], [fb, ROOF, z1 - T]);
   B.boxMinMax(M.metal, [fa, yF + 2.9, -2], [fb, ROOF, 2]);
   // Side walls, each with a door (1.6 m) near the front.
   const dx = front + s * 3.4;
@@ -418,10 +419,11 @@ function smokehouse(B, M, s) {
   const P = ROOF + 0.3;
   B.boxMinMax(M.metalDark, [x0, P, z0], [x1, P + 0.9, z0 + 0.3]);
   B.boxMinMax(M.metalDark, [x0, P, z1 - 0.3], [x1, P + 0.9, z1]);
+  // (The end parapets between the side ones, not overlapping them.)
   const [ra, rb] = fx(front, front + s * 0.3);
-  B.boxMinMax(M.metalDark, [ra, P, z0], [rb, P + 0.9, z1 - 3]);
+  B.boxMinMax(M.metalDark, [ra, P, z0 + 0.3], [rb, P + 0.9, z1 - 3]);
   const [ba, bb] = fx(back, back - s * 0.3);
-  B.boxMinMax(M.metalDark, [ba, P, z0], [bb, P + 0.9, z1]);
+  B.boxMinMax(M.metalDark, [ba, P, z0 + 0.3], [bb, P + 0.9, z1 - 0.3]);
   // Team color strips along the parapet's top and over the front door.
   B.boxMinMax(team, [x0, P + 0.9, z0], [x1, P + 0.96, z0 + 0.3], { collide: false, castShadow: false });
   B.boxMinMax(team, [x0, P + 0.9, z1 - 0.3], [x1, P + 0.96, z1], { collide: false, castShadow: false });
@@ -457,9 +459,9 @@ function bridge(B, M, z) {
   for (const s of [-1, 1]) {
     const bank = heightAt(s * 9.5, z);
     B.ramp(M.plank, [s * 6.3, y, z], [s * 9.5, bank, z], 3.2, 0.25);
-    // Railings.
-    for (const rz of [z - 1.55, z + 1.55]) B.boxMinMax(M.plank, [-6.5, y, rz - 0.06], [6.5, y + 0.9, rz + 0.06], { castShadow: true });
   }
+  // Railings (once each: built twice in the same place, they flickered).
+  for (const rz of [z - 1.55, z + 1.55]) B.boxMinMax(M.plank, [-6.5, y, rz - 0.06], [6.5, y + 0.9, rz + 0.06], { castShadow: true });
   for (const x of [-4, 0, 4]) for (const rz of [z - 1.4, z + 1.4]) B.cylinder(M.plank, [x, BED - 0.2, rz], 0.18, y - BED, { segments: 8 });
 }
 
