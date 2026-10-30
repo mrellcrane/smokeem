@@ -8,8 +8,8 @@ import * as THREE from 'three';
 // (the body itself and each bone, gun bones included) and every player's eye and aim go into a
 // ring of preallocated float arrays, with the killer-to-be's tracers in a small ring of their
 // own. A replaying view copies the past frame's transforms onto the bodies, renders, and puts
-// the present back. Only bodies and shots are replayed: projectiles, pickups and effects show
-// as they are now.
+// the present back. Only bodies, Rocky Mountain Oysters' sacks and shots are replayed:
+// projectiles, pickups and effects show as they are now.
 
 export const REPLAY = { before: 1.8, length: 2.3 };
 const FRAMES = 200;
@@ -29,6 +29,10 @@ export class Replay {
       b.off = size;
       size += PER_BODY + b.bones.length * PER_BONE;
     }
+    // Oysters: every sack's matrix and owner, and how many are drawn.
+    const sacks = game.oysters?.sacks;
+    this.sackOff = size;
+    if (sacks) size += sacks.instanceMatrix.array.length + game.oysters.owners.array.length + 1;
     this.frames = Array.from({ length: FRAMES }, () => ({ t: -Infinity, d: new Float32Array(size) }));
     this.head = 0;
     this.lastT = -Infinity;
@@ -71,6 +75,13 @@ export class Replay {
         i += PER_BONE;
       }
     }
+    const oy = this.game.oysters;
+    if (oy) {
+      const m = oy.sacks.instanceMatrix.array;
+      d.set(m, this.sackOff);
+      d.set(oy.owners.array, this.sackOff + m.length);
+      d[this.sackOff + m.length + oy.owners.array.length] = oy.sacks.count;
+    }
   }
 
   read(d) {
@@ -86,6 +97,17 @@ export class Replay {
         b.scale.setScalar(d[i + 7]);
         i += PER_BONE;
       }
+    }
+    const oy = this.game.oysters;
+    if (oy) {
+      const m = oy.sacks.instanceMatrix.array;
+      const o = oy.owners.array;
+      m.set(d.subarray(this.sackOff, this.sackOff + m.length));
+      o.set(d.subarray(this.sackOff + m.length, this.sackOff + m.length + o.length));
+      oy.sacks.count = d[this.sackOff + m.length + o.length];
+      oy.sacks.visible = oy.sacks.count > 0;
+      oy.sacks.instanceMatrix.needsUpdate = true;
+      oy.owners.needsUpdate = true;
     }
   }
 
