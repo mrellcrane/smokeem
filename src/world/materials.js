@@ -7,7 +7,7 @@ export function createMaterials(tex) {
   const vc = { vertexColors: true };
   const m = {
     ground: new THREE.MeshLambertMaterial({ map: tex.ground, ...vc }),
-    metal: new THREE.MeshPhongMaterial({ map: tex.metal, specular: 0x2a2f33, shininess: 28, ...vc }),
+    metal: new THREE.MeshPhongMaterial({ map: tex.metal, specular: 0x353b40, shininess: 30, ...vc }),
     metalDark: new THREE.MeshPhongMaterial({ map: tex.metalDark, specular: 0x222629, shininess: 24, ...vc }),
     hazard: new THREE.MeshLambertMaterial({ map: tex.hazard, ...vc }),
     plank: new THREE.MeshLambertMaterial({ map: tex.plank, ...vc }),
@@ -65,6 +65,14 @@ export function createMaterials(tex) {
     mat.name = name;
     mat.userData.tile = tiles[name] ?? 0;
     mat.userData.surface = surfaces[name] ?? null;
+  }
+  // High preset: relief-painted surfaces also get their normal maps (textures.js), so seams,
+  // rivets and grain answer the real sun. (Kept gentle: the color maps already carry the relief.)
+  for (const [name, mat] of Object.entries(m)) {
+    const n = tex[`${(mat.map && Object.keys(tex).find((k) => tex[k] === mat.map)) || ''}Normal`];
+    if (!n) continue;
+    mat.normalMap = n;
+    mat.normalScale.set(1, 1);
   }
   // A little grime low down on tall faces (StaticBuilder).
   for (const name of ['metal', 'metalDark', 'concrete', 'paint']) m[name].userData.grime = true;

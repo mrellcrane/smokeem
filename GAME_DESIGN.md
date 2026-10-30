@@ -700,9 +700,9 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
   separate from legs, jumps and landings (done); (8) pickup beacons (done); (9) explosions, impacts and
-  decals (done); (10) arena dressing (done); (11) first-person feel; gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
-  flinch and death animation; (13) animated reloads in first person; (14) normal maps on
-  high only; (15) a shadowless low tier only if the Xbox bench needs it.
+  decals (done); (10) arena dressing (done); (11) first-person feel (done); gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
+  flinch and death animation (done); (13) animated reloads in first person (done); (14) normal maps on
+  high only (done); (15) a shadowless low tier only if the Xbox bench needs it.
 - **More maps** (owner wants this): Map 2, Smokestack Works, and the map choice are done.
   Each new map needs its own layout, bot links (`src/ai/mapLinks.js`), pickup pads and a
   default weapon set, registered in `src/world/maps.js`.
@@ -946,3 +946,8 @@ Need answers before the step that uses them gets built.
   and crouch for SAUCED; and grenades come when they pay off (someone camping, a crowd, an empty
   gun, or a lob at where you just ducked behind cover) instead of at random. Bots still don't place
   portals themselves.
+- 2026-10-30: Owner: the guns look a lot better; next, improve the environment graphics. First:
+  normal maps on High. The relief pass that already shades each surface texture by its height
+  canvas now also writes a normal map from the same slopes, so seams, rivets, planks and pebbles
+  answer the real sun (metal walls got a little more shine to catch it). No draw calls; one more
+  shader program; about 0.3 s more texture painting on the first High load (cached after).

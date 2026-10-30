@@ -158,7 +158,7 @@ export class Game {
 
     onProgress('Painting textures', 0.2);
     await nextFrame();
-    this.textures = createTextures(preset.textureSize);
+    this.textures = createTextures(preset.textureSize, { normalMaps: !!preset.normalMaps && gfx.normalMaps });
     this.applyAnisotropy(preset);
     this.materials = createMaterials(this.textures);
 

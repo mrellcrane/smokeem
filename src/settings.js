@@ -46,6 +46,8 @@ export const QUALITY_PRESETS = {
     fxScale: 1.25,
     decals: 160,
     portalViews: 3,
+    // Normal maps on the relief-painted surfaces (textures.js).
+    normalMaps: true,
   },
 };
 
