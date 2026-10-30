@@ -241,7 +241,16 @@ Live build: https://mrellcrane.github.io/smokeem/
   - Smokehouse Creek is open terrain: `heightAt(x, z)` shapes the ground (plateaus, the creek,
     hills, the rim slopes) and is used to place everything on it; the ground is one 1 m grid mesh
     (vertex colors from slope and wetness, `materials.grass`) with a matching trimesh collider.
-    The creek is a mud zone under a transparent `materials.water` plane. Launch pads are zones
+    The creek is a mud zone under `materials.water` (`water()`: a grid that knows its depth, so
+    it's clear and brown over the shallows, foamy at the banks, deep green-blue mid-stream, with
+    ripples running downstream that calm with distance, and the arena's reflection by fresnel).
+    The ground blends grass, dirt and rock per pixel (`terrainBlend`, wrapped outside the bake
+    and grime; gfx switch `terrainBlend`) by each vertex's `aMix` from `groundMix` (dirt on the
+    banks, round the bases and pads, along the tracks to the bridges and at the boulders' feet;
+    rock on steep faces, projected from the side, and the rim's top); boulders use
+    `materials.rock`. Grass tufts are `foliage.js` (one instanced mesh, swaying in the vertex
+    shader and shrunk away past 30 m; placed by `tuftSpot`; the preset's `foliage` count, 0 on
+    Low, gfx switch `foliage`). Launch pads are zones
     (`zones.addLaunch`, `launchAt`): `Player.tickMove` sets the velocity once while grounded on
     one and leaves the jump unsteered until landing (`launched`); bots take them as `launch`
     links (`VALLEY_LINKS`). A map bigger than the default 58 m square sets `nav: { halfX, halfZ,
