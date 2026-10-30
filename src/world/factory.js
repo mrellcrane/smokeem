@@ -5,6 +5,7 @@ import { createFire } from './fire.js';
 import { bakeArena } from './bake.js';
 import { crate, barrier, drum, pickupPads, grandstands } from './parts.js';
 import { gfx } from '../render/gfx.js';
+import { dressFactory } from './dressing.js';
 
 // Map 2: Smokestack Works. An indoor smokehouse factory turned into a game-show arena: a long
 // hall under a trussed roof with skylights, a giant smoker in the middle (the power pad on its
@@ -74,6 +75,7 @@ export function buildFactory({ scene, RAPIER, world, materials: M, textures, bak
   greaseVat(B, M, zones);
   cover(B, M);
   lamps(B, M);
+  dressFactory(B, M, { HX, HZ, truss: TRUSS, crate });
   if (gfx.show) jumbotron(B, M);
   pickupPads(B, M, PICKUP_SPOTS);
 
