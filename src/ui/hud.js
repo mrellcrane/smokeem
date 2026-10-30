@@ -18,6 +18,8 @@ const HITMARKER_TIME = 0.18;
 const HURT_TIME = 0.4;
 const KILL_MSG_TIME = 1.8;
 const FEED_TIME = 6;
+// Most rounds the ammo ticks show one tick each for; bigger mags share ticks.
+const MAX_TICKS = 40;
 
 const hex = (c) => (c == null ? 'inherit' : `#${c.toString(16).padStart(6, '0')}`);
 const nameHtml = (p) => `<b style="color:${hex(p.color)}">${p.name}</b>`;
@@ -59,19 +61,21 @@ export class Hud {
         <div class="bar health"><i></i></div>
       </div>
       <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
-      <div class="hud-match"><div class="hud-clock"></div><div class="hud-standings"></div><div class="hud-feed"></div></div>
+      <div class="hud-gear"><div class="nades"></div></div>
+      <div class="hud-match"><div class="hud-clock"></div><div class="hud-standings"></div></div>
+      <div class="hud-feed"></div>
       <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
-      <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="crosshair"><u></u><i></i><i></i><i></i><i></i><b></b></div>
       <div class="portal-ind"><u class="pb"></u><u class="po"></u></div>
       <div class="target-name"></div>
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
       <div class="kill-msg"></div>
       <div class="ammo">
-        <div class="other"></div>
-        <div class="nades"></div>
-        <div class="wname"></div>
         <div class="count"><span class="mag"></span><span class="reserve"></span></div>
+        <div class="ticks"><b></b></div>
+        <div class="wname"></div>
         <div class="ammo-note"></div>
+        <div class="other"></div>
       </div>
       <div class="missile-cam">
         <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
@@ -108,6 +112,10 @@ export class Hud {
       scoresBody: q('.hud-scores tbody'),
       targetName: q('.target-name'),
       ticks: [...this.el.querySelectorAll('.crosshair i')],
+      ring: q('.crosshair u'),
+      ammoTicks: q('.ammo .ticks'),
+      ammoTicksFill: q('.ammo .ticks b'),
+      controls: q('.hud-controls'),
       hit: q('.hitmarker'),
       killMsg: q('.kill-msg'),
       ammo: q('.ammo'),
@@ -154,6 +162,8 @@ export class Hud {
     const scale = Math.max(0.6, Math.min(1.2, rect.h / 720));
     s.setProperty('--hud-scale', scale.toFixed(3));
     this.radar.layout(scale);
+    // The bottom corners sit above the controls strip, however many rows it wraps to here.
+    s.setProperty('--ctl-lift', `${this.els.controls.offsetHeight + 6}px`);
   }
 
   hintFor(player, zones, game) {
@@ -203,6 +213,8 @@ export class Hud {
     this.set('shieldOut', alive && v.shield <= 0, (x) => e.shield.classList.toggle('out', x));
     const low = alive && v.healthFrac < 0.35;
     this.set('lowHealth', low, (x) => e.health.classList.toggle('low', x));
+    // (Like Halo's, the health bar only shows once you've lost some.)
+    this.set('healthFull', v.healthFrac > 0.999, (x) => e.health.classList.toggle('full', x));
 
     // Damage flash and low-health edges.
     const hurt = Math.max(low ? 0.45 : 0, alive ? 1 - (now - fb.hurtT) / HURT_TIME : 0);
@@ -231,11 +243,22 @@ export class Hud {
     this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
     const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
     this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
+    // A row of ticks, one per round (bigger mags share ticks), emptying as you fire.
+    const cap = endless ? 0 : Math.min(MAX_TICKS, w.def.mag);
+    this.set('tickCap', cap, (x) => {
+      e.ammoTicks.style.display = x ? '' : 'none';
+      e.ammoTicks.style.setProperty('--cap', x);
+      e.ammoTicks.classList.toggle('big', x <= 12);
+    });
+    if (cap) {
+      const shown = Math.ceil((w.mag / w.def.mag) * cap);
+      this.set('tickFill', shown, (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
+    }
     const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
     this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
     const o = player.slots[1 - player.slot];
     this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
-    this.set('nades', player.grenades, (x) => (e.nades.textContent = `Briquettes ${'●'.repeat(x)}${'○'.repeat(Math.max(0, 4 - x))}`));
+    this.set('nades', player.grenades, (x) => (e.nades.innerHTML = `<b>${x}</b><span>${'<i></i>'.repeat(x)}${'<i class="empty"></i>'.repeat(Math.max(0, 4 - x))}</span><em>Briquettes</em>`));
 
     // Missile camera overlay.
     const g = player.guiding;
@@ -256,6 +279,9 @@ export class Hud {
       down.style.transform = `translateY(${g}px)`;
       left.style.transform = `translateX(${-g}px)`;
       right.style.transform = `translateX(${g}px)`;
+      // The reticle's circle sits just outside the ticks (7 px long).
+      const d = 2 * (g + 7) + 8;
+      e.ring.style.width = e.ring.style.height = `${d}px`;
     });
     this.set('enemy', !!player.aimTarget && alive, (x) => e.cross.classList.toggle('enemy', x));
     // Who's under the crosshair, so split-screen friends and bots are easy to tell apart.

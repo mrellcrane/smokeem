@@ -60,15 +60,18 @@ export class Radar {
     const c = s / 2;
     const r = c - s * 0.03;
     ctx.clearRect(0, 0, s, s);
-    // Backing and rings.
-    ctx.fillStyle = 'rgba(10, 8, 7, 0.45)';
+    // Backing and rings, in the visor's cyan like Halo's.
+    const back = ctx.createRadialGradient(c, c, r * 0.1, c, c, r);
+    back.addColorStop(0, 'rgba(60, 150, 190, 0.42)');
+    back.addColorStop(1, 'rgba(30, 90, 125, 0.32)');
+    ctx.fillStyle = back;
     ctx.beginPath();
     ctx.arc(c, c, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.lineWidth = Math.max(1, s * 0.012);
-    ctx.strokeStyle = 'rgba(244, 234, 216, 0.35)';
+    ctx.strokeStyle = 'rgba(190, 235, 255, 0.55)';
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(244, 234, 216, 0.14)';
+    ctx.strokeStyle = 'rgba(190, 235, 255, 0.18)';
     ctx.beginPath();
     ctx.arc(c, c, r / 2, 0, Math.PI * 2);
     ctx.moveTo(c, c - r);
@@ -126,13 +129,19 @@ export class Radar {
     }
     ctx.globalAlpha = 1;
     // You, in the middle, pointing ahead.
-    ctx.fillStyle = 'rgba(255, 214, 120, 0.95)';
+    ctx.fillStyle = 'rgba(255, 226, 120, 0.95)';
     ctx.beginPath();
     ctx.moveTo(c, c - dot * 1.6);
     ctx.lineTo(c + dot, c + dot);
     ctx.lineTo(c - dot, c + dot);
     ctx.closePath();
     ctx.fill();
+    // Its range, under the edge.
+    ctx.font = `600 ${Math.round(s * 0.11)}px Bahnschrift, 'DIN Alternate', 'Arial Narrow', sans-serif`;
+    ctx.fillStyle = 'rgba(214, 243, 255, 0.85)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`${RANGE}m`, s * 0.99, s * 0.99);
   }
 
   dispose() {
