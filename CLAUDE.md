@@ -437,7 +437,13 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   `aGlow` (parts that glow on their own), `aShine` (how glossy: `SHINES` per Spartan region,
   `shine` per cast palette entry, `GUN_SHINES` per gun finish; the highlight's strength and a
   faint sky-and-ground reflection, strongest on the visor) and `aTeam` (the body's color, for a
-  distance-scaled rim light). Any geometry drawn with it needs all three attributes. Each body
+  distance-scaled rim light), plus `aKind` (what the surface is: `KINDS` per Spartan region,
+  cast characters `CAST_KIND`, guns 0), which picks the detail drawn from the rest pose
+  (`vRest`, so it rides the armor): on painted plates panel seams (abdomen bands, the chest's
+  center line, lines across arms and legs), mottled paint, grit, chips and scratches to bare
+  metal, and a dented normal that breaks highlights up; a ribbed weave and grazing sheen on the
+  undersuit; grit on boots and bare metal (`KIND_COLOR`, `KIND_NORMAL`). Seams and weave fade
+  out past about 14 m. Any geometry drawn with it needs all four attributes. Each body
   has its own instance of it (one program) carrying where it stands: `CharacterModel.sampleLight`
   reads the bake at the feet every frame (`lightAt`, darker under a deck; `glowAt`, the glow
   pools' color) into `uLocal`, which scales the sky's fill and reflections, and `uBounce`, a
