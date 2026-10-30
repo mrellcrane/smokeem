@@ -8,18 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // dropped by swapping or dying, which vanish after a while. Walking over a pickup takes it if
 // it fits (empty slot, same-weapon ammo, grenade room); otherwise E swaps for it.
 
-// Spawners. The arena builds a pad under each one. Weapon pads say which kind of pad they are;
-// the match's weapon set decides the gun: its power gun on the power pad, its field gun on
-// the rest.
-export const PICKUP_SPOTS = [
-  { type: 'weapon', pad: 'power', pos: [-1.5, 6.0, -1.5], respawn: 60 },
-  { type: 'weapon', pad: 'field', pos: [0, 0, 2.6], respawn: 30 },
-  { type: 'weapon', pad: 'field', pos: [-18, 0, 25], respawn: 30 },
-  { type: 'grenades', count: 2, pos: [6, 5.5, 28.5], respawn: 20 },
-  { type: 'grenades', count: 2, pos: [24.5, 5.0, -23.2], respawn: 20 },
-  { type: 'grenades', count: 2, pos: [8.5, 2.4, -1.2], respawn: 20 },
-  { type: 'grenades', count: 2, pos: [-25, 0, -19.5], respawn: 20 },
-];
+// Spawners come from the map (game.arena.pickupSpots), which builds a pad under each one.
 
 // How close (m, across and up from the feet) a player must be to take a pickup.
 export const PICKUP_REACH = 1.4;
@@ -41,7 +30,7 @@ export class Pickups {
     const { set, guns } = game.arsenal;
     this.items = [];
 
-    for (const spot of PICKUP_SPOTS) {
+    for (const spot of game.arena.pickupSpots) {
       let gun = null;
       if (spot.type === 'weapon') {
         gun = spot.pad === 'power' ? set.power : set.field;
@@ -63,7 +52,7 @@ export class Pickups {
       this.resetAmmo(item);
       this.items.push(item);
     }
-    // The spawners, in PICKUP_SPOTS order (items also holds dropped guns).
+    // The spawners, in the map's order (items also holds dropped guns).
     this.pads = this.items.slice();
 
     // One instanced mesh per look (each gun in the set, and briquette pairs), so all pickups

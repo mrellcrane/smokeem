@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { CAMERA } from '../config.js';
 
-// The end of a match, game-show style: the top three stand on a podium on the Summit deck, the
-// winner with both arms up, while confetti rains, the crowd goes wild and the big screen names
-// the winner. A slow camera orbits the podium, full screen, behind the results panel (which
-// moves to the side). Built once when the match ends; nothing here exists before that.
+// The end of a match, game-show style: the top three stand on a podium where the map says
+// (game.arena.podium: Mudlark's Summit deck, the factory's smoker), the winner with both arms
+// up, while confetti rains, the crowd goes wild and the big screen names the winner. A slow
+// camera orbits the podium, full screen, behind the results panel (which moves to the side).
+// Built once when the match ends; nothing here exists before that.
 
-const DECK = 6;
 const BLOCKS = [
   // place, x, height, color
   [1, 0, 1.2, 0xe0b53a],
@@ -15,9 +15,9 @@ const BLOCKS = [
 ];
 const CONFETTI = 600;
 const COLORS = [0xff7a1a, 0xe0b53a, 0x3d7bd9, 0xd9443d, 0x3dbd5a, 0xe05fa0, 0x9fd84a, 0xf4ead8, 0x63f2ff];
-// The camera's orbit around the podium; `shift` moves the picture left (a fraction of the width)
-// so the podium sits beside the results panel, not behind it.
-const ORBIT = { radius: 7.2, height: DECK + 2.3, speed: 0.12, look: DECK + 1.6, shift: 0.22 };
+// The camera's orbit around the podium (heights above its floor); `shift` moves the picture left
+// (a fraction of the width) so the podium sits beside the results panel, not behind it.
+const ORBIT = { radius: 7.2, height: 2.3, speed: 0.12, look: 1.6, shift: 0.22 };
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -29,11 +29,14 @@ export class Finale {
   constructor(game, results) {
     this.game = game;
     this.t = 0;
+    const at = (this.at = game.arena.podium);
     this.group = new THREE.Group();
     this.group.name = 'finale';
+    // Everything below is built around (0, 0, 0) at the podium's floor.
+    this.group.position.set(at.x, at.y, at.z);
     // The podium: gold, silver and bronze blocks.
     this.material = new THREE.MeshLambertMaterial({ vertexColors: true });
-    const parts = BLOCKS.map(([, x, h, color]) => this.box(1.7, h, 1.7, x, DECK + h / 2, 0, color));
+    const parts = BLOCKS.map(([, x, h, color]) => this.box(1.7, h, 1.7, x, h / 2, 0, color));
     for (const g of parts) this.group.add(new THREE.Mesh(g, this.material));
     // (Casting only: the flat tops banded with shadow acne when they received too.)
     for (const m of this.group.children) m.castShadow = true;
@@ -47,7 +50,7 @@ export class Finale {
       p.model.reset();
       p.model.group.visible = true;
       p.model.setWeapon(null);
-      return { p, x, y: DECK + h, cheer: s.place === 1 ? 1 : 0.6, phase: i * 1.7 };
+      return { p, x: at.x + x, y: at.y + h, cheer: s.place === 1 ? 1 : 0.6, phase: i * 1.7 };
     });
     for (const p of game.players) if (!this.podium.some((o) => o.p === p)) p.model.group.visible = false;
 
@@ -71,7 +74,7 @@ export class Finale {
       if (burst) {
         // Two cannons at the sides of the podium.
         const side = i % 2 ? 1 : -1;
-        piece.pos.set(side * 3.4, DECK + 0.5, 0.5);
+        piece.pos.set(at.x + side * 3.4, at.y + 0.5, at.z + 0.5);
         piece.vel.set(-side * (1 + Math.random() * 3), 8 + Math.random() * 6, (Math.random() - 0.5) * 4);
       } else {
         this.respawn(piece, a, Math.random() * 10);
@@ -95,7 +98,7 @@ export class Finale {
     const cc = new THREE.Color(color);
     for (let i = 0; i < n; i++) {
       // A touch darker toward the bottom.
-      const k = 0.75 + 0.25 * Math.min(1, (g.attributes.position.getY(i) - DECK) / 1.2);
+      const k = 0.75 + 0.25 * Math.min(1, g.attributes.position.getY(i) / 1.2);
       col[i * 3] = cc.r * k;
       col[i * 3 + 1] = cc.g * k;
       col[i * 3 + 2] = cc.b * k;
@@ -117,7 +120,8 @@ export class Finale {
 
   respawn(piece, a, high) {
     const r = Math.sqrt(Math.random()) * 7;
-    piece.pos.set(Math.cos(a) * r, DECK + 8 + high, Math.sin(a) * r);
+    const at = this.at;
+    piece.pos.set(at.x + Math.cos(a) * r, at.y + 8 + high, at.z + Math.sin(a) * r);
     piece.vel.set(0, -1.2 - Math.random() * 0.8, 0);
   }
 
@@ -129,7 +133,7 @@ export class Finale {
     for (const o of this.podium) {
       state.x = o.x;
       state.y = o.y;
-      state.z = 0;
+      state.z = this.at.z;
       // (A body faces -z at yaw 0: this faces the orbit's start, south.)
       state.yaw = Math.PI;
       state.pitch = 0.1;
@@ -146,15 +150,16 @@ export class Finale {
       c.pos.x += Math.sin(t * 2 + c.sway) * 0.4 * dt;
       c.pos.z += Math.cos(t * 1.6 + c.sway) * 0.4 * dt;
       c.rot.addScaledVector(c.spin, dt);
-      if (c.pos.y < DECK - 0.5) this.respawn(c, Math.random() * Math.PI * 2, Math.random() * 3);
+      if (c.pos.y < this.at.y - 0.5) this.respawn(c, Math.random() * Math.PI * 2, Math.random() * 3);
       _e.set(c.rot.x, c.rot.y, c.rot.z);
       this.confetti.setMatrixAt(i, _m.compose(c.pos, _q.setFromEuler(_e), _s.set(1, 1, 1)));
     }
     this.confetti.instanceMatrix.needsUpdate = true;
     // The camera orbits slowly, starting from the south.
     const a = t * ORBIT.speed;
-    this.camera.position.set(Math.sin(a) * ORBIT.radius, ORBIT.height + Math.sin(t * 0.3) * 0.4, Math.cos(a) * ORBIT.radius);
-    this.camera.lookAt(_p.set(0, ORBIT.look, 0));
+    const at = this.at;
+    this.camera.position.set(at.x + Math.sin(a) * ORBIT.radius, at.y + ORBIT.height + Math.sin(t * 0.3) * 0.4, at.z + Math.cos(a) * ORBIT.radius);
+    this.camera.lookAt(_p.set(at.x, at.y + ORBIT.look, at.z));
   }
 
   render(renderer) {

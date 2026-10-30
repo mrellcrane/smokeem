@@ -3,8 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ordinal } from '../match.js';
 
 // The game show around the arena (GAME_DESIGN.md "Tone and setting"): a crowd filling the
-// grandstands (arena.js grandstands) and a big screen over the north stands with the leader and
-// the top three.
+// grandstands (parts.js grandstands) and a big screen with the leader and the top three.
 //
 // The crowd is one instanced mesh of simple box people with mixed shirt colors (instanceColor,
 // on the shirt only). The vertex shader makes them sway, bounce and throw their arms up with
@@ -115,7 +114,8 @@ export class Show {
     col.needsUpdate = true;
     game.scene.add(this.crowd);
 
-    // The big screen over the north stands.
+    // The big screen (the map says where: one face over Mudlark's north stands, four around
+    // the factory's jumbotron), every face showing the same canvas, in one mesh.
     this.canvas = document.createElement('canvas');
     this.canvas.width = 512;
     this.canvas.height = 256;
@@ -123,9 +123,15 @@ export class Show {
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.screenMaterial = new THREE.MeshBasicMaterial({ map: this.texture, fog: false, toneMapped: false });
-    this.screen = new THREE.Mesh(new THREE.PlaneGeometry(18, 9), this.screenMaterial);
+    const scr = game.arena.screen;
+    const faces = scr.faces.map((f) => {
+      const g = new THREE.PlaneGeometry(scr.w, scr.h);
+      g.rotateY(f.yaw);
+      g.translate(...f.pos);
+      return g;
+    });
+    this.screen = new THREE.Mesh(faces.length > 1 ? mergeGeometries(faces) : faces[0], this.screenMaterial);
     this.screen.name = 'bigScreen';
-    this.screen.position.set(0, 16.5, (game.arena.standsZ ?? -38) + 0.02);
     game.scene.add(this.screen);
     this.hype = 0.2;
     this.version = -1;

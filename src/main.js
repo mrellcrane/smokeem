@@ -9,7 +9,8 @@ import { Gamepads, GamepadInput } from './input/gamepad.js';
 import { Sfx } from './audio/sfx.js';
 import { settings, updateSettings, onSettingsChange, qualityPreset } from './settings.js';
 import { prepaintTextures } from './world/textures.js';
-import { loadoutLabel, chooseSet, DEFAULT_SET } from './combat/arsenal.js';
+import { loadoutLabel, chooseSet } from './combat/arsenal.js';
+import { MAPS, chooseMap } from './world/maps.js';
 import { WEAPONS } from './combat/weapons.js';
 import { gfx } from './render/gfx.js';
 
@@ -32,6 +33,8 @@ let game = null;
 let loading = false;
 // The last weapon set played, so Mystery Meat never repeats it.
 let lastSet = null;
+// The map last played (Random never repeats it).
+let lastMap = null;
 
 // Local players in seat order (player 1 first). Each seat is an input source: the keyboard
 // and mouse, or a GamepadInput. Seats change only on the title screen and carry over between
@@ -55,6 +58,7 @@ const menu = new Menu(uiRoot, {
       : [],
   matchKinds: () => seats.map((s) => s.kind),
   hasMissile: () => !game || game.arsenal.missile,
+  mapName: () => game?.map.name ?? MAPS[settings.map]?.name ?? '',
   audioLocked: () => sfx.ctx?.state !== 'running',
   setInfo: () => {
     if (!game) return null;
@@ -181,7 +185,8 @@ async function startMatch() {
       practiceTargets: settings.bots === 0,
       timeLimit: settings.timeLimit,
       mode: settings.mode,
-      weaponSet: (lastSet = chooseSet(settings.weaponSet === 'default' ? DEFAULT_SET : settings.weaponSet, lastSet)),
+      map: (lastMap = chooseMap(settings.map, lastMap)),
+      weaponSet: (lastSet = chooseSet(settings.weaponSet === 'default' ? MAPS[lastMap].defaultSet : settings.weaponSet, lastSet)),
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;

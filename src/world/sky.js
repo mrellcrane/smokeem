@@ -52,7 +52,8 @@ export function createSky(textures, materials, look) {
   planet.name = 'planet';
   group.add(planet);
 
-  // Both rings of mesas in one mesh.
+  // Both rings of mesas in one mesh (not for indoor maps).
+  if (look.sky.mesas === false) return group;
   const mesas = new THREE.Mesh(
     mergeGeometries([mesaRing(200, 250, 10, 34, 64, 1), mesaRing(310, 370, 24, 62, 48, 2)], false),
     materials.mesa,

@@ -8,13 +8,14 @@ import {
   VOLUME_RANGE,
   MAX_BOTS,
   BOT_SKILLS,
-  TIME_LIMITS, MODES,
+  TIME_LIMITS, MODES, MAP_CHOICES,
   MOVE_SPEED_RANGE,
 } from '../settings.js';
 import { controlsHtml } from './controls.js';
 import { PLAYER_COLORS } from '../player/player.js';
 import { ordinal } from '../match.js';
-import { WEAPON_SETS, DEFAULT_SET, availableSets, setGuns } from '../combat/arsenal.js';
+import { WEAPON_SETS, availableSets, setGuns } from '../combat/arsenal.js';
+import { MAPS } from '../world/maps.js';
 import { WEAPONS } from '../combat/weapons.js';
 import { gunIcon } from './gunIcons.js';
 import { loadoutCard } from './loadoutCard.js';
@@ -25,16 +26,29 @@ function setChoices() {
   return ['default', ...availableSets(), 'mystery'];
 }
 
-function setChoiceLabel(choice) {
-  if (choice === 'mystery') return 'Mystery Meat';
-  const id = choice === 'default' ? DEFAULT_SET : choice;
-  const set = WEAPON_SETS[id];
-  return `${choice === 'default' ? 'Map default: ' : ''}${set.name} (${set.heat})`;
+// The map's own set ('default'), for a map choice; null for Random (each map has its own).
+function mapSet(mapChoice) {
+  return MAPS[mapChoice] ? WEAPON_SETS[MAPS[mapChoice].defaultSet] : null;
 }
 
-function setChoiceHint(choice) {
+function setChoiceLabel(choice, mapChoice) {
+  if (choice === 'mystery') return 'Mystery Meat';
+  if (choice === 'default') {
+    const set = mapSet(mapChoice);
+    return set ? `Map default: ${set.name} (${set.heat})` : "Each map's own";
+  }
+  const set = WEAPON_SETS[choice];
+  return `${set.name} (${set.heat})`;
+}
+
+function setChoiceHint(choice, mapChoice) {
   if (choice === 'mystery') return 'A random set each match (never Extra Hot).';
-  const set = WEAPON_SETS[choice === 'default' ? DEFAULT_SET : choice];
+  const set = choice === 'default' ? mapSet(mapChoice) : WEAPON_SETS[choice];
+  if (!set) {
+    return Object.values(MAPS)
+      .map((m) => `${m.name}: ${WEAPON_SETS[m.defaultSet].name}`)
+      .join(' · ');
+  }
   return setGuns(set)
     .map((g) => WEAPONS[g].name)
     .join(', ');
@@ -126,6 +140,10 @@ export class Menu {
         updateSettings({ mode: btn.dataset.value });
         this.renderMatchValues();
         break;
+      case 'map':
+        updateSettings({ map: btn.dataset.value });
+        this.renderMatchValues();
+        break;
       case 'timeLimit':
         updateSettings({ timeLimit: Number(btn.dataset.value) });
         this.renderMatchValues();
@@ -195,6 +213,13 @@ export class Menu {
         ${LOGO}
         <p class="tagline">Run the course. Smoke your friends.</p>
         <div class="match-setup">
+          <div class="row-inline">
+            <label>Map</label>
+            <div class="segmented">${Object.entries(MAP_CHOICES)
+              .map(([k, label]) => `<button data-action="map" data-value="${k}" class="seg">${label}</button>`)
+              .join('')}</div>
+          </div>
+          <p class="hint map-hint"></p>
           <div class="row-inline">
             <label>Bots</label>
             <div class="stepper">
@@ -301,6 +326,11 @@ export class Menu {
     for (const btn of r.querySelectorAll('[data-action="mode"]')) {
       btn.classList.toggle('active', btn.dataset.value === settings.mode);
     }
+    for (const btn of r.querySelectorAll('[data-action="map"]')) {
+      btn.classList.toggle('active', btn.dataset.value === settings.map);
+    }
+    const maph = r.querySelector('.map-hint');
+    if (maph) maph.textContent = MAPS[settings.map] ? `${MAPS[settings.map].name}: ${MAPS[settings.map].blurb}` : 'A different map each match (never the same one twice in a row).';
     const mh = r.querySelector('.mode-hint');
     if (mh) {
       mh.textContent =
@@ -312,9 +342,9 @@ export class Menu {
     if (h) h.textContent = settings.bots === 0 ? 'No bots: training dummies take their place.' : '';
     const choice = setChoices().includes(settings.weaponSet) ? settings.weaponSet : 'default';
     const sv = r.querySelector('.set-val');
-    if (sv) sv.textContent = setChoiceLabel(choice);
+    if (sv) sv.textContent = setChoiceLabel(choice, settings.map);
     const sh = r.querySelector('.set-hint');
-    if (sh) sh.textContent = setChoiceHint(choice);
+    if (sh) sh.textContent = setChoiceHint(choice, settings.map);
   }
 
   showSettings(returnTo) {
@@ -429,7 +459,7 @@ export class Menu {
     this.set(
       `
       <div class="panel ready${this.crowded()}">
-        <h2>Mudlark Gauntlet</h2>
+        <h2>${this.handlers.mapName?.() ?? ''}</h2>
         ${this.gunList()}
         <div class="loadouts"></div>
         <button data-action="start" class="big" data-autofocus>${label}</button>

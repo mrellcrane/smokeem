@@ -733,7 +733,9 @@ export class Player {
 
     const wasGrounded = this.grounded;
     const fallSpeed = v.y;
-    this.moveBy(v.x * dt, v.y * dt, v.z * dt);
+    // Standing on a conveyor belt carries you along.
+    const belt = wasGrounded ? this.game.zones.beltAt(this.feet) : null;
+    this.moveBy((v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
     this.clipVelocity();
 
     if (this.grounded) {

@@ -9,17 +9,27 @@ import { gfx } from './gfx.js';
 // ?bench: a scripted split-screen match that measures frame time and draw calls, so graphics
 // changes can be checked on the Xbox itself (open the Pages URL with ?bench on the console).
 // Options: q=low|medium|high (default: the saved preset), views=1..4 (3), secs (40),
-// set (a weapon set id, hotAndCold), off=a,b (turn graphics switches in gfx.js off).
+// set (a weapon set id, hotAndCold), map (mudlark or factory), off=a,b (turn graphics switches
+// in gfx.js off).
 // It's only loaded when the URL asks for it.
 
-// Where the frozen local players stand, cycled every 5 s: the Summit deck looking west, the
-// east lane, the west lane and the mud pit.
-const POSES = [
-  { pos: { x: 2, y: 6, z: 2 }, yaw: 2.4, pitch: -0.2 },
-  { pos: { x: 26, y: 0, z: 10 }, yaw: 0.4, pitch: -0.05 },
-  { pos: { x: -10, y: 0, z: 20 }, yaw: -0.6, pitch: 0.02 },
-  { pos: { x: 22, y: 0, z: -10 }, yaw: 1.2, pitch: -0.1 },
-];
+// Where the frozen local players stand, cycled every 5 s. Mudlark: the Summit deck looking
+// west, the east lane, the west lane and the mud pit. Smokestack Works: the smoker's deck
+// looking west, down the north lane, up the south lane and down the hall from a catwalk.
+const POSES = {
+  mudlark: [
+    { pos: { x: 2, y: 6, z: 2 }, yaw: 2.4, pitch: -0.2 },
+    { pos: { x: 26, y: 0, z: 10 }, yaw: 0.4, pitch: -0.05 },
+    { pos: { x: -10, y: 0, z: 20 }, yaw: -0.6, pitch: 0.02 },
+    { pos: { x: 22, y: 0, z: -10 }, yaw: 1.2, pitch: -0.1 },
+  ],
+  factory: [
+    { pos: { x: 2, y: 5, z: 2 }, yaw: 1.9, pitch: -0.2 },
+    { pos: { x: 26, y: 0, z: -15 }, yaw: 1.3, pitch: -0.05 },
+    { pos: { x: -26, y: 0, z: 15 }, yaw: -1.7, pitch: 0 },
+    { pos: { x: 10, y: 5, z: 20.3 }, yaw: 1.4, pitch: -0.15 },
+  ],
+};
 // Scripted worst cases (blasts, swarms, beams, tracers) in front of every camera at these times.
 const BURSTS = [10, 20, 30];
 
@@ -64,6 +74,7 @@ export async function runBench({ stage, hudRoot, uiRoot, fps, sfx }) {
     botSkill: 'normal',
     practiceTargets: false,
     timeLimit: 0,
+    map: params.get('map') ?? 'mudlark',
     weaponSet: params.get('set') ?? 'hotAndCold',
     onProgress: (text) => {
       stages.push({ stage: text, ms: Math.round(performance.now() - t0) });
@@ -71,6 +82,7 @@ export async function runBench({ stage, hudRoot, uiRoot, fps, sfx }) {
     },
   });
   const loadMs = Math.round(performance.now() - t0);
+  const poses = POSES[game.mapId] ?? POSES.mudlark;
   panel.style.display = 'none';
   document.body.classList.add('in-match');
   game.start();
@@ -89,7 +101,7 @@ export async function runBench({ stage, hudRoot, uiRoot, fps, sfx }) {
 
   const place = (k) => {
     game.humans.forEach((p, i) => {
-      const pp = POSES[(i + k) % POSES.length];
+      const pp = poses[(i + k) % poses.length];
       p.spawn({ position: pp.pos, yaw: pp.yaw });
       p.pitch = pp.pitch;
     });
@@ -116,7 +128,7 @@ export async function runBench({ stage, hudRoot, uiRoot, fps, sfx }) {
       }
       // The local players are frozen and can't be smoked.
       game.humans.forEach((p, i) => {
-        const pp = POSES[(i + pose) % POSES.length];
+        const pp = poses[(i + pose) % poses.length];
         if (!p.alive) p.spawn({ position: pp.pos, yaw: pp.yaw });
         p.vitals.reset();
         p.yaw = pp.yaw;
@@ -141,6 +153,7 @@ export async function runBench({ stage, hudRoot, uiRoot, fps, sfx }) {
   const gl = game.renderer.getContext();
   const result = {
     quality,
+    map: game.mapId,
     views,
     secs,
     off: Object.keys(gfx).filter((k) => !gfx[k]),

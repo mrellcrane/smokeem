@@ -64,6 +64,8 @@ const DEFAULTS = {
   weaponSet: 'default',
   // Match mode: free-for-all, or Rocky Mountain Oysters on top of it.
   mode: 'ffa',
+  // Map: a map id (world/maps.js), or 'random'.
+  map: 'mudlark',
   // Multiplier on horizontal movement and climbing speed for everyone (players and bots).
   moveSpeed: 0.7,
 };
@@ -77,6 +79,8 @@ export const MOVE_SPEED_RANGE = { min: 0.4, max: 1.3, step: 0.05 };
 export const BOT_SKILLS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 export const TIME_LIMITS = { 3: '3 min', 5: '5 min', 10: '10 min', 0: 'No limit' };
 export const MODES = { ffa: 'Free-for-all', oysters: 'Rocky Mountain Oysters' };
+// The title screen's map choices (world/maps.js has the maps).
+export const MAP_CHOICES = { mudlark: 'Mudlark', factory: 'Smokestack', random: 'Random' };
 
 function load() {
   const out = { ...DEFAULTS };
@@ -96,6 +100,7 @@ function load() {
   if (!(String(out.timeLimit) in TIME_LIMITS)) out.timeLimit = DEFAULTS.timeLimit;
   if (typeof out.weaponSet !== 'string') out.weaponSet = DEFAULTS.weaponSet;
   if (!MODES[out.mode]) out.mode = DEFAULTS.mode;
+  if (!MAP_CHOICES[out.map]) out.map = DEFAULTS.map;
   if (!Number.isFinite(out.moveSpeed)) out.moveSpeed = DEFAULTS.moveSpeed;
   out.moveSpeed = Math.max(MOVE_SPEED_RANGE.min, Math.min(MOVE_SPEED_RANGE.max, out.moveSpeed));
   return out;

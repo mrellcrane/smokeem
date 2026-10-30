@@ -16,6 +16,11 @@ export function createMaterials(tex) {
     mud: new THREE.MeshPhongMaterial({ map: tex.mud, specular: 0x8a7258, shininess: 90, ...vc }),
     net: new THREE.MeshLambertMaterial({ map: tex.net, alphaTest: 0.5, side: THREE.DoubleSide, ...vc }),
     rope: new THREE.MeshLambertMaterial({ map: tex.rope, ...vc }),
+    // The factory's: slab floor, conveyor belts, the grease vat and orange pallet-rack paint.
+    slab: new THREE.MeshLambertMaterial({ map: tex.slab, ...vc }),
+    belt: new THREE.MeshLambertMaterial({ map: tex.belt, ...vc }),
+    grease: new THREE.MeshPhongMaterial({ map: tex.mud, color: 0x8a8478, specular: 0x6a6258, shininess: 120, ...vc }),
+    paint: new THREE.MeshPhongMaterial({ color: 0xd8641c, specular: 0x302418, shininess: 20, ...vc }),
     steel: new THREE.MeshPhongMaterial({ color: 0x9aa4ad, specular: 0x6a6f73, shininess: 60, ...vc }),
     // Every glowing strip, ring and trough shares one vertex-colored material (one draw call);
     // StaticBuilder writes the tint below as each box's vertex color.
@@ -32,6 +37,9 @@ export function createMaterials(tex) {
     plank: 2.4,
     concrete: 3,
     mud: 3,
+    slab: 4,
+    belt: 1,
+    grease: 3,
     net: 1.2,
     rope: 0.5,
   };
@@ -46,6 +54,10 @@ export function createMaterials(tex) {
     crate: 'wood',
     concrete: 'concrete',
     mud: 'mud',
+    slab: 'concrete',
+    belt: 'cloth',
+    grease: 'mud',
+    paint: 'metal',
     net: 'cloth',
     rope: 'cloth',
   };
@@ -55,10 +67,13 @@ export function createMaterials(tex) {
     mat.userData.surface = surfaces[name] ?? null;
   }
   // A little grime low down on tall faces (StaticBuilder).
-  for (const name of ['metal', 'metalDark', 'concrete']) m[name].userData.grime = true;
+  for (const name of ['metal', 'metalDark', 'concrete', 'paint']) m[name].userData.grime = true;
   // Glow tints: pass these to StaticBuilder like materials.
   m.glowCyan = { tintOf: m.glow, tint: 0x63f2ff };
   m.glowOrange = { tintOf: m.glow, tint: 0xff8a2a };
   m.ember = { tintOf: m.glow, tint: 0xff4e12 };
+  // The factory's lamps and high windows.
+  m.lamp = { tintOf: m.glow, tint: 0xffe2b0 };
+  m.window = { tintOf: m.glow, tint: 0xb9d2e2 };
   return m;
 }

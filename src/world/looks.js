@@ -12,3 +12,14 @@ export const MUDLARK_LOOK = {
   // The first-person gun and hands have their own lights in their own scene.
   vm: { hemi: 2.4, sun: 2.4 },
 };
+
+// Smokestack Works: indoors. The sun comes steeply through the skylights in bright bands; the
+// rest is warm bounce light off the floor and walls, a smoky haze, and the lamps' pools baked
+// into the floor. No mesas (the walls hide the outside anyway).
+export const FACTORY_LOOK = {
+  sun: { dir: [16, 70, 24], color: 0xffe6c0, intensity: 3.2 },
+  hemi: { sky: 0xd6c6ae, ground: 0x7a5e48, intensity: 1.9 },
+  fog: { near: 30, far: 150 },
+  sky: { zenith: 0x3a68a8, mid: 0x8fb2d2, horizon: 0x9c9284, below: 0x6e6256, mesas: false },
+  vm: { hemi: 2.5, sun: 2.0 },
+};
