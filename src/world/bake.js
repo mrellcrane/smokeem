@@ -264,7 +264,11 @@ class ArenaBake {
   // the glow is added on top. Outside the grid (the far terrain) nothing changes.
   apply(material) {
     const bake = this;
-    material.onBeforeCompile = (shader) => {
+    // (On top of whatever the material already does: the world-space grime.)
+    const before = material.onBeforeCompile;
+    const beforeKey = material.customProgramCacheKey.call(material);
+    material.onBeforeCompile = (shader, renderer) => {
+      before.call(material, shader, renderer);
       shader.uniforms.uArenaBake = { value: bake.texture };
       shader.uniforms.uArenaRect = { value: bake.rect };
       shader.vertexShader = shader.vertexShader
@@ -290,7 +294,7 @@ class ArenaBake {
         console.warn('arena bake: shader chunks changed, floor drawn without it');
       }
     };
-    material.customProgramCacheKey = () => 'arenaBake';
+    material.customProgramCacheKey = () => `${beforeKey}+arenaBake`;
   }
 }
 

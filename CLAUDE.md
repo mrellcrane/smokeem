@@ -301,7 +301,12 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   azimuth), so details look raised at no per-frame cost. `relief()` also writes a normal map from the same
   slopes; on High (`preset.normalMaps`, gfx switch `normalMaps`) `createTextures` returns it as
   `<name>Normal` and `createMaterials` sets it as the material's `normalMap`. Keep distinctive marks (numbers,
-  prints) off tiling textures: they show the repeat.
+  prints) off tiling textures: they show the repeat. Walls and floors are weathered in the
+  painters (`stains`, `streaks`, `scratches`), and on top the level materials get world-space
+  grime (`applyGrime` in `materials.js`, gfx switch `grime`): the `grime` map (blotches in R,
+  downward streaks in G) sampled by world position at two scales, so dirt patches don't repeat
+  with the tiles. A material's own `onBeforeCompile` must chain to the one already there (as
+  `bake.apply` does), or the grime is lost.
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
 - The FPS counter (backquote key or settings) shows fps, frame time and draw calls, plus the shadow pass's draws and each view's.

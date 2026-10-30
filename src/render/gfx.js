@@ -33,4 +33,6 @@ export const gfx = {
   bloom: true,
   // The color grade and adapting exposure (render/grade.js).
   grade: true,
+  // World-space grime over the level's surfaces (world/materials.js).
+  grime: true,
 };

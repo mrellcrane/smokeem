@@ -59,6 +59,120 @@ function blobs(ctx, w, h, rand, count, rMin, rMax, colors, alpha) {
   ctx.globalAlpha = 1;
 }
 
+// Weathering, Halo's grit: what years outdoors and in a smokehouse leave on a surface.
+
+// Rain streaks running down from the top of the tile (or from random points), soft and wobbly.
+function streaks(ctx, S, rand, count, color, alpha, { fromTop = true } = {}) {
+  const k = S / 256;
+  for (let i = 0; i < count; i++) {
+    const x = rand() * S;
+    const y0 = fromTop ? 0 : rand() * S;
+    const len = (0.25 + rand() * 0.65) * S;
+    const w = (1.5 + rand() * 5) * k;
+    const g = ctx.createLinearGradient(0, y0, 0, y0 + len);
+    g.addColorStop(0, color.replace('A', (alpha * (0.6 + rand() * 0.4)).toFixed(3)));
+    g.addColorStop(1, color.replace('A', '0'));
+    ctx.fillStyle = g;
+    const lean = (rand() - 0.5) * 4 * k;
+    wrapped(ctx, S, S, x, y0, (cc, px, py) => {
+      cc.beginPath();
+      cc.moveTo(px - w / 2, py);
+      cc.lineTo(px + w / 2, py);
+      cc.lineTo(px + lean + w * (0.2 + rand() * 0.3), py + len);
+      cc.lineTo(px + lean - w * (0.2 + rand() * 0.3), py + len);
+      cc.closePath();
+      cc.fill();
+    });
+  }
+}
+
+// Big soft stains: grime, soot and damp, darker in the middle.
+function stains(ctx, S, rand, count, rMin, rMax, rgb, alpha) {
+  for (let i = 0; i < count; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const r = rMin + rand() * (rMax - rMin);
+    wrapped(ctx, S, S, x, y, (cc, px, py) => {
+      const g = cc.createRadialGradient(px, py, 0, px, py, r);
+      g.addColorStop(0, `rgba(${rgb},${(alpha * (0.6 + rand() * 0.4)).toFixed(3)})`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
+      cc.fillStyle = g;
+      cc.beginPath();
+      cc.ellipse(px, py, r, r * (0.5 + rand() * 0.5), rand() * Math.PI, 0, Math.PI * 2);
+      cc.fill();
+    });
+  }
+}
+
+// Scratches: thin bright lines where paint was scraped to bare metal.
+function scratches(ctx, S, rand, count, color, alpha) {
+  const k = S / 256;
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const len = (4 + rand() * 22) * k;
+    const a = rand() * Math.PI;
+    ctx.globalAlpha = alpha * (0.4 + rand() * 0.6);
+    ctx.lineWidth = (0.5 + rand() * 0.9) * k;
+    wrapped(ctx, S, S, x, y, (cc, px, py) => {
+      cc.beginPath();
+      cc.moveTo(px, py);
+      cc.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len);
+      cc.stroke();
+    });
+  }
+  ctx.globalAlpha = 1;
+}
+
+// The world-space grime map (materials.js grime): R is big blotchy patches, G is the same
+// stretched downward into streaks (for walls). Data, not color; values around the middle.
+function grimeMap() {
+  const S = 256;
+  const [c, ctx] = canvas(S, S);
+  const rand = mulberry32(97);
+  // Value noise on wrapping grids, summed over octaves.
+  const octave = (n) => {
+    const g = Array.from({ length: n * n }, () => rand());
+    return (x, y) => {
+      const fx = (x / S) * n;
+      const fy = (y / S) * n;
+      const x0 = Math.floor(fx);
+      const y0 = Math.floor(fy);
+      const tx = fx - x0;
+      const ty = fy - y0;
+      const sx = tx * tx * (3 - 2 * tx);
+      const sy = ty * ty * (3 - 2 * ty);
+      const at = (i, j) => g[((j + n) % n) * n + ((i + n) % n)];
+      const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * sx;
+      const b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * sx;
+      return a + (b - a) * sy;
+    };
+  };
+  const o = [octave(4), octave(8), octave(16), octave(32), octave(64)];
+  const w = [0.42, 0.26, 0.16, 0.1, 0.06];
+  const st = [octave(24), octave(48)];
+  const img = ctx.createImageData(S, S);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      let v = 0;
+      for (let i = 0; i < o.length; i++) v += o[i](x, y) * w[i];
+      // Push it into patches: mostly clean, some properly dirty.
+      v = Math.min(1, Math.max(0, (v - 0.24) * 1.9));
+      // Streaks: noise that only changes slowly downward (y), quickly across.
+      const s = st[0](x, y * 0.08) * 0.65 + st[1](x, y * 0.12) * 0.35;
+      const i4 = (y * S + x) * 4;
+      img.data[i4] = Math.round(v * 255);
+      img.data[i4 + 1] = Math.round(Math.min(1, Math.max(0, (s - 0.3) * 2)) * 255);
+      img.data[i4 + 2] = 0;
+      img.data[i4 + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return toTexture(c, { srgb: false });
+}
+
 // Relief: every painter below also paints a grayscale height canvas with the same shapes
 // (128 flat, seams and gaps lower, rivets and pebbles higher). relief() then shades the color
 // by the height's slope toward a light direction, so raised details catch light on one side and
@@ -364,6 +478,10 @@ function panels(S, base, seam, highlight, seed) {
     ctx.closePath();
     ctx.fill();
   }
+  // Weathering: soot and grime patches, rain streaks off the seams, scraped paint.
+  stains(ctx, S, rand, 7, 18 * k, 50 * k, '24,20,16', 0.22);
+  streaks(ctx, S, rand, 14, 'rgba(26,22,18,A)', 0.22);
+  scratches(ctx, S, rand, 40, highlight, 0.55);
   relief(ctx, hctx, S, WALL_LIGHT, 0.35, { grain: 12, rand });
   return toTexture(c);
 }
@@ -497,6 +615,21 @@ function concrete(S) {
       ctx.globalAlpha = 1;
     }
   }
+  // Weathering: damp patches, rust weeping from the form-tie holes, rain streaks from the top,
+  // a couple of cracks.
+  stains(ctx, S, rand, 6, 20 * k, 60 * k, '60,56,48', 0.28);
+  for (const fx of [0.25, 0.75]) {
+    for (const fy of [0.25, 0.75]) {
+      const g = ctx.createLinearGradient(0, fy * S, 0, fy * S + 40 * k);
+      g.addColorStop(0, 'rgba(110,70,40,0.35)');
+      g.addColorStop(1, 'rgba(110,70,40,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(fx * S - 2.5 * k, fy * S + 3 * k, 5 * k, 40 * k);
+    }
+  }
+  streaks(ctx, S, rand, 22, 'rgba(58,54,46,A)', 0.3);
+  streaks(ctx, S, rand, 8, 'rgba(40,36,30,A)', 0.25, { fromTop: false });
+  for (let i = 0; i < 2; i++) crack(ctx, hctx, S, rand, 6 + Math.floor(rand() * 8), '#66645e');
   relief(ctx, hctx, S, WALL_LIGHT, 0.3, { grain: 14, rand });
   return toTexture(c);
 }
@@ -592,6 +725,9 @@ function slab(S) {
     cc.fillRect(S / 2, 0, 1.2 * k, S);
   });
   for (let i = 0; i < 2; i++) crack(ctx, hctx, S, rand, 8 + Math.floor(rand() * 10), '#625e57');
+  // Ground-in dirt and soot, and scuffed bright patches where feet wear it.
+  stains(ctx, S, rand, 8, 20 * k, 60 * k, '50,45,38', 0.22);
+  stains(ctx, S, rand, 4, 14 * k, 36 * k, '170,165,155', 0.12);
   relief(ctx, hctx, S, GROUND_LIGHT, 0.2, { grain: 12, rand });
   return toTexture(c);
 }
@@ -1104,6 +1240,7 @@ function painters(S) {
     fxAtlas: ['fxAtlas', fxAtlas],
     smokeAtlas: ['smokeAtlas', smokeAtlas],
     flash: ['flash', flash],
+    grime: ['grime', grimeMap],
   };
 }
 
