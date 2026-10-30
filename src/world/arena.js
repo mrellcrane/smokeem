@@ -297,7 +297,10 @@ function mudPitAndBars(B, M, zones) {
   // Stairs up to the east platform from the north.
   for (let i = 0; i < 8; i++) {
     const z1 = -2 - 0.5 * i;
-    B.boxMinMax(M.metalDark, [22.3, 0, z1 - 0.5], [24.7, top - 0.3 * (i + 1), z1]);
+    // (A step that would end at floor level is left out: flush with the floor it flickers.)
+    const h = top - 0.3 * (i + 1);
+    if (h < 0.05) break;
+    B.boxMinMax(M.metalDark, [22.3, 0, z1 - 0.5], [24.7, h, z1]);
   }
 
   // Monkey bars frame.
@@ -350,7 +353,7 @@ function ropeGantry(B, M, zones) {
   for (const [a, b] of [[-12, -8], [-6, -1], [1, 6], [8, 14]]) {
     B.boxMinMax(M.metal, [a, deckTop, zFront], [b, deckTop + 1.0, zFront + 0.2]);
   }
-  B.boxMinMax(M.metal, [-12, deckTop, zFront], [-11.8, deckTop + 1.0, H]);
+  B.boxMinMax(M.metal, [-12, deckTop, zFront + 0.2], [-11.8, deckTop + 1.0, H]);
   B.boxMinMax(M.glowOrange, [-12, deckTop - 0.25, zFront - 0.03], [14, deckTop - 0.1, zFront], {
     collide: false,
     castShadow: false,
@@ -362,9 +365,11 @@ function ropeGantry(B, M, zones) {
   // Gantry beam and posts the ropes hang from.
   const ropeZ = 25.6;
   const beamBottom = 7.35;
-  B.boxMinMax(M.metalDark, [-12.75, beamBottom, ropeZ - 0.2], [12.75, beamBottom + 0.3, ropeZ + 0.2]);
+  // (The beam ends inside the posts and the posts stand a little proud of its top: faces flush
+  // with each other flicker.)
+  B.boxMinMax(M.metalDark, [-12.7, beamBottom, ropeZ - 0.2], [12.7, beamBottom + 0.3, ropeZ + 0.2]);
   for (const x of [-12.5, 12.5]) {
-    B.boxMinMax(M.metalDark, [x - 0.25, 0, ropeZ - 0.25], [x + 0.25, beamBottom + 0.3, ropeZ + 0.25]);
+    B.boxMinMax(M.metalDark, [x - 0.25, 0, ropeZ - 0.25], [x + 0.25, beamBottom + 0.34, ropeZ + 0.25]);
   }
   for (const x of [-7, 0, 7]) {
     B.rod(M.rope, [x, 0.5, ropeZ], [x, beamBottom, ropeZ], 0.06, { segments: 6 });
@@ -379,7 +384,7 @@ function netBlock(B, M, zones) {
   B.boxMinMax(M.metal, [16, 0, -26.5], [26, top, -22]);
   B.boxMinMax(M.metalDark, [16, top, -26.5], [16.3, top + 0.8, -22]);
   B.boxMinMax(M.metalDark, [25.7, top, -26.5], [26, top + 0.8, -22]);
-  B.boxMinMax(M.hazard, [15.98, top - 0.3, -22.02], [26.02, top, -21.98], { collide: false });
+  B.boxMinMax(M.hazard, [15.98, top - 0.3, -22.02], [26.02, top - 0.004, -21.98], { collide: false });
   // (Just proud of the block's face: flush with it they'd flicker through.)
   const strip = { collide: false, castShadow: false, halo: [0, 0, 1] };
   B.boxMinMax(M.glowCyan, [17, 1.5, -22], [17.3, 4.2, -21.97], strip);

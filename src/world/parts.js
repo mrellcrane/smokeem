@@ -64,7 +64,7 @@ export function grandstands(B, M, { hx, hz = hx, wallH, sides = ALL_SIDES, inset
       };
       box(M.concrete, -L, L, lo, top, near, far);
       // A dark bench lip along each step.
-      box(M.metalDark, -L, L, top - 0.35, top + 0.05, near - 0.02, near + 0.25);
+      box(M.metalDark, -L + 0.01, L - 0.01, top - 0.35, top + 0.05, near - 0.02, near + 0.25);
       const d = near + TIER_DEPTH * 0.55;
       const a = ax === 'z' ? [-L + 1, top, sign * d] : [sign * d, top, -L + 1];
       const b = ax === 'z' ? [L - 1, top, sign * d] : [sign * d, top, L - 1];

@@ -237,7 +237,8 @@ function shell(B, M) {
         B.boxMinMax(M.metalDark, [Math.min(x, x - sx * 0.12), 8.9, z - 0.08], [Math.max(x, x - sx * 0.12), 13.1, z + 0.08], deco);
       }
       for (const y of [8.85, 11, 13]) {
-        B.boxMinMax(M.metalDark, [Math.min(x, x - sx * 0.12), y, z0 - 0.08], [Math.max(x, x - sx * 0.12), y + 0.15, z1 + 0.08], deco);
+        // (A hair deeper and longer than the uprights, so where they cross no faces are flush.)
+        B.boxMinMax(M.metalDark, [Math.min(x, x - sx * 0.13), y, z0 - 0.09], [Math.max(x, x - sx * 0.13), y + 0.15, z1 + 0.09], deco);
       }
     }
     // Pipes along the end walls under the windows, and drops down to the floor.
@@ -358,8 +359,9 @@ function bridge(B, M, s) {
   half(B, M.metal, [-b, DECK - 0.3, -WALK], [b, DECK, -3.3], {}, s);
   for (const x of [-b, b - 0.12]) half(B, M.metal, [x, DECK, -WALK], [x + 0.12, DECK + 1.0, -3.3], {}, s);
   half(B, M.metalDark, [-0.35, 0, -11.35], [0.35, DECK - 0.3, -10.65], {}, s);
-  half(B, M.glowOrange, [-b, DECK - 0.25, -WALK + 0.2], [-b + 0.03, DECK - 0.1, -3.5], { collide: false, castShadow: false, bakeLight: false }, s);
-  half(B, M.glowOrange, [b - 0.03, DECK - 0.25, -WALK + 0.2], [b, DECK - 0.1, -3.5], { collide: false, castShadow: false, bakeLight: false }, s);
+  // (Just proud of the bridge's sides, not flush with them.)
+  half(B, M.glowOrange, [-b - 0.03, DECK - 0.25, -WALK + 0.2], [-b, DECK - 0.1, -3.5], { collide: false, castShadow: false, bakeLight: false }, s);
+  half(B, M.glowOrange, [b, DECK - 0.25, -WALK + 0.2], [b + 0.03, DECK - 0.1, -3.5], { collide: false, castShadow: false, bakeLight: false }, s);
 }
 
 // Conveyor belts across the hall, west and east of the middle, at z = 10 s; the north line runs
@@ -406,7 +408,8 @@ function racks(B, M) {
       for (const dz of [-0.6, 0.6]) B.boxMinMax(M.paint, [x - 0.06, 0, z + dz - 0.06], [x + 0.06, top - 0.15, z + dz + 0.06]);
     }
     for (const y of [1.65, top - 0.27]) {
-      for (const dz of [-0.6, 0.6]) B.boxMinMax(M.paint, [x0, y, z + dz - 0.06], [x0 + 6 * bay, y + 0.12, z + dz + 0.06], { collide: false });
+      // (A little thinner than the uprights, so their faces never sit flush.)
+      for (const dz of [-0.6, 0.6]) B.boxMinMax(M.paint, [x0, y, z + dz - 0.05], [x0 + 6 * bay, y + 0.12, z + dz + 0.05], { collide: false });
     }
     B.boxMinMax(M.metalDark, [x0 - 0.06, top - 0.15, z - 0.66], [x0 + 6 * bay + 0.06, top, z + 0.66]);
     B.boxMinMax(M.plank, [x0, 1.77, z - 0.6], [x0 + 6 * bay, 1.85, z + 0.6]);
@@ -442,11 +445,16 @@ function greaseVat(B, M, zones) {
   // Loading docks at each end.
   B.boxMinMax(M.concrete, [12, 0, -2], [VAT.x0, DOCK, 2]);
   B.boxMinMax(M.concrete, [VAT.x1, 0, -2], [HX, DOCK, 2]);
-  B.boxMinMax(M.hazard, [12, DOCK - 0.25, -2.02], [VAT.x0, DOCK, 2.02], trim);
+  // (A band round the dock's edge, proud of its faces and just under its top: flush with the
+  // concrete's faces it flickered through them.)
+  B.boxMinMax(M.hazard, [11.98, DOCK - 0.25, -2.02], [VAT.x0 + 0.02, DOCK - 0.004, 2.02], trim);
   // Stairs down north from the west dock, a ramp down south along the wall from the east one.
   for (let i = 0; i < 8; i++) {
     const z1 = -2 - 0.5 * i;
-    B.boxMinMax(M.metalDark, [12.3, 0, z1 - 0.5], [15.7, DOCK - 0.3 * (i + 1), z1]);
+    // (No step at floor level: flush with the floor it flickers.)
+    const h = DOCK - 0.3 * (i + 1);
+    if (h < 0.05) break;
+    B.boxMinMax(M.metalDark, [12.3, 0, z1 - 0.5], [15.7, h, z1]);
   }
   B.ramp(M.metal, [28.8, DOCK, 2.0], [28.8, 0, 8.6], 2.4);
 

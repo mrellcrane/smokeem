@@ -366,6 +366,11 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   sides a column every 2 m (`sideBox`: only the sides are split; tops and bottoms share their
   edge vertices so boxes stay watertight, since T-junctions crack into single-pixel holes). Any static geometry needs a `color`
   attribute, so add it through `StaticBuilder`, not as a separate mesh with these materials.
+- Never leave two visible faces flush (same plane, facing the same way, overlapping): the depth
+  test can't pick one and they flicker in blocks, worst on Macs. Trims, bands and glow strips sit
+  a few millimeters proud of what they're on (or just under its top), overlapping walls stop at
+  each other's faces instead of running through, and loops that build steps skip one that would
+  end at floor level (zero height, flush with the floor).
 - Lights, fog, sky colors and the color grade come from the map's look (`src/world/looks.js`).
 - The sky (`sky.js`): the dome's vertex colors carry the gradient and the sun's glow, a cloud band
   wraps the horizon (its texture drifts in `sky.update`), and outdoor looks with `sky.skyline` get
