@@ -1166,3 +1166,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: The grapple is in, for everyone (owner's pick): LB on a controller, Q on a keyboard
   (Q was a second melee key; melee is F now), 5 s cooldown. It sticks in almost anything, follows
   people and bikes, and pulls you up over ledges.
+- 2026-10-30: Graphics pass, characters. Spartan armor gets panel seams (abdomen bands, a center
+  line down the chest, lines across arms and legs), mottled paint, chips and scratches down to
+  bare metal, and a dented surface so the shine stops looking like plastic; the undersuit gets a
+  ribbed weave and a soft sheen. All in the body shader, drawn in the rest pose so it moves with
+  the armor; no new textures, geometry or draw calls.

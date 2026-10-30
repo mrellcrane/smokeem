@@ -321,6 +321,10 @@ const GLOWS = { visor: 1, shine: 1, ember: 1, strip: 0.9 };
 const SHINES = { armor: 0.5, panel: 0.42, suit: 0.08, strip: 0, glove: 0.14, boot: 0.25, visor: 1, ember: 0, metal: 0.8, shine: 1 };
 const GUN_SHINES = { [FINISHES.matte]: 0.05, [FINISHES.wood]: 0.15, [FINISHES.paint]: 0.45, [FINISHES.metal]: 0.8, [FINISHES.glow]: 0 };
 const CAST_SHINE = 0.08;
+// What each region's surface is made of (aKind, for the detail in bodyMaterial): 0 none (glow,
+// glass, guns), 1 painted plate, 2 cloth, 3 bare metal and rubber, 4 a cast character's.
+const KINDS = { armor: 1, panel: 1, suit: 2, glove: 2, boot: 3, metal: 3 };
+const CAST_KIND = 4;
 // How much a gun's glowing parts glow (weaponModels.js finishes).
 const GUN_GLOW = 0.8;
 
@@ -426,8 +430,9 @@ function helmetAt(table, a) {
 }
 
 // Per-vertex color, glow, shine and team color: vertex i takes entry pick(i) of the palette.
-function paint(n, palette, glows, pick, team, shines) {
+function paint(n, palette, glows, pick, team, shines, kinds = null) {
   const col = new Float32Array(n * 3);
+  const kind = new Float32Array(n);
   const glow = new Float32Array(n);
   const shine = new Float32Array(n);
   const tm = new Float32Array(n * 3);
@@ -439,11 +444,12 @@ function paint(n, palette, glows, pick, team, shines) {
     col[i * 3 + 2] = c.b;
     glow[i] = glows[k];
     shine[i] = shines[k];
+    if (kinds) kind[i] = kinds[k];
     tm[i * 3] = team.r;
     tm[i * 3 + 1] = team.g;
     tm[i * 3 + 2] = team.b;
   }
-  return { col, glow, tm, shine };
+  return { col, glow, tm, shine, kind };
 }
 
 function buildGeometry(colors, inflate, r, character) {
@@ -458,7 +464,8 @@ function buildGeometry(colors, inflate, r, character) {
     const palette = b.palette ? b.palette.map((e) => new THREE.Color().set(e.color ?? colors.strip)) : REGIONS.map((name) => new THREE.Color().set(colors[name]));
     const glows = b.palette ? b.palette.map((e) => e.glow ?? 0) : REGIONS.map((name) => GLOWS[name] ?? 0);
     const shines = b.palette ? b.palette.map((e) => e.shine ?? (e.glow ? 0 : CAST_SHINE)) : REGIONS.map((name) => SHINES[name] ?? 0);
-    const { col, glow, tm, shine } = paint(b.count, palette, glows, (i) => b.region[i], colors.armor, shines);
+    const kinds = b.palette ? b.palette.map((e) => (e.glow ? 0 : CAST_KIND)) : REGIONS.map((name) => KINDS[name] ?? 0);
+    const { col, glow, tm, shine, kind } = paint(b.count, palette, glows, (i) => b.region[i], colors.armor, shines, kinds);
     if (b.shade) {
       for (let i = 0; i < b.count; i++) {
         const k = b.shade[i] / 255;
@@ -472,6 +479,7 @@ function buildGeometry(colors, inflate, r, character) {
     g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
     g.setAttribute('aShine', new THREE.BufferAttribute(shine, 1));
     g.setAttribute('aTeam', new THREE.BufferAttribute(tm, 3));
+    g.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
     g.setAttribute('skinIndex', new THREE.BufferAttribute(b.skinIndex, 4));
     g.setAttribute('skinWeight', new THREE.BufferAttribute(b.skinWeight, 4));
     g.setIndex(new THREE.BufferAttribute(b.index, 1));
@@ -487,11 +495,12 @@ function buildGeometry(colors, inflate, r, character) {
       const n = g.attributes.position.count;
       const part = [new THREE.Color().set(color ?? colors.armor)];
       const finish = finishOf(color, opts);
-      const { col, glow, tm, shine } = paint(n, part, [finish === FINISHES.glow ? GUN_GLOW : 0], () => 0, colors.armor, [GUN_SHINES[finish]]);
+      const { col, glow, tm, shine, kind } = paint(n, part, [finish === FINISHES.glow ? GUN_GLOW : 0], () => 0, colors.armor, [GUN_SHINES[finish]]);
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
       g.setAttribute('aShine', new THREE.BufferAttribute(shine, 1));
       g.setAttribute('aTeam', new THREE.BufferAttribute(tm, 3));
+      g.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
       const si = new Uint16Array(n * 4);
       const sw = new Float32Array(n * 4);
       for (let i = 0; i < n; i++) {
@@ -518,9 +527,12 @@ const RIM_VERTEX = /* glsl */ `
   attribute float aGlow;
   attribute float aShine;
   attribute vec3 aTeam;
+  attribute float aKind;
   varying float vGlow;
   varying float vShine;
   varying vec3 vTeam;
+  varying float vKind;
+  varying vec3 vRest;
 `;
 const RIM_HEAD = /* glsl */ `
   uniform float uLocal;
@@ -532,18 +544,94 @@ const RIM_HEAD = /* glsl */ `
   varying float vGlow;
   varying float vShine;
   varying vec3 vTeam;
+  varying float vKind;
+  varying vec3 vRest;
+  float chHash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+  float chNoise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(chHash(i), chHash(i + vec3(1, 0, 0)), f.x), mix(chHash(i + vec3(0, 1, 0)), chHash(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(chHash(i + vec3(0, 0, 1)), chHash(i + vec3(1, 0, 1)), f.x), mix(chHash(i + vec3(0, 1, 1)), chHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+  }
+  // A line a pixel or so wide where v crosses c.
+  float chLine(float v, float c) {
+    return 1.0 - smoothstep(0.6, 1.6, abs(v - c) / max(fwidth(v), 1e-5));
+  }
+`;
+// Surface detail by what each part is made of (aKind), drawn in the body's rest pose (vRest, so
+// it rides the armor as it moves): painted plates get panel seams (abdomen bands, the chest's
+// center line, lines across the arms and legs), mottled paint, grit and chipped scratches down to
+// bare metal; the undersuit a ribbed weave; bare metal and boots grit. Seams and weave fade out
+// with distance, where they'd only be noise.
+const KIND_COLOR = /* glsl */ `
+  #include <color_fragment>
+  float kPlate = 1.0 - step(0.5, abs(vKind - 1.0));
+  float kCloth = 1.0 - step(0.5, abs(vKind - 2.0));
+  float kBare = 1.0 - step(0.5, abs(vKind - 3.0));
+  float kCast = step(3.5, vKind);
+  float kNear = 1.0 - smoothstep(4.0, 14.0, length(vViewPosition));
+  vec3 kq = vRest;
+  float kMott = chNoise(kq * 9.0) * 0.6 + chNoise(kq * 37.0) * 0.4;
+  float kGrit = chNoise(kq * 190.0);
+  diffuseColor.rgb *= 1.0 + ((kMott - 0.5) * 0.16 + (kGrit - 0.5) * 0.07) * kPlate + (kGrit - 0.5) * (0.14 * kBare + 0.08 * kCast);
+  // Chips and scratches through the paint.
+  float kScr = smoothstep(0.82, 0.87, chNoise(kq * vec3(110.0, 10.0, 110.0))) * smoothstep(0.58, 0.72, chNoise(kq * 13.0 + 3.1));
+  float kChipN = chNoise(kq * 46.0 + 7.3) * smoothstep(0.6, 0.75, chNoise(kq * 7.0 + 1.7));
+  float kChip = smoothstep(0.76, 0.8, kChipN);
+  // (A dark rim of lifted paint around each chip.)
+  float kChipRim = smoothstep(0.7, 0.75, kChipN) - kChip;
+  float kWear = max(kScr * 0.8, kChip) * kPlate;
+  diffuseColor.rgb *= 1.0 - kChipRim * kPlate * 0.35;
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.31, 0.33), kWear * 0.65);
+  // Panel seams.
+  float ax = abs(kq.x);
+  float torso = 1.0 - step(0.22, ax);
+  float limb = 1.0 - torso;
+  float seam = 0.0;
+  seam += torso * step(0.92, kq.y) * step(kq.y, 1.12) * chLine(fract((kq.y - 0.92) / 0.05 + 0.5), 0.5);
+  seam += torso * chLine(kq.y, 1.125);
+  seam += torso * step(1.13, kq.y) * step(kq.y, 1.42) * chLine(kq.x, 0.0);
+  seam += limb * step(0.85, kq.y) * (chLine(kq.y, 1.25) + chLine(kq.y, 1.0));
+  seam += step(kq.y, 0.84) * (chLine(kq.y, 0.66) + chLine(kq.y, 0.3) + chLine(kq.y, 0.56));
+  seam = min(seam, 1.0) * kPlate * kNear;
+  diffuseColor.rgb *= 1.0 - seam * 0.6;
+  // The undersuit's weave: fine ribs across, a finer thread both ways.
+  float kRib = 0.5 + 0.5 * sin(kq.y * 380.0 + chNoise(kq * 30.0) * 2.0);
+  float kThread = 0.5 + 0.25 * (sin(kq.x * 1400.0) + sin(kq.z * 1400.0 + kq.y * 900.0));
+  float kWeaveAA = 1.0 - smoothstep(0.25, 0.7, fwidth(kq.y * 380.0));
+  diffuseColor.rgb *= 1.0 - kCloth * kWeaveAA * (kRib * 0.16 + kThread * 0.06 * (1.0 - smoothstep(0.2, 0.5, fwidth(kq.x * 1400.0))));
+`;
+// The plates' surface isn't a mirror-smooth shell: a broad sway and small dents nudge the normal,
+// so highlights break up into a sheen and glints.
+const KIND_NORMAL = /* glsl */ `
+  #include <normal_fragment_maps>
+  {
+    vec3 q = vRest * 11.0;
+    vec3 d = vec3(chNoise(q), chNoise(q + 17.3), chNoise(q + 31.7)) - 0.5;
+    vec3 q2 = vRest * 95.0;
+    vec3 d2 = vec3(chNoise(q2), chNoise(q2 + 7.7), chNoise(q2 + 13.1)) - 0.5;
+    normal = normalize(normal + (d * 0.22 + d2 * 0.07) * (kPlate + kBare * 0.8 + kCast * 0.3) + d2 * 0.08 * kCloth);
+  }
 `;
 const SHINE_LIGHTS = /* glsl */ `
   BlinnPhongMaterial material;
   material.diffuseColor = diffuseColor.rgb;
-  material.specularColor = vec3(0.55);
-  material.specularShininess = mix(8.0, 90.0, vShine);
-  material.specularStrength = vShine * (1.0 - vGlow);
+  // (Painted plates take a little of their own color into the highlight; worn spots and cloth dull.)
+  material.specularColor = mix(vec3(0.55), diffuseColor.rgb * 0.8 + 0.18, 0.55 * kPlate);
+  material.specularShininess = mix(8.0, 90.0, vShine) * (1.0 + 0.6 * kPlate);
+  material.specularStrength = vShine * (1.0 - vGlow) * (1.0 - kWear * 0.6) * (1.0 - 0.6 * kCloth) * (1.0 - 0.15 * kPlate);
 `;
 const RIM_FRAGMENT = /* glsl */ `
   float ndv = saturate(dot(normal, normalize(vViewPosition)));
   float rim = (1.0 - ndv) * (1.0 - ndv) * mix(0.25, 0.7, smoothstep(8.0, 40.0, length(vViewPosition)));
   outgoingLight = mix(outgoingLight, diffuseColor.rgb * 1.5, vGlow) + vTeam * rim;
+  // Cloth's soft sheen at grazing angles.
+  outgoingLight += diffuseColor.rgb * kCloth * pow(1.0 - ndv, 4.0) * 0.5 * uLocal;
   {
     vec3 R = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
     vec3 env = mix(uGround, uSky, smoothstep(-0.2, 0.3, R.y)) + uSky * 0.6 * exp(-pow((R.y - 0.1) * 7.0, 2.0));
@@ -617,17 +705,19 @@ function bodyMaterial(local) {
     shader.uniforms.uGround = viewmodelUniforms.uGround;
     shader.uniforms.uEnv = envUniforms.uEnv;
     shader.uniforms.uEnvOn = envUniforms.uEnvOn;
-    shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vShine = aShine;\n  vTeam = aTeam;');
+    shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vShine = aShine;\n  vTeam = aTeam;\n  vKind = aKind;\n  vRest = position;');
     shader.uniforms.uLocal = local.uLocal;
     shader.uniforms.uBounce = local.uBounce;
     shader.fragmentShader =
       RIM_HEAD +
       f
+        .replace('#include <color_fragment>', KIND_COLOR)
+        .replace('#include <normal_fragment_maps>', KIND_NORMAL)
         .replace('#include <lights_phong_fragment>', SHINE_LIGHTS)
         .replace('#include <aomap_fragment>', `#include <aomap_fragment>\n${LOCAL_LIGHT}`)
         .replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => 'character-shine-env';
+  m.customProgramCacheKey = () => 'character-shine-env-kind';
   return m;
 }
 
