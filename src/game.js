@@ -18,6 +18,7 @@ import { renderGunIcons } from './ui/gunIcons.js';
 import { Oysters } from './modes/oysters.js';
 import { Props } from './world/props.js';
 import { Portals } from './combat/portals.js';
+import { CHARACTER_IDS } from './player/body/cast.js';
 import { Gravity } from './combat/gravity.js';
 import { Replay } from './render/replay.js';
 import { Show } from './world/show.js';
@@ -215,7 +216,7 @@ export class Game {
     }
 
     playerDefs.forEach((def, i) => {
-      const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}`, loadout: def.loadout ?? 0 });
+      const p = new Player(this, { id: i, input: def.source.state, name: def.name ?? `Player ${i + 1}`, loadout: def.loadout ?? 0, character: def.character ?? 'spartan' });
       def.source.player = p;
       this.players.push(p);
       this.humans.push(p);
@@ -235,6 +236,8 @@ export class Game {
         brain,
         color: BOT_COLORS[i % BOT_COLORS.length].armor,
         trim: BOT_COLORS[i % BOT_COLORS.length].trim,
+        // Bots come as any character.
+        character: CHARACTER_IDS[Math.floor(Math.random() * CHARACTER_IDS.length)],
       });
       brain.player = p;
       this.players.push(p);

@@ -138,10 +138,21 @@ shots drawn again (only you see those) and your body going down. The death card 
 it, so you can still pick your next loadout. Only bodies and shots replay; grenades, rockets and
 effects show as they are now.
 
-Character options (owner request, planned after the new bodies): Crash Bandicoot, Link and
-James Bond, each as close to the source as we can make them, with the shared skeleton so they
-animate like everyone else. You pick one on the join screen (owner, 2026-10-30): Link (the hero,
-not Princess Zelda) and GoldenEye-era Bond.
+Character options (owner request; built 2026-10-30): besides the Spartan you can play as Crash
+Bandicoot, Link or GoldenEye's Bond, each as close to the source as we can make them out of
+simple shapes in the early-2000s look, on the Spartan's skeleton, so they move, aim, ragdoll and
+replay like everyone else (same hitbox: the look changes, the target doesn't).
+- Crash: the big orange head with the long snout, black nose, toothy grin, green eyes under heavy
+  brows and the red-brown tuft, a tan belly, blue jeans, red sneakers and brown gloves.
+- Link: the long green cap over blond hair, pointed ears, the green tunic with a leather belt and
+  gold buckle, cream sleeves and tights, brown boots and gauntlets, and the Hylian Shield and
+  the Master Sword's purple hilt on his back.
+- Bond (Brosnan in GoldenEye 007): black dinner jacket, white shirt front and collar, black bow
+  tie, short dark hair with a side part.
+- Your color still shows: Crash's and Link's wristbands and Bond's pocket square glow in it, and
+  every body has the rim light in its color.
+- Each seat picks on the join screen: LB / RB on a controller, the arrows with the mouse. The pick
+  stays with the seat between matches. Bots come as a random character each match.
 
 Palette rule: the arena owns orange, hazard yellow, cyan, brown and grey, and the local
 players own blue, red, green and gold, so bots wear violets, pinks, lime and white (armor

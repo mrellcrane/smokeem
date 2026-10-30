@@ -995,6 +995,28 @@ kbd {
   cursor: pointer;
 }
 
+/* The seat's character (LB / RB on a controller, the arrows with the mouse). */
+.slot .char {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slot .char small {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.slot .char .step {
+  cursor: pointer;
+  padding: 0 4px;
+  color: var(--seat);
+}
+
 .lobby-hint {
   text-align: center;
   margin: 0 0 22px;

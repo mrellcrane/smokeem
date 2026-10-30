@@ -5,6 +5,7 @@ import { BODY } from '../config.js';
 import { GUNS, allParts } from '../combat/guns/index.js';
 import { GLOVE, GLOW, SCREEN } from '../combat/weaponModels.js';
 import { JOINTS as BODY_JOINTS, BONES as BODY_BONES, HANDS, REGIONS, DATA } from './body/bodyMesh.js';
+import { castBody } from './body/cast.js';
 
 // The contestant body: an armored soldier (a CC0 model, see body/CREDITS.md) in a Halo Mark VI
 // style helmet with a big gold visor, gloved fists and a smoker canister on the back. Smooth-skinned to a 16-bone body skeleton plus
@@ -294,7 +295,13 @@ const GUN_GLOWS = { [GLOW]: 0.8, [SCREEN]: 0.8 };
 // The body as decoded from the generated data, once per page load and shared by every body
 // (read only).
 let bodyBase = null;
-function base() {
+// character: 'spartan' (the generated mesh) or a cast.js character, built once each.
+function base(character = 'spartan') {
+  const cast = castBody(character);
+  if (cast) {
+    cast.helmet ??= helmetTable(cast);
+    return cast;
+  }
   if (bodyBase) return bodyBase;
   const bytes = (s) => {
     const bin = atob(s);
@@ -386,16 +393,17 @@ function paint(n, palette, glows, pick, team) {
   return { col, glow, tm };
 }
 
-function buildGeometry(colors, inflate, r) {
+function buildGeometry(colors, inflate, r, character) {
   const geoms = [];
-  // The body.
-  const b = base();
+  // The body: the Spartan's regions take this body's colors; a cast character has its own
+  // palette, with null for the player's color.
+  const b = base(character);
   {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(inflate ? b.shell : b.position, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(b.normal, 3));
-    const palette = REGIONS.map((name) => new THREE.Color().set(colors[name]));
-    const glows = REGIONS.map((name) => GLOWS[name] ?? 0);
+    const palette = b.palette ? b.palette.map((e) => new THREE.Color().set(e.color ?? colors.strip)) : REGIONS.map((name) => new THREE.Color().set(colors[name]));
+    const glows = b.palette ? b.palette.map((e) => e.glow ?? 0) : REGIONS.map((name) => GLOWS[name] ?? 0);
     const { col, glow, tm } = paint(b.count, palette, glows, (i) => b.region[i], colors.armor);
     if (b.shade) {
       for (let i = 0; i < b.count; i++) {
@@ -489,8 +497,10 @@ export function disposeCharacterMaterial() {
 export class CharacterModel {
   // guns: ids of every gun this body might hold this match (the match's weapon set).
   // (The visor glows at 1.5x its color: a deep gold so the top of the glass doesn't clip to yellow.)
-  constructor({ armor, trim = null, visor = 0xe8a832, guns = ['hickory'] }) {
+  // character: 'spartan' or one of cast.js's (Crash, Link, Bond).
+  constructor({ armor, trim = null, visor = 0xe8a832, guns = ['hickory'], character = 'spartan' }) {
     const r = (this.rig = rig(guns));
+    this.character = character;
     const armorColor = new THREE.Color(armor);
     const colors = {
       armor: armorColor,
@@ -534,7 +544,7 @@ export class CharacterModel {
     this.bones.spine.rotation.order = 'YXZ';
     this.bones.hips.rotation.order = 'ZYX';
 
-    this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r), bodyMaterial());
+    this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r, character), bodyMaterial());
     this.mesh.add(this.bones.root);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
@@ -553,7 +563,7 @@ export class CharacterModel {
       depthWrite: false,
     });
     this.shellMaterial.name = 'shieldShell';
-    this.shell = new THREE.SkinnedMesh(buildGeometry(colors, true, r), this.shellMaterial);
+    this.shell = new THREE.SkinnedMesh(buildGeometry(colors, true, r, character), this.shellMaterial);
     this.shell.bind(this.skeleton, this.mesh.bindMatrix);
     this.shell.boundingSphere = this.mesh.boundingSphere;
     this.shell.visible = false;
@@ -573,7 +583,7 @@ export class CharacterModel {
     this.twistInv = new THREE.Quaternion();
     this.setWeapon(guns[0]);
     this.headRest = this.bones.head.position.clone();
-    this.helmet = base().helmet;
+    this.helmet = base(character).helmet;
 
     this.phase = 0;
     // Each body breathes on its own phase, so a crowd doesn't breathe in step.

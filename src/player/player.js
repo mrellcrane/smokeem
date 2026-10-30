@@ -51,7 +51,7 @@ const NO_PRESSES = NEUTRAL_INPUT.consumePressed();
 export class Player {
   // brain: set for bots (an AI writing `input`); bots have no camera view or viewmodel.
   // loadout: index into the match's weapon set loadouts (bots roll a new one every life).
-  constructor(game, { id, input, name, brain = null, color = null, trim = null, loadout = 0 }) {
+  constructor(game, { id, input, name, brain = null, color = null, trim = null, loadout = 0, character = 'spartan' }) {
     this.game = game;
     this.kind = 'player';
     this.id = id;
@@ -206,7 +206,8 @@ export class Player {
     // and the first-person rifle.
     const armor = color ?? PLAYER_COLORS[id % PLAYER_COLORS.length];
     this.color = armor;
-    this.model = new CharacterModel({ armor, trim, guns: game.arsenal.guns });
+    this.character = character;
+    this.model = new CharacterModel({ armor, trim, guns: game.arsenal.guns, character });
     if (this.isBot) {
       // Everyone sees bots; they have no view of their own.
       this.viewmodel = null;
