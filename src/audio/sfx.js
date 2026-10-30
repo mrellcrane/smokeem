@@ -213,6 +213,20 @@ const SOUNDS = {
 // Recorded sounds, grouped by name: shot-1.wav ... shot-4.wav are variations of 'shot'.
 const SAMPLE_URLS = import.meta.glob('./samples/*.wav', { query: '?url', import: 'default', eager: true });
 
+// Sounds heard over and over (guns, blasts, footsteps) get more takes than were recorded, so the
+// ear never catches a loop (Halo's soundtags carry many permutations): each recorded take adds
+// these variants, made at decode: a pitch (by resampling, so the length changes with it), a
+// tone (tilt: + brighter, - darker) and the attack's level.
+const TAKES = { shot: 1, smg: 1, pistol: 1, marksman: 1, rotisserie: 1, shotgun: 1, chimney: 1, boom: 1, launch: 1, step: 1, stepMetal: 1, stepDirt: 1, stepWood: 1, stepMud: 1 };
+const VARIANTS = [
+  { pitch: 0.955, tilt: -0.35, attack: 1.12 },
+  { pitch: 1.045, tilt: 0.3, attack: 0.9 },
+];
+
+// Close sounds get a little width (a short delayed copy on one side); this far out they're
+// plain points.
+const WIDE_NEAR = 8;
+
 // Per-sound mix: volume, distance where it's at half volume, echo send, and a voice cap.
 const MIX = {
   shot: { volume: 0.9, ref: 16, wet: 0.35, voices: 14 },
@@ -261,6 +275,7 @@ export class Sfx {
     this.master = null;
     this.buffers = {};
     this.lastPlayed = {};
+    this.lastTake = {};
     this.voices = {};
     // Local players (the game sets this): sounds fade by distance to the nearest one.
     this.listeners = [];
@@ -303,6 +318,18 @@ export class Sfx {
       this.echoIn = ctx.createGain();
       this.echoIn.gain.value = 0.6;
       this.echoIn.connect(this.echo).connect(this.master);
+      // The width bus: what's sent here comes back on the right a few milliseconds late, so a
+      // close sound spreads across both ears.
+      this.wideIn = ctx.createGain();
+      const delay = ctx.createDelay(0.05);
+      delay.delayTime.value = 0.013;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 6000;
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      if (pan) pan.pan.value = 0.85;
+      this.wideIn.connect(delay).connect(lp);
+      (pan ? lp.connect(pan) : lp).connect(this.master);
       for (const [name, make] of Object.entries(SOUNDS)) this.buffers[name] = [make(ctx)];
     }
     // Decode whatever has downloaded; anything that failed (a network blip) is fetched again.
@@ -330,7 +357,10 @@ export class Sfx {
     decode(this.ctx, f.bytes).then((buf) => {
       f.bytes = null;
       f.state = buf ? 'done' : 'failed';
-      if (buf) (this.buffers[f.name] ??= []).push(buf);
+      if (!buf) return;
+      const list = (this.buffers[f.name] ??= []);
+      list.push(buf);
+      if (TAKES[f.name]) for (const v of VARIANTS) list.push(variant(this.ctx, buf, v));
     });
   }
 
@@ -386,7 +416,11 @@ export class Sfx {
     if (voices.length >= (mix.voices ?? DEFAULT_MIX.voices)) this.stop(voices.shift());
 
     const src = ctx.createBufferSource();
-    src.buffer = list[(Math.random() * list.length) | 0];
+    // Any take but the last one played.
+    let take = (Math.random() * list.length) | 0;
+    if (list.length > 1 && take === this.lastTake[name]) take = (take + 1 + ((Math.random() * (list.length - 1)) | 0)) % list.length;
+    this.lastTake[name] = take;
+    src.buffer = list[take];
     src.playbackRate.value = rate;
     let node = src;
     // Far away sounds lose their highs.
@@ -405,6 +439,12 @@ export class Sfx {
     g.gain.value = gain;
     node.connect(g).connect(this.master);
     const voice = { src, g };
+    // Close up, a little width.
+    if (dist < WIDE_NEAR && this.wideIn) {
+      const w = ctx.createGain();
+      w.gain.value = gain * 0.35 * (1 - dist / WIDE_NEAR);
+      node.connect(w).connect(this.wideIn);
+    }
     // The echo fades slower than the direct sound, so distant shots sound distant.
     const wet = mix.wet ?? 0;
     if (wet) {
@@ -498,6 +538,30 @@ function engineLoop(ctx) {
     d[i] = Math.tanh(1.6 * (0.7 * Math.sin(2 * Math.PI * F * t) * pulse + 0.35 * Math.sin(4 * Math.PI * F * t) + 0.18 * Math.sin(6 * Math.PI * F * t + 1) * pulse + 0.5 * lp * pulse));
   }
   return buf;
+}
+
+// A variant take of a recorded sound (see VARIANTS): resampled for the pitch, a one-pole tilt
+// for the tone, and the first 15 ms scaled for the attack.
+function variant(ctx, buf, { pitch, tilt, attack }) {
+  const src = buf.getChannelData(0);
+  const n = Math.max(1, Math.floor(src.length / pitch));
+  const out = ctx.createBuffer(1, n, buf.sampleRate);
+  const d = out.getChannelData(0);
+  const k = Math.exp((-2 * Math.PI * 1800) / buf.sampleRate);
+  const atk = Math.floor(0.015 * buf.sampleRate);
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    const x = i * pitch;
+    const j = Math.floor(x);
+    const f = x - j;
+    const v = (src[j] ?? 0) * (1 - f) + (src[j + 1] ?? 0) * f;
+    // Split at about 1.8 kHz: tilt above 0 lifts the highs, below 0 cuts them.
+    lp = lp * k + v * (1 - k);
+    let y = lp + (v - lp) * (1 + tilt);
+    if (i < atk) y *= attack + (1 - attack) * (i / atk);
+    d[i] = y;
+  }
+  return out;
 }
 
 function decode(ctx, data) {

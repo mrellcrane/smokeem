@@ -183,7 +183,10 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/audio/`: sound effects (unlocked by the drop-in click). Guns, reloads and explosions
   are CC0 recordings in `src/audio/samples/` (`name-N.wav` files are variations of `name`;
   credits in `CREDITS.md`, regenerate with `tools/build_sounds.py`); everything else is
-  synthesized at unlock. `sfx.play(name, { at, source })` places a sound in the world: it
+  synthesized at unlock. Sounds heard over and over (`TAKES`: guns, blasts, footsteps) get two
+  more takes per recording, made at decode (`variant`: pitch by resampling, a tone tilt, the
+  attack's level), `play` never picks the take it played last for that name, and sounds within
+  `WIDE_NEAR` also feed a width bus (a short delayed copy on the right). `sfx.play(name, { at, source })` places a sound in the world: it
   fades and muffles with distance from the nearest local player and plays up close when
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
   played for local players (`!player.isBot`). Footsteps (`step`, `stepMetal`, `stepDirt`,
