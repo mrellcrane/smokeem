@@ -940,3 +940,9 @@ Need answers before the step that uses them gets built.
   sausages hanging from the trusses, gauges on the pipe drops, hazard warning boards on the end
   walls and pallet stacks in the two free corners (the only new cover). No new materials, so no new
   draw calls.
+- 2026-10-30: Smarter bots (overnight step 5). Bots with the Gravity Gun grab a nearby prop and
+  fling it at you from range (and switch away when there's nothing left to throw); they walk into
+  anyone's linked portals when the exit is much nearer where they're going; in Oysters they go back
+  and crouch for SAUCED; and grenades come when they pay off (someone camping, a crowd, an empty
+  gun, or a lob at where you just ducked behind cover) instead of at random. Bots still don't place
+  portals themselves.

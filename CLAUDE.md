@@ -187,7 +187,11 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
   (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
-  `InputState` each tick. A new map needs its own links list.
+  `InputState` each tick. Besides fighting, chasing and roaming it flings props with the Gravity
+  Gun at range (`fling`, `FLING_BAND`), walks into anyone's linked portal when it's a big shortcut
+  (`takePortal`), crouches for SAUCED in Oysters (`sauce`), and throws grenades by situation (a
+  target standing still, a crowd, an empty gun, or a lob where someone ducked out of sight:
+  `flush`). A new map needs its own links list.
 - `src/render/`: renderer setup, split-screen viewports, shader warm-up, and the death replay
   (`replay.js`: records bodies, eyes and tracers every frame; `Game.render` draws replaying views
   last, between `replay.begin` and `replay.end`; tracers with owner `1000 + viewer` show only
