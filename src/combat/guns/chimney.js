@@ -38,6 +38,8 @@ export default {
       damping: 0.3,
       restitution: 0.45,
       ember: true,
+      glow: 0xff5a1a,
+      glowSize: 0.36,
       explosion: { radius: 3.2, inner: 0.4, damage: 85, knockback: 8, tint: 0xff6a2a, volume: 0.8, rate: 1.15 },
     },
     sound: 'chimney',

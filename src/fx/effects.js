@@ -12,6 +12,7 @@ const _o = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
 // Cells of the effect atlases (textures.js).
+const SOFT = 0;
 const STAR = 1; // 1 to 3
 const RING = 4;
 const STREAK = 5;
@@ -192,6 +193,13 @@ export class Effects {
 
   impactBody(point, normal, shield) {
     this.burst(point, normal, shield ? 0x7ff0ff : 0xff4a2a, 5, 5, 0.09, 3);
+  }
+
+  // Halo's glowing projectiles: a soft glow on the thing every tick (head) and, while it flies, a
+  // dot left behind that shrinks and fades (a light trail).
+  glow(p, color, size, moving) {
+    this.sparks.spawn(p.x, p.y, p.z, 0, 0, 0, color, size * 1.6, 0.06, { cell: SOFT, minPx: 8 });
+    if (moving) this.sparks.spawn(p.x, p.y, p.z, 0, 0, 0, color, size * 1.1, 0.4, { cell: SOFT, grow: 0.35, minPx: 4 });
   }
 
   // A glowing ember drifting off something hot (Chimney coals in flight).
