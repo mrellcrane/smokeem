@@ -162,8 +162,33 @@ replay like everyone else (same hitbox: the look changes, the target doesn't).
   the Master Sword's purple hilt on his back.
 - Bond (Brosnan in GoldenEye 007): black dinner jacket, white shirt front and collar, black bow
   tie, short dark hair with a side part.
-- Your color still shows: Crash's and Link's wristbands and Bond's pocket square glow in it, and
-  every body has the rim light in its color.
+- BBQ originals (owner pick, 2026-10-30):
+  - Hot Dog: a sausage standing in its bun, mustard zigzag down the front, a cartoon face on top,
+    skinny arms in white gloves, red sneakers, a toothpick flag on top.
+  - Grill Bot: a kettle-grill robot, glowing coals behind a grate in its belly, a domed lid for a
+    head with a handle and a little chimney, steel limbs.
+  - Hog Wild: a pig in denim overalls with brass buttons, floppy ears, hooves, and a welding mask
+    flipped up on its head.
+  - Brisket Bruiser: a bull luchador: a wrestling mask, white horns, a gold nose ring, a bare
+    barrel chest, a gold championship belt, red tights, white boots.
+  - Ghost Pepper: lanky, in a charred suit with glowing ember cracks, the head a wrinkled ghost
+    pepper glowing red with hollow eyes, a jagged grin and a curly stem.
+  - Corn Dog Commando: a corn cob in rows of kernels with its husk peeling back, a beret, camo
+    fatigues, combat boots.
+  - The Pitmaster: a big guy in a leather apron over a work shirt, a tall chef's hat, a thick
+    beard, tongs and a meat thermometer on his back.
+- More game homages (owner pick, 2026-10-30): Samus (the power suit: round pauldrons, a green
+  visor, the arm cannon on the right forearm), the Doom Slayer (chunky green armor, a slit visor),
+  Mario (cap, mustache, red shirt, blue overalls, white gloves), Sonic (spines swept back off the
+  head, one white eye patch, red sneakers) and Banjo (a bear in yellow shorts with a blue backpack
+  and a red bird peeking out).
+- Hats, horns, ears, spines, stems and the bird ride the head loosely, so only the head itself
+  counts for the hitbox's head band: the look changes, the target doesn't.
+- Your color still shows: Crash's and Link's wristbands, Bond's pocket square, the Hot Dog's flag,
+  the Grill Bot's eyes, the welding mask's glass, the Bruiser's mask trim and belt plate, the
+  Pepper's scarf, the Commando's beret badge, the Pitmaster's bandana, Samus's chest light, the
+  Slayer's visor, Mario's cap emblem, Sonic's shoe straps and Banjo's necklace cord glow in it,
+  and every body has the rim light in its color.
 - Each seat picks on the join screen: LB / RB on a controller, the arrows with the mouse. The pick
   stays with the seat between matches. Bots come as a random character each match.
 
@@ -1220,3 +1245,6 @@ Need answers before the step that uses them gets built.
   each hand; the left gun on right click / LT; no grenades or zoom meanwhile; switching drops the
   left gun. Each does 75% damage (two SMGs at full damage halved the time to kill). Cookoff's
   Kindling loadout is now Double Down: a Kindling in each hand.
+- 2026-10-30: Twelve more characters (owner: "do all of them"): seven BBQ originals (Hot Dog, Grill
+  Bot, Hog Wild, Brisket Bruiser, Ghost Pepper, Corn Dog Commando, the Pitmaster) and five game
+  homages (Samus, the Doom Slayer, Mario, Sonic, Banjo).
