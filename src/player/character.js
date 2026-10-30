@@ -6,6 +6,7 @@ import { GUNS, allParts } from '../combat/guns/index.js';
 import { FINISHES, GLOVE, finishOf, partGeometry, showsAtLow } from '../combat/weaponModels.js';
 import { JOINTS as BODY_JOINTS, BONES as BODY_BONES, HANDS, REGIONS, DATA } from './body/bodyMesh.js';
 import { castBody } from './body/cast.js';
+import { viewmodelUniforms } from './viewmodel.js';
 
 // The contestant body: an armored soldier (a CC0 model, see body/CREDITS.md) in a Halo Mark VI
 // style helmet with a big gold visor, gloved fists and a smoker canister on the back. Smooth-skinned to a 16-bone body skeleton plus
@@ -303,6 +304,11 @@ const EMBER = 0xff7a1a;
 // How much a part glows on its own (ignores light and shadow): visor and canister ember ring
 // fully, the team-color light strips a little less, glowing bits of the held gun some.
 const GLOWS = { visor: 1, shine: 1, ember: 1, strip: 0.9 };
+// How glossy each region is (aShine: 0 matte cloth to 1 the visor's glass): painted plates catch
+// a highlight and a faint sky, metal more, the visor most.
+const SHINES = { armor: 0.5, panel: 0.42, suit: 0.08, strip: 0, glove: 0.14, boot: 0.25, visor: 1, ember: 0, metal: 0.8, shine: 1 };
+const GUN_SHINES = { [FINISHES.matte]: 0.05, [FINISHES.wood]: 0.15, [FINISHES.paint]: 0.45, [FINISHES.metal]: 0.8, [FINISHES.glow]: 0 };
+const CAST_SHINE = 0.08;
 // How much a gun's glowing parts glow (weaponModels.js finishes).
 const GUN_GLOW = 0.8;
 
@@ -388,10 +394,11 @@ function helmetAt(table, a) {
   return table[i] + (table[i + 1] - table[i]) * (f - i);
 }
 
-// Per-vertex color, glow and team color: vertex i takes entry pick(i) of the palette.
-function paint(n, palette, glows, pick, team) {
+// Per-vertex color, glow, shine and team color: vertex i takes entry pick(i) of the palette.
+function paint(n, palette, glows, pick, team, shines) {
   const col = new Float32Array(n * 3);
   const glow = new Float32Array(n);
+  const shine = new Float32Array(n);
   const tm = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     const k = pick(i);
@@ -400,11 +407,12 @@ function paint(n, palette, glows, pick, team) {
     col[i * 3 + 1] = c.g;
     col[i * 3 + 2] = c.b;
     glow[i] = glows[k];
+    shine[i] = shines[k];
     tm[i * 3] = team.r;
     tm[i * 3 + 1] = team.g;
     tm[i * 3 + 2] = team.b;
   }
-  return { col, glow, tm };
+  return { col, glow, tm, shine };
 }
 
 function buildGeometry(colors, inflate, r, character) {
@@ -418,7 +426,8 @@ function buildGeometry(colors, inflate, r, character) {
     g.setAttribute('normal', new THREE.BufferAttribute(b.normal, 3));
     const palette = b.palette ? b.palette.map((e) => new THREE.Color().set(e.color ?? colors.strip)) : REGIONS.map((name) => new THREE.Color().set(colors[name]));
     const glows = b.palette ? b.palette.map((e) => e.glow ?? 0) : REGIONS.map((name) => GLOWS[name] ?? 0);
-    const { col, glow, tm } = paint(b.count, palette, glows, (i) => b.region[i], colors.armor);
+    const shines = b.palette ? b.palette.map((e) => e.shine ?? (e.glow ? 0 : CAST_SHINE)) : REGIONS.map((name) => SHINES[name] ?? 0);
+    const { col, glow, tm, shine } = paint(b.count, palette, glows, (i) => b.region[i], colors.armor, shines);
     if (b.shade) {
       for (let i = 0; i < b.count; i++) {
         const k = b.shade[i] / 255;
@@ -430,6 +439,7 @@ function buildGeometry(colors, inflate, r, character) {
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     // Self-glow and the body's team color, for the rim light (see bodyMaterial).
     g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
+    g.setAttribute('aShine', new THREE.BufferAttribute(shine, 1));
     g.setAttribute('aTeam', new THREE.BufferAttribute(tm, 3));
     g.setAttribute('skinIndex', new THREE.BufferAttribute(b.skinIndex, 4));
     g.setAttribute('skinWeight', new THREE.BufferAttribute(b.skinWeight, 4));
@@ -445,9 +455,11 @@ function buildGeometry(colors, inflate, r, character) {
       const g = partGeometry(c, size, opts, 'lo', { offset: j, inflate: inflate ? 0.035 : 0 });
       const n = g.attributes.position.count;
       const part = [new THREE.Color().set(color ?? colors.armor)];
-      const { col, glow, tm } = paint(n, part, [finishOf(color, opts) === FINISHES.glow ? GUN_GLOW : 0], () => 0, colors.armor);
+      const finish = finishOf(color, opts);
+      const { col, glow, tm, shine } = paint(n, part, [finish === FINISHES.glow ? GUN_GLOW : 0], () => 0, colors.armor, [GUN_SHINES[finish]]);
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
+      g.setAttribute('aShine', new THREE.BufferAttribute(shine, 1));
       g.setAttribute('aTeam', new THREE.BufferAttribute(tm, 3));
       const si = new Uint16Array(n * 4);
       const sw = new Float32Array(n * 4);
@@ -465,38 +477,68 @@ function buildGeometry(colors, inflate, r, character) {
   return merged;
 }
 
-// One material for every body. On top of Lambert: glowing parts ignore light and shadow, and a
-// rim in the body's own color lights its silhouette, stronger with distance, so a far player
-// reads as a colored person (with a glowing head) instead of a dark speck, even in shade.
+// One material for every body. Blinn-Phong whose highlight follows each vertex's shine (aShine:
+// matte cloth to glossy plates to the visor's glass), with a faint sky-and-ground reflection on
+// the glossy parts (the visor's strongest, like a curved mirror); glowing parts ignore light and
+// shadow, and a rim in the body's own color lights its silhouette, stronger with distance, so a
+// far player reads as a colored person (with a glowing head) instead of a dark speck, even in
+// shade.
 const RIM_VERTEX = /* glsl */ `
   attribute float aGlow;
+  attribute float aShine;
   attribute vec3 aTeam;
   varying float vGlow;
+  varying float vShine;
   varying vec3 vTeam;
+`;
+const RIM_HEAD = /* glsl */ `
+  uniform vec3 uSky;
+  uniform vec3 uGround;
+  varying float vGlow;
+  varying float vShine;
+  varying vec3 vTeam;
+`;
+const SHINE_LIGHTS = /* glsl */ `
+  BlinnPhongMaterial material;
+  material.diffuseColor = diffuseColor.rgb;
+  material.specularColor = vec3(0.55);
+  material.specularShininess = mix(8.0, 90.0, vShine);
+  material.specularStrength = vShine * (1.0 - vGlow);
 `;
 const RIM_FRAGMENT = /* glsl */ `
   float ndv = saturate(dot(normal, normalize(vViewPosition)));
   float rim = (1.0 - ndv) * (1.0 - ndv) * mix(0.25, 0.7, smoothstep(8.0, 40.0, length(vViewPosition)));
   outgoingLight = mix(outgoingLight, diffuseColor.rgb * 1.5, vGlow) + vTeam * rim;
+  {
+    vec3 R = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
+    vec3 env = mix(uGround, uSky, smoothstep(-0.2, 0.3, R.y)) + uSky * 0.6 * exp(-pow((R.y - 0.1) * 7.0, 2.0));
+    float fres = (1.0 - ndv) * (1.0 - ndv) * (1.0 - ndv);
+    float glass = smoothstep(0.9, 1.0, vShine);
+    outgoingLight += env * vShine * mix(0.02 + 0.2 * fres, 0.18 + 0.45 * fres, glass);
+  }
 `;
 
 let sharedMaterial = null;
 function bodyMaterial() {
   if (!sharedMaterial) {
-    sharedMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+    sharedMaterial = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xffffff, shininess: 30 });
     sharedMaterial.name = 'character';
     sharedMaterial.onBeforeCompile = (shader) => {
       const v = shader.vertexShader;
       const f = shader.fragmentShader;
-      if (!v.includes('#include <begin_vertex>') || !f.includes('#include <opaque_fragment>')) {
+      if (!v.includes('#include <begin_vertex>') || !f.includes('#include <opaque_fragment>') || !f.includes('#include <lights_phong_fragment>')) {
         console.warn('character: shader chunks changed, rim light off');
         return;
       }
-      shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vTeam = aTeam;');
+      // (The same sky and ground the first-person guns reflect, from the map's look.)
+      shader.uniforms.uSky = viewmodelUniforms.uSky;
+      shader.uniforms.uGround = viewmodelUniforms.uGround;
+      shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vShine = aShine;\n  vTeam = aTeam;');
       shader.fragmentShader =
-        'varying float vGlow;\nvarying vec3 vTeam;\n' + f.replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
+        RIM_HEAD +
+        f.replace('#include <lights_phong_fragment>', SHINE_LIGHTS).replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
     };
-    sharedMaterial.customProgramCacheKey = () => 'character-rim';
+    sharedMaterial.customProgramCacheKey = () => 'character-shine';
   }
   return sharedMaterial;
 }

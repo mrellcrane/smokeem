@@ -286,9 +286,11 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   (`'support'`) move on their own in the vertex shader (`aGroup`, `uGroupOff`, set per view by
   `Viewmodel.bind()`), so reloads (mag out, hand fetches a new one) and the pump cost no draws.
   The sway is a spring that overshoots a little; strafing leans the gun; standing still it breathes.
-- Bodies share one Lambert material with a small `onBeforeCompile` addition: per-vertex
-  `aGlow` (parts that glow on their own) and `aTeam` (the body's color, for a distance-scaled
-  rim light). Any geometry drawn with it needs both attributes. `smokeem.lineup({ distance })`
+- Bodies share one Phong material with a small `onBeforeCompile` addition: per-vertex
+  `aGlow` (parts that glow on their own), `aShine` (how glossy: `SHINES` per Spartan region,
+  `shine` per cast palette entry, `GUN_SHINES` per gun finish; the highlight's strength and a
+  faint sky-and-ground reflection, strongest on the visor) and `aTeam` (the body's color, for a
+  distance-scaled rim light). Any geometry drawn with it needs all three attributes. `smokeem.lineup({ distance })`
   (debug) stands every body color in a row for readability checks.
 - The body (`character.js`) is decoded once per page load from `body/bodyMesh.js` (about 2.6k
   vertices and 3.1k triangles, smooth-skinned, up to 4 bones per vertex) and each body only

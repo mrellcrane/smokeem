@@ -929,3 +929,8 @@ Need answers before the step that uses them gets built.
   from hits, climb hand over hand with the gun slung on their back, and buckle at the knees when
   shot down. Movements are exaggerated a little so they read across the arena; flinches stay
   inside the headshot band.
+- 2026-10-30: Character detail (overnight step 3). Bodies went from flat Lambert to Phong with a
+  shine per part: the Spartan's painted plates catch highlights, its metal more, and the gold visor
+  reflects the sky like curved glass; Crash's nose and eyes, Link's buckle, shield rim and hilt, and
+  Bond's shoes, hair and tie shine too; undersuits and cloth stay matte. Guns on bodies take their
+  finish (metal shines, wood doesn't).
