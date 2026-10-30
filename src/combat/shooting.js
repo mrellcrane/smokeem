@@ -425,6 +425,7 @@ function throwGrenade(game, p) {
     .addScaledVector(p.vel, 0.5);
   game.grenades.throw(p, _o, _d);
   p.viewmodel?.toss();
+  p.pose.throws++;
   game.sfx.play('throw', { at: p.center, source: p });
 }
 
@@ -432,6 +433,7 @@ function melee(game, p) {
   p.meleeT = MELEE.cooldown;
   p.sprinting = false;
   p.viewmodel?.bash();
+  p.pose.melees++;
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
   // Bugs on you: the swing swats them instead.
