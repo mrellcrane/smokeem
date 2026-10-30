@@ -36,6 +36,18 @@ class Kit {
     this.idx = [];
     this.bone = [];
     this.reg = [];
+    this.loose = [];
+    // While set, added shapes ride their bone loosely (see add).
+    this.looseOn = false;
+  }
+
+  // Shapes added inside fn ride their bone at 98.5% (with a touch of the spine): they move with
+  // it, but the head's hitbox fit (character.js helmetTable) only counts shapes on the head
+  // bone alone, so ears, hair and a jaw hanging below the head band don't shove the body around.
+  loosely(fn) {
+    this.looseOn = true;
+    fn();
+    this.looseOn = false;
   }
 
   // Append a geometry (already placed) on one bone, in one color region.
@@ -51,6 +63,7 @@ class Kit {
       this.nor.push(n.getX(i), n.getY(i), n.getZ(i));
       this.bone.push(BI[bone]);
       this.reg.push(r);
+      this.loose.push(this.looseOn);
     }
     const ix = g.index.array;
     for (let i = 0; i < ix.length; i++) this.idx.push(base + ix[i]);
@@ -104,6 +117,11 @@ class Kit {
     for (let i = 0; i < n; i++) {
       skinIndex[i * 4] = this.bone[i];
       skinWeight[i * 4] = 1;
+      if (this.loose[i]) {
+        skinIndex[i * 4 + 1] = BI.spine;
+        skinWeight[i * 4] = 0.985;
+        skinWeight[i * 4 + 1] = 0.015;
+      }
       // A little darker facing down and low on the body, like the Spartan's baked occlusion.
       const ny = normal[i * 3 + 1];
       const y = position[i * 3 + 1];
@@ -160,66 +178,75 @@ function frame(k, s, r) {
   }
 }
 
+// Crash as in the first games (owner reference: the PS1 model): a long face running straight into
+// the chest, the huge white grin with the dark triangle nose in its middle, wide eyes with
+// diamond pupils under heavy brows, tall V ears with dark insides and the red tuft spiking up; a
+// narrow V-shaped body with an orange stripe down the chest and a belly button; long skinny arms
+// with big maroon gloves; baggy three-quarter jeans over skinny shins; chunky maroon sneakers
+// with white laces, collars and soles.
 function crash() {
   const k = new Kit({
-    fur: { color: 0xf0821c },
-    furDark: { color: 0xc8640e },
-    belly: { color: 0xf3c487 },
-    jeans: { color: 0x2f62b8 },
-    shoe: { color: 0xd8262a },
-    sole: { color: 0xf2f2ee },
-    glove: { color: 0x9a5a2a },
-    white: { color: 0xffffff, glow: 0.15 },
-    green: { color: 0x38a83a },
-    black: { color: 0x141414 },
-    mouth: { color: 0x5a1612 },
-    hair: { color: 0xa83a16 },
-    stripe: { color: 0x6b3a1a },
+    fur: { color: 0xe4461c },
+    chest: { color: 0xf08a12 },
+    glove: { color: 0x5a1416 },
+    jeans: { color: 0x2442b4 },
+    shoe: { color: 0x6a1418 },
+    white: { color: 0xf4f2f4, glow: 0.1 },
+    lip: { color: 0xc89aa8 },
+    nose: { color: 0x1c1c3c },
+    pupil: { color: 0x111111 },
+    brow: { color: 0x3a1c0e },
+    earIn: { color: 0x2a1006 },
+    tuft: { color: 0xb2161a },
     team: { color: null, glow: 0.9 },
   });
-  // Crash's shape: a huge wide head sitting low on a skinny pear-shaped body, noodle arms and
-  // legs, big gloved hands and oversized sneakers.
-  frame(k, { neck: 'fur', upper: 'fur', lower: 'fur', hand: 'glove', cuff: 'team', thigh: 'jeans', shin: 'jeans', foot: 'shoe', toe: 'sole', sole: 'sole' }, { neck: 0.06, upper: 0.034, lower: 0.032, fist: 0.075, thigh: 0.062, shin: 0.052, foot: 0.12 });
-  // Body: narrow at the shoulders, round at the belly, the tan belly patch, brown stripes down
-  // the back, and jeans up to the waist.
-  k.ell(V(0, 1.12, 0.005), [0.15, 0.23, 0.13], 'spine', 'fur');
-  k.ell(V(0, 1.06, -0.07), [0.115, 0.15, 0.08], 'spine', 'belly');
-  for (const sx of [-1, 1]) k.ell(V(sx * 0.165, 1.33, 0), [0.05, 0.05, 0.05], 'spine', 'fur', null, [10, 8]);
-  // (No neck to speak of: the head sits right on the shoulders.)
-  k.ell(V(0, 1.38, 0.0), [0.11, 0.09, 0.1], 'spine', 'fur');
-  for (const [y, w] of [[1.27, 0.12], [1.19, 0.15], [1.11, 0.13]]) k.box(V(0, y, 0.128), [w, 0.022, 0.02], 'spine', 'stripe', [-0.15, 0, 0]);
-  k.limb(V(0, 0.78, 0), V(0, 0.97, 0), 0.15, 0.13, 'hips', 'jeans', { flat: 0.8 });
-  // Oversized sneakers over the feet: red, a white sole and toe cap, white laces.
+  frame(k, { neck: 'fur', upper: 'fur', lower: 'fur', hand: 'glove', cuff: 'team', thigh: 'jeans', knee: 'jeans', shin: 'fur', foot: 'shoe' }, { neck: 0.03, upper: 0.04, lower: 0.036, fist: 0.08, thigh: 0.085, shin: 0.036, foot: 0.13 });
+  // Body: a narrow V from sloping shoulders down to a thin waist, the orange stripe and the
+  // belly button.
+  k.ell(V(0, 1.22, 0), [0.16, 0.19, 0.12], 'spine', 'fur');
+  k.ell(V(0, 1.03, 0), [0.115, 0.13, 0.095], 'spine', 'fur');
+  k.ell(V(0, 1.13, -0.065), [0.07, 0.22, 0.06], 'spine', 'chest');
+  k.ell(V(0, 0.985, -0.1), [0.012, 0.016, 0.006], 'spine', 'earIn', null, [8, 6]);
+  for (const sx of [-1, 1]) k.ell(V(sx * 0.165, 1.33, 0), [0.07, 0.055, 0.07], 'spine', 'fur', null, [10, 8]);
+  k.limb(V(0, 0.79, 0), V(0, 0.97, 0), 0.145, 0.13, 'hips', 'jeans', { flat: 0.8 });
   for (const side of ['L', 'R']) {
+    const kn = J(`legL${side}`);
     const an = J(`foot${side}`);
-    k.ell(V(an.x, 0.075, an.z - 0.07), [0.085, 0.075, 0.175], `foot${side}`, 'shoe');
-    k.box(V(an.x, 0.018, an.z - 0.07), [0.17, 0.036, 0.35], `foot${side}`, 'sole');
-    k.ell(V(an.x, 0.06, an.z - 0.2), [0.075, 0.05, 0.06], `foot${side}`, 'sole', null, [10, 6]);
-    k.box(V(an.x, 0.135, an.z - 0.1), [0.05, 0.012, 0.1], `foot${side}`, 'sole', [0.35, 0, 0]);
+    // Baggy jeans down to mid-shin.
+    const mid = kn.clone().lerp(an, 0.55);
+    k.limb(kn, mid, 0.08, 0.09, `legL${side}`, 'jeans');
+    // Chunky sneakers: the shoe, a white sole, a white collar round the ankle, white laces.
+    k.ell(V(an.x, 0.085, an.z - 0.06), [0.095, 0.085, 0.185], `foot${side}`, 'shoe');
+    k.box(V(an.x, 0.02, an.z - 0.06), [0.19, 0.04, 0.37], `foot${side}`, 'white');
+    k.limb(V(an.x, 0.12, an.z), V(an.x, 0.18, an.z), 0.06, 0.05, `foot${side}`, 'white');
+    k.box(V(an.x, 0.158, an.z - 0.1), [0.07, 0.02, 0.13], `foot${side}`, 'white', [0.4, 0, 0]);
   }
-  // The head: a huge round skull with big cheeks and jaw, a long snout with a tan muzzle and a
-  // big black nose, the wide toothy grin, big green eyes close together under heavy brows, big
-  // ears sticking out and up, and the red-brown tuft.
   const head = 'head';
-  k.ell(V(0, 1.59, 0.01), [0.2, 0.18, 0.19], head, 'fur');
-  k.ell(V(0, 1.5, -0.05), [0.17, 0.1, 0.15], head, 'fur');
-  k.ell(V(0, 1.52, -0.19), [0.12, 0.085, 0.15], head, 'fur');
-  k.ell(V(0, 1.475, -0.2), [0.11, 0.05, 0.13], head, 'belly');
-  k.ell(V(0, 1.555, -0.335), [0.056, 0.042, 0.042], head, 'black');
-  k.ell(V(0, 1.462, -0.245), [0.125, 0.032, 0.075], head, 'mouth');
-  k.ell(V(0, 1.47, -0.278), [0.112, 0.02, 0.042], head, 'white', null, [12, 6]);
+  // The skull and brow, on the head bone (inside the hitbox's head band).
+  k.ell(V(0, 1.645, 0.0), [0.15, 0.165, 0.15], head, 'fur');
   for (const sx of [-1, 1]) {
-    k.ell(V(sx * 0.115, 1.485, -0.25), [0.028, 0.035, 0.035], head, 'mouth', [0, 0, sx * 0.7], [8, 6]);
-    k.ell(V(sx * 0.07, 1.66, -0.15), [0.06, 0.072, 0.04], head, 'white');
-    k.ell(V(sx * 0.066, 1.652, -0.186), [0.03, 0.037, 0.014], head, 'green', null, [10, 8]);
-    k.ell(V(sx * 0.066, 1.652, -0.197), [0.014, 0.017, 0.006], head, 'black', null, [8, 6]);
-    k.box(V(sx * 0.078, 1.74, -0.155), [0.095, 0.026, 0.03], head, 'black', [0, 0, sx * -0.35]);
-    k.cone(V(sx * 0.17, 1.66, 0.03), V(sx * 0.31, 1.75, 0.09), 0.065, head, 'fur');
-    k.cone(V(sx * 0.18, 1.665, 0.02), V(sx * 0.29, 1.74, 0.075), 0.04, head, 'furDark');
+    k.ell(V(sx * 0.068, 1.675, -0.122), [0.062, 0.045, 0.03], head, 'white');
+    k.box(V(sx * 0.062, 1.672, -0.15), [0.022, 0.022, 0.008], head, 'pupil', [0, 0, Math.PI / 4]);
+    k.box(V(sx * 0.07, 1.735, -0.125), [0.13, 0.04, 0.05], head, 'brow', [0, 0, sx * 0.32]);
   }
-  for (const [x, z, h] of [[0, -0.02, 0.05], [-0.045, 0.02, 0.045], [0.045, 0.02, 0.045], [0, 0.07, 0.04]]) {
-    k.cone(V(x, 1.76, z), V(x * 1.6, 1.76 + h, z + 0.03), 0.032, head, 'hair', 6);
-  }
+  k.loosely(() => {
+    // The long lower face and its grin, running down into the chest.
+    k.ell(V(0, 1.47, -0.04), [0.155, 0.14, 0.14], head, 'fur');
+    // (Bridging the skull and the lower face, so the head is one long shape.)
+    k.ell(V(0, 1.56, -0.03), [0.152, 0.11, 0.148], head, 'fur');
+    // The grin, cheek to cheek, with the nose sitting in its top middle.
+    k.ell(V(0, 1.45, -0.125), [0.16, 0.095, 0.075], head, 'lip');
+    k.ell(V(0, 1.445, -0.145), [0.145, 0.08, 0.065], head, 'white');
+    k.cone(V(0, 1.505, -0.2), V(0, 1.45, -0.22), 0.052, head, 'nose', 3);
+    // Tall V ears with dark insides, and the red tuft spiking up.
+    for (const sx of [-1, 1]) {
+      k.cone(V(sx * 0.1, 1.73, 0.03), V(sx * 0.28, 1.92, 0.02), 0.075, head, 'fur', 4);
+      k.cone(V(sx * 0.11, 1.735, -0.005), V(sx * 0.26, 1.885, -0.02), 0.045, head, 'earIn', 4);
+    }
+    for (const [x, z, h] of [[0, 0.0, 0.22], [-0.03, 0.03, 0.16], [0.03, 0.02, 0.15]]) {
+      k.cone(V(x, 1.78, z), V(x * 1.4, 1.78 + h, z + 0.01), 0.02, head, 'tuft', 4);
+    }
+  });
   return k.build();
 }
 

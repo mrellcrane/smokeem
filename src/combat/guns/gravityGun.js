@@ -10,7 +10,7 @@ export default {
   def: {
     id: 'gravityGun',
     name: 'Gravity Gun',
-    blurb: 'Aim button grabs loose things (crates, barrels, grenades, stickies); fire throws them. Punts people up close.',
+    blurb: 'Fire (or aim) grabs loose things: crates, barrels, grenades, stickies. Fire again throws them. Punts people up close.',
     kind: 'gravity',
     auto: false,
     fireRate: 1.5,

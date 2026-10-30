@@ -142,11 +142,13 @@ Character options (owner request; built 2026-10-30): besides the Spartan you can
 Bandicoot, Link or GoldenEye's Bond, each as close to the source as we can make them out of
 simple shapes in the early-2000s look, on the Spartan's skeleton, so they move, aim, ragdoll and
 replay like everyone else (same hitbox: the look changes, the target doesn't).
-- Crash: Crash-shaped (owner, 2026-10-30): a huge wide head with big cheeks sitting right on his
-  shoulders, the long snout, black nose, toothy grin, big green eyes close together under heavy
-  brows, big ears sticking out and the red-brown tuft; a skinny pear-shaped body with a tan belly
-  and brown stripes down the back, noodle arms and legs, big brown gloves, blue jeans and
-  oversized red sneakers with white soles and toe caps.
+- Crash: the PS1 original (owner sent the reference, 2026-10-30): a long face running straight
+  into his chest, the huge white grin cheek to cheek with the dark triangle nose in its top,
+  wide eyes with black diamond pupils under heavy angry brows, tall V ears with dark insides and
+  the red tuft spiking up; red-orange fur, a narrow V body with an orange stripe down the chest
+  and a belly button, long skinny arms with big maroon gloves, baggy three-quarter jeans over
+  skinny shins, and chunky maroon sneakers with white laces, collars and soles. (His ears, tuft
+  and lower face ride the head loosely, so they don't count for the hitbox's head band.)
 - Link: the long green cap over blond hair, pointed ears, the green tunic with a leather belt and
   gold buckle, cream sleeves and tights, brown boots and gauntlets, and the Hylian Shield and
   the Master Sword's purple hilt on his back.
@@ -906,3 +908,7 @@ Need answers before the step that uses them gets built.
   side instead of the plain swirl: each portal shows a low-frame-rate snapshot from its exit
   (one portal refreshed every 6 frames on Medium, 3 on High, all in one atlas texture). Character
   options: picked on the join screen, Link (not Princess Zelda) and GoldenEye-era Bond.
+- 2026-10-30: Owner couldn't grab with the Gravity Gun by clicking fire. Fire with nothing held now
+  grabs what's under the crosshair (unless someone is close in front: then it punts them); fire
+  again throws; the aim button still grabs and drops, as in Half-Life 2. The ammo line says
+  "Fire or aim grabs" / "Fire throws · aim drops".
