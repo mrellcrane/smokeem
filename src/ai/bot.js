@@ -46,6 +46,8 @@ const SIGHT_RANGE = 75;
 const LOB_GRAVITY = 16;
 // A thrown Briquette, in lobArc's terms (its lift is along the view's up, near enough straight
 // up for the arcs bots throw).
+// The Gravity Gun's range band when there's a prop to fling (meters).
+const FLING_BAND = { min: 0, max: 18, pref: 9 };
 const GRENADE_LOB = { launchSpeed: GRENADE.throwSpeed, launchUp: GRENADE.throwUp, projectile: { damping: 0.05, fuse: 5 } };
 const HEAR_RANGE = 7;
 const MEMORY = 6;
@@ -70,7 +72,9 @@ function bandFit(w, dist) {
   if (w.empty || w.def.bot.skip) return -100;
   // Needs a reload first: only better than nothing.
   if (w.mag === 0) return -50;
-  const b = w.def.bot;
+  return bandScore(w.def.bot, dist);
+}
+function bandScore(b, dist) {
   if (dist < b.min) return -(b.min - dist) / 4;
   if (dist > b.max) return -(dist - b.max) / 10;
   return Math.max(0.05, 1 - Math.abs(dist - b.pref) / 20) - (b.sidearm ? 0.5 : 0);
@@ -137,6 +141,14 @@ export class BotBrain {
     this.goalItem = null;
     this.grenadeT = 3 + Math.random() * 3;
     this.throwT = 0;
+    // Winding up a grenade at where a target ducked out of sight (chase).
+    this.flushT = 0;
+    // A portal we're walking into as a shortcut, until when, and when to look for one next.
+    this.portalGoal = null;
+    this.portalUntil = 0;
+    this.portalCheckT = 0;
+    // Crouching over someone we just smoked in Rocky Mountain Oysters (SAUCED).
+    this.sauceT = 0;
     this.hurtBy = null;
     this.hurtT = -99;
     this.alive = true;
@@ -225,6 +237,7 @@ export class BotBrain {
 
     if (chaser) this.flee(chaser, dt);
     else if (sees) this.fight(dt);
+    else if (this.sauce(dt)) return;
     else if (this.target && t - this.lastSeenT < MEMORY) this.chase(dt);
     else this.roam(dt);
 
@@ -369,7 +382,11 @@ export class BotBrain {
     const w = p.weapon.def;
     let arc = 0;
     let lobOk = true;
-    if (this.throwT > 0) {
+    // The Gravity Gun out of punt range: grab a prop and fling it (it aims and fires itself).
+    const flinging = w.kind === 'gravity' && this.throwT <= 0 && dist > w.puntRange + 1 && this.fling(dt, dist);
+    if (flinging) {
+      // (Nothing else to aim.)
+    } else if (this.throwT > 0) {
       // Winding up a grenade: lob it to land at their feet, whatever gun is in hand.
       _t.y -= 0.6;
       arc = this.lobArc(_t, GRENADE_LOB) ?? 0.16 + dist * 0.008;
@@ -392,7 +409,7 @@ export class BotBrain {
       // Chest height, or the head for Hard bots with a precision gun.
       _t.y = w.bot.headshots && this.skillName === 'hard' ? tg.headLineY() + 0.12 : _t.y + 0.35;
     }
-    this.aimAt(_t, dt, arc);
+    if (!flinging) this.aimAt(_t, dt, arc);
     if (w.bot.zoomAt && dist > w.bot.zoomAt) s.held.aim = true;
 
     this.burstT -= dt;
@@ -406,7 +423,7 @@ export class BotBrain {
     const onTarget = w.bot.lob ? lobOk && this.aimOff() < cone : this.aimError(_t) < cone;
     // Spin-up guns keep the trigger down through the whole fight so the barrels stay hot.
     if (w.spinUp && w.bot.hold && inRange && this.reactT <= 0 && this.throwT <= 0) s.held.fire = true;
-    if (this.reactT <= 0 && this.throwT <= 0 && inRange && onTarget) {
+    if (!flinging && this.reactT <= 0 && this.throwT <= 0 && inRange && onTarget) {
       if (w.auto) {
         if (this.burstOn || w.bot.hold) s.held.fire = true;
       } else if (p.weapon.cooldown <= 0 && this.tapT <= 0) {
@@ -417,10 +434,19 @@ export class BotBrain {
     }
     if (dist < 2.3 && p.meleeT <= 0 && this.reactT <= 0) s.press('melee');
 
+    // Grenades when they're worth it: at someone standing still, into a crowd, or while our gun
+    // is empty; never close enough to catch the blast ourselves.
     this.grenadeT -= dt;
     if (this.grenadeT <= 0) {
-      this.grenadeT = 5 + Math.random() * 4;
-      if (p.grenades > 0 && dist > 7 && dist < 22 && Math.random() < sk.grenadeChance) this.throwT = 0.3;
+      this.grenadeT = 2 + Math.random() * 2;
+      if (p.grenades > 0 && dist > 7 && dist < 22) {
+        let chance = sk.grenadeChance * 0.5;
+        if (tg.vel && Math.hypot(tg.vel.x, tg.vel.z) < 1.5) chance *= 1.8;
+        if (p.weapon.reloading || p.weapon.mag === 0) chance *= 2;
+        tg.centerPosition(_d);
+        for (const o of this.game.players) if (o !== p && o !== tg && o.alive && o.center.distanceTo(_d) < 4) chance *= 2;
+        if (Math.random() < chance) this.throwT = 0.3;
+      }
     }
     if (this.throwT > 0) {
       this.throwT -= dt;
@@ -483,10 +509,65 @@ export class BotBrain {
       return;
     }
     // A lob gun that can't reach them from here counts as out of its band.
-    const cur = w.def.bot.lob && this.lobFail ? -1 : bandFit(w, dist);
-    const alt = bandFit(other, dist);
+    const cur = w.def.bot.lob && this.lobFail ? -1 : this.fit(w, dist);
+    const alt = this.fit(other, dist);
     if (other.def.bot.power && Math.random() > 0.02) return;
     if (alt > cur + 0.25) this.switchWeapon();
+  }
+
+  // bandFit, but a Gravity Gun with something to throw reaches as far as it can fling it.
+  fit(w, dist) {
+    if (w.def.kind === 'gravity' && this.propToGrab(true)) return bandScore(FLING_BAND, dist);
+    return bandFit(w, dist);
+  }
+
+  // The nearest loose prop the Gravity Gun could take from here (in sight, inside its reach), or
+  // null; with `orHeld`, whatever we're already holding counts.
+  propToGrab(orHeld = false) {
+    const gv = this.game.gravity;
+    const p = this.player;
+    if (!gv) return null;
+    const h = gv.holding(p);
+    if (h) return orHeld ? h.obj : null;
+    p.eyePosition(_e);
+    const reach = WEAPONS.gravityGun.range * 0.85;
+    let best = null;
+    let bd = reach;
+    for (const [kind, obj] of gv.candidates()) {
+      if (kind !== 'prop') continue;
+      const d = obj.pos.distanceTo(_e);
+      if (d < 0.6 || d >= bd || this.game.lineBlocked(_e, obj.pos)) continue;
+      bd = d;
+      best = obj;
+    }
+    return best;
+  }
+
+  // Gravity Gun at range: holding something, throw it at the target (leading them, aimed over
+  // the drop); otherwise turn to the nearest prop and grab it. False when there's nothing to use.
+  fling(dt, dist) {
+    const gv = this.game.gravity;
+    const p = this.player;
+    const w = p.weapon;
+    const tg = this.target;
+    if (!gv) return false;
+    const ready = p.weapon.cooldown <= 0 && this.reactT <= 0 && p.switchT <= 0;
+    if (gv.holding(p)) {
+      if (dist > FLING_BAND.max * 1.2) return false;
+      const t = dist / w.def.throwSpeed;
+      tg.centerPosition(_t);
+      if (tg.vel) _t.addScaledVector(tg.vel, t * this.skill.lead);
+      // Props fall like everything else (8 = half of gravity) on the way.
+      this.aimAt(_t, dt, Math.atan2(8 * t * t, dist));
+      const cone = this.skill.fireCone * DEG + Math.atan(0.6 / Math.max(1, dist));
+      if (ready && this.aimOff() < cone) this.state.press('fire');
+      return true;
+    }
+    const prop = this.propToGrab();
+    if (!prop) return false;
+    this.aimAt(prop.pos, dt);
+    if (ready && this.aimError(prop.pos) < w.def.grabCone * 0.5 * DEG) this.state.press('fire');
+    return true;
   }
 
   switchWeapon() {
@@ -531,9 +612,121 @@ export class BotBrain {
     }
     // A gun that doesn't need a sighting (the Swarm Jar): lob it where they were last seen,
     // walking the route meanwhile.
+    if (this.takePortal(dt)) return;
     const w = this.player.weapon;
-    const lobbing = w.def.bot.noSight && w.mag > 0 && !w.reloading && this.lobAtLastSeen(dt);
+    const lobbing = this.flush(dt) || (w.def.bot.noSight && w.mag > 0 && !w.reloading && this.lobAtLastSeen(dt));
     if (!this.followPath(dt, !lobbing, lobbing)) this.target = null;
+  }
+
+  // They ducked out of sight a moment ago: now and then lob a grenade where they were, to flush
+  // them out (aimed while walking the route there).
+  flush(dt) {
+    const p = this.player;
+    if (this.flushT > 0) {
+      this.flushT -= dt;
+      _t.copy(this.lastSeen);
+      _t.y -= 0.6;
+      const arc = this.lobArc(_t, GRENADE_LOB);
+      if (arc === null) {
+        this.flushT = 0;
+        return false;
+      }
+      this.aimAt(_t, dt, arc);
+      if (this.flushT <= 0) this.state.press('grenade');
+      return true;
+    }
+    this.grenadeT -= dt;
+    if (this.grenadeT > 0 || p.grenades <= 0 || this.game.time - this.lastSeenT > 2.5) return false;
+    this.grenadeT = 3 + Math.random() * 2;
+    const dist = p.center.distanceTo(this.lastSeen);
+    if (dist < 8 || dist > 20 || Math.random() > this.skill.grenadeChance * 1.5) return false;
+    this.flushT = 0.35;
+    return true;
+  }
+
+  // Portals anyone opened are fair game: when a linked one near us (in sight, its open face toward
+  // us, its bottom at our feet) comes out much nearer where we're headed, walk into it.
+  takePortal(dt) {
+    const ps = this.game.portals;
+    const p = this.player;
+    const s = this.state;
+    const t = this.game.time;
+    if (!ps || !ps.list.length || !this.path || this.step >= this.path.length) {
+      this.portalGoal = null;
+      return false;
+    }
+    const goal = this.path[this.path.length - 1].node;
+    if (this.portalGoal) {
+      const done = p.portalT > t || t > this.portalUntil || !ps.list.includes(this.portalGoal) || !ps.exitOf(this.portalGoal);
+      if (!done) {
+        const c = this.portalGoal.c;
+        this.faceToward(c.x, c.z, dt);
+        s.moveY = 1;
+        s.held.sprint = true;
+        return true;
+      }
+      this.portalGoal = null;
+      // Through (or given up): plan again from wherever we are now.
+      _t.set(goal.x, goal.y, goal.z);
+      this.planTo(_t, this.goalKind);
+      return false;
+    }
+    this.portalCheckT -= dt;
+    if (this.portalCheckT > 0) return false;
+    this.portalCheckT = 1;
+    const feet = p.feetY();
+    const direct = Math.hypot(goal.x - p.center.x, goal.z - p.center.z);
+    p.eyePosition(_e);
+    let best = null;
+    let bestGain = 8;
+    for (const q of ps.list) {
+      const exit = ps.exitOf(q);
+      if (!exit) continue;
+      const floor = q.n.y > 0.7;
+      // Walls: the oval's bottom (1 m under its middle) at our feet. Floors: at our feet.
+      if (!floor && (Math.abs(q.n.y) > 0.3 || Math.abs(q.c.y - 1 - feet) > 0.6)) continue;
+      if (floor && Math.abs(q.c.y - feet) > 0.5) continue;
+      const toX = q.c.x - p.center.x;
+      const toZ = q.c.z - p.center.z;
+      const near = Math.hypot(toX, toZ);
+      if (near > 14 || (!floor && toX * q.n.x + toZ * q.n.z > 0)) continue;
+      _t.copy(q.c).addScaledVector(q.n, 0.3);
+      if (this.game.lineBlocked(_e, _t)) continue;
+      const gain = direct - (near + Math.hypot(goal.x - exit.c.x, goal.z - exit.c.z));
+      if (gain > bestGain) {
+        bestGain = gain;
+        best = q;
+      }
+    }
+    if (!best) return false;
+    this.portalGoal = best;
+    this.portalUntil = t + 5;
+    return true;
+  }
+
+  // Rocky Mountain Oysters: right after smoking someone, go stand over them and crouch three times
+  // for SAUCED (a size up), unless there's a fight to have.
+  sauce(dt) {
+    const oy = this.game.oysters;
+    if (!oy) return false;
+    const sc = oy.of(this.player).sauce;
+    if (!sc) {
+      this.sauceT = 0;
+      return false;
+    }
+    const p = this.player;
+    const s = this.state;
+    const d = Math.hypot(sc.x - p.center.x, sc.z - p.center.z);
+    if (d > 8) return false;
+    if (d > 1.2) {
+      this.faceToward(sc.x, sc.z, dt);
+      s.moveY = 1;
+    }
+    if (d < 2.2) {
+      this.sauceT += dt;
+      s.held.crouch = Math.floor(this.sauceT / 0.2) % 2 === 0;
+    }
+    return true;
   }
 
   // One jar per sighting: the swarm it lets out hunts that spot on its own.
@@ -574,6 +767,7 @@ export class BotBrain {
 
   roam(dt) {
     if (!this.path || this.step >= this.path.length) this.pickRoamGoal();
+    if (this.takePortal(dt)) return;
     if (!this.followPath(dt, true)) this.path = null;
   }
 
