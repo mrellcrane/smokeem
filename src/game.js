@@ -36,6 +36,7 @@ import { disposeViewmodelMaterial, viewmodelUniforms } from './player/viewmodel.
 import { captureReflections, releaseReflections, envUniforms } from './render/reflections.js';
 import { Bloom } from './render/bloom.js';
 import { applyGrade, AutoExposure, hazeBoost } from './render/grade.js';
+import { createFlare } from './render/flare.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
@@ -170,14 +171,33 @@ export class Game {
     await nextFrame();
     const scene = (this.scene = new THREE.Scene());
     const look = (this.look = this.map.look);
+    // (The flare's check for something between the eye and the sun: level geometry, not bodies
+    // or the invisible walls and ceiling.)
+    const sunFilter = (c) => !this.entities.has(c.handle) && !this.arena.blockers.has(c.handle);
+    this._sunRay = (o, d, m) => {
+      const ray = this.ray;
+      ray.origin.x = o.x;
+      ray.origin.y = o.y;
+      ray.origin.z = o.z;
+      ray.dir.x = d.x;
+      ray.dir.y = d.y;
+      ray.dir.z = d.z;
+      return this.physics.world.castRay(ray, m, true, this.shotFilter, undefined, undefined, undefined, sunFilter);
+    };
     // The color grade and each view's adapting exposure (render/grade.js).
     this.grade = gfx.grade ? look.grade ?? null : null;
     applyGrade(this.renderer, this.grade);
     this.exposure = this.grade ? new AutoExposure(this, this.grade) : null;
+    if (this.bloom) this.bloom.godRays = !!look.godRays && gfx.godRays;
     scene.fog = new THREE.Fog(new THREE.Color(look.sky.horizon).multiplyScalar(hazeBoost(look)), look.fog.near, look.fog.far);
     this.setupLights(preset);
     this.sky = createSky(this.textures, this.materials, look);
     scene.add(this.sky);
+    // The sun's lens flare (render/flare.js), on maps that see the sun.
+    if (preset.flare && gfx.flare && look.flare) {
+      this.flare = createFlare();
+      scene.add(this.flare.mesh);
+    }
     this.arena = this.map.build({
       scene,
       RAPIER,
@@ -314,6 +334,7 @@ export class Game {
   setupBloom(preset) {
     const on = !!preset.bloom && gfx.bloom;
     if (on && !this.bloom) this.bloom = new Bloom({ samples: preset.antialias ? 4 : 0 });
+    if (this.bloom) this.bloom.godRays = !!this.look?.godRays && gfx.godRays;
     if (!on && this.bloom) {
       this.bloom.dispose();
       this.bloom = null;
@@ -342,6 +363,7 @@ export class Game {
     this.pickups.warmup(true, fwd);
     this.oysters?.warmup(true, fwd);
     this.portals?.warmup(true, fwd);
+    this.flare?.warmup(true);
     this.props?.updateVisuals(1);
     const finaleBits = Finale.warmupMeshes();
     for (const m of finaleBits) {
@@ -373,6 +395,7 @@ export class Game {
     this.swarms.warmup(false);
     this.pickups.warmup(false);
     this.oysters?.warmup(false);
+    this.flare?.warmup(false);
     this.portals?.warmup(false);
     for (const m of finaleBits) {
       m.removeFromParent();
@@ -790,7 +813,8 @@ export class Game {
       // This view's exposure (the eye adapting to where this player stands).
       const exposure = this.exposure ? this.exposure.value(p) : 1;
       r.toneMappingExposure = exposure;
-      if (bloom) bloom.view(r, rect, exposure);
+      const sunVis = this.flare ? this.flare.setView(p, p.camera, rect.w / rect.h, _sunDir, this._sunRay, dt) : 0;
+      if (bloom) bloom.view(r, rect, exposure, this.flare ? this.flare.uniforms.uSun.value : null, sunVis);
       else {
         r.setViewport(rect.x, rect.y, rect.w, rect.h);
         r.setScissor(rect.x, rect.y, rect.w, rect.h);

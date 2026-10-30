@@ -57,17 +57,61 @@ const UP = /* glsl */ `
     gl_FragColor = vec4(c / 16.0, 1.0);
   }
 `;
+// God rays (outdoor maps with godRays): the bright part at quarter size smeared toward each
+// view's sun, fading as it goes, so the sky's light streams through gaps in what stands in
+// front of it. One quarter-size pass.
+const RAYS = /* glsl */ `
+  uniform sampler2D uSrc;
+  uniform vec4 uRects[4];
+  uniform vec2 uSunUv[4];
+  uniform float uSunOn[4];
+  varying vec2 vUv;
+  void main() {
+    vec4 rr = uRects[0];
+    vec2 sun = uSunUv[0];
+    float on = uSunOn[0];
+    for (int i = 1; i < 4; i++) {
+      vec4 r = uRects[i];
+      if (vUv.x >= r.x && vUv.x < r.x + r.z && vUv.y >= r.y && vUv.y < r.y + r.w) {
+        rr = r;
+        sun = uSunUv[i];
+        on = uSunOn[i];
+      }
+    }
+    if (on < 0.01) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+    vec2 step = (sun - vUv) * (0.85 / 24.0);
+    vec2 uv = vUv;
+    float w = 1.0;
+    vec3 sum = vec3(0.0);
+    for (int i = 0; i < 24; i++) {
+      uv += step;
+      sum += texture2D(uSrc, clamp(uv, rr.xy, rr.xy + rr.zw)).rgb * w;
+      w *= 0.92;
+    }
+    // Strongest near the sun, gone a view's height away.
+    vec2 off = (vUv - sun) / max(rr.w, 1e-3) * vec2(rr.z / max(rr.w, 1e-3), 1.0);
+    float fall = 1.0 - smoothstep(0.1, 0.9, length(off));
+    gl_FragColor = vec4(sum * (on * fall * 0.16), 1.0);
+  }
+`;
+
 // Frame plus glow, then the color grade (render/grade.js) at each view's own exposure: drawing
 // into the frame skipped the materials' own tone mapping, so it happens here instead.
 const COMPOSITE = /* glsl */ `
   uniform sampler2D uFrame;
   uniform sampler2D uGlow;
+  uniform sampler2D uRays;
+  uniform float uRaysOn;
   uniform float uStrength;
   uniform vec4 uRects[4];
   uniform float uExposure[4];
   varying vec2 vUv;
   void main() {
     vec3 c = texture2D(uFrame, vUv).rgb + texture2D(uGlow, vUv).rgb * uStrength;
+    if (uRaysOn > 0.5) c += texture2D(uRays, vUv).rgb;
     float e = uExposure[0];
     for (int i = 1; i < 4; i++) {
       vec4 r = uRects[i];
@@ -104,7 +148,19 @@ export class Bloom {
       // Each view's rectangle (0..1 of the canvas, from the bottom left) and exposure.
       uRects: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uExposure: { value: [1, 1, 1, 1] },
+      uRays: { value: null },
+      uRaysOn: { value: 0 },
     });
+    // God rays (set by the game for maps that want them).
+    this.godRays = false;
+    this.rays = target();
+    this.raysPass = pass(RAYS, {
+      uSrc: { value: this.levels[1].texture },
+      uRects: this.composite.uniforms.uRects,
+      uSunUv: { value: Array.from({ length: 4 }, () => new THREE.Vector2()) },
+      uSunOn: { value: [0, 0, 0, 0] },
+    });
+    this.composite.uniforms.uRays.value = this.rays.texture;
     this.views = 0;
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.down);
     this.quad.frustumCulled = false;
@@ -128,15 +184,18 @@ export class Bloom {
         lh = Math.max(1, Math.floor(lh / 2));
         t.setSize(lw, lh);
       }
+      this.rays.setSize(this.levels[1].width, this.levels[1].height);
     }
     this.pr = renderer.getPixelRatio();
     this.views = 0;
     for (const r of this.composite.uniforms.uRects.value) r.set(0, 0, 0, 0);
+    this.raysPass.uniforms.uSunOn.value.fill(0);
   }
 
   // Point the frame at one view's rectangle (CSS pixels, from the bottom left) and draw into it.
-  // (A render target uses its own viewport and scissor, not the renderer's.) exposure: the view's.
-  view(renderer, rect, exposure = 1) {
+  // (A render target uses its own viewport and scissor, not the renderer's.) exposure: the view's;
+  // sun: where its sun is (normalized device coordinates) and sunOn how visible, for god rays.
+  view(renderer, rect, exposure = 1, sun = null, sunOn = 0) {
     const pr = this.pr;
     const i = this.views++;
     if (i < 4) {
@@ -144,6 +203,8 @@ export class Bloom {
       const H = this.size.y / pr;
       this.composite.uniforms.uRects.value[i].set(rect.x / W, rect.y / H, rect.w / W, rect.h / H);
       this.composite.uniforms.uExposure.value[i] = exposure;
+      if (sun) this.raysPass.uniforms.uSunUv.value[i].set((rect.x + (sun.x * 0.5 + 0.5) * rect.w) / W, (rect.y + (sun.y * 0.5 + 0.5) * rect.h) / H);
+      this.raysPass.uniforms.uSunOn.value[i] = sun ? sunOn : 0;
     }
     const f = this.frame;
     f.viewport.set(rect.x * pr, rect.y * pr, rect.w * pr, rect.h * pr);
@@ -170,6 +231,16 @@ export class Bloom {
       renderer.render(this.scene, this.camera);
       src = t;
     }
+    // God rays from the quarter-size bright part, before the up passes add onto it.
+    const rays = this.godRays && this.raysPass.uniforms.uSunOn.value.some((v) => v > 0.01);
+    this.composite.uniforms.uRaysOn.value = rays ? 1 : 0;
+    // (Drawn once on the first frame whatever happens, so its shader compiles during loading.)
+    if (rays || (this.godRays && !this.raysWarm)) {
+      this.raysWarm = true;
+      this.quad.material = this.raysPass;
+      renderer.setRenderTarget(this.rays);
+      renderer.render(this.scene, this.camera);
+    }
     // Up: each coarser level added onto the next finer one.
     this.quad.material = this.up;
     for (let i = LEVELS - 1; i > 0; i--) {
@@ -192,8 +263,9 @@ export class Bloom {
 
   dispose() {
     this.frame.dispose();
+    this.rays.dispose();
     for (const t of this.levels) t.dispose();
-    for (const m of [this.down, this.up, this.composite]) m.dispose();
+    for (const m of [this.down, this.up, this.composite, this.raysPass]) m.dispose();
     this.quad.geometry.dispose();
   }
 }

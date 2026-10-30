@@ -22,6 +22,8 @@ export const QUALITY_PRESETS = {
     portalViews: 0,
     // Sunbeams and dust under indoor skylights (world/shafts.js).
     shafts: false,
+    // The sun's lens flare (render/flare.js).
+    flare: false,
   },
   medium: {
     label: 'Medium',
@@ -36,6 +38,7 @@ export const QUALITY_PRESETS = {
     decals: 96,
     portalViews: 6,
     shafts: true,
+    flare: true,
   },
   high: {
     label: 'High',
@@ -50,6 +53,7 @@ export const QUALITY_PRESETS = {
     decals: 160,
     portalViews: 3,
     shafts: true,
+    flare: true,
     // Bloom: bright things glow (render/bloom.js).
     bloom: true,
     // Normal maps on the relief-painted surfaces (textures.js).
