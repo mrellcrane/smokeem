@@ -211,6 +211,7 @@ obstacle works at any setting.
 | Player height | 1.8 m standing, 1.2 m crouched |
 | Slide | starts at sprint speed +15%, about 0.9 s and 6.7 m on flat ground |
 | Wall kick | up like a double jump, 6 m/s away from the wall |
+| Grapple | 34 m reach, reels you in at up to 21 m/s, 5 s cooldown (1.5 s after a miss) |
 
 - **Double jump**: one extra jump in the air. Refreshes when you land, mantle, or leap off a
   climbable. A wall kick doesn't use it.
@@ -533,14 +534,23 @@ Owner ask (2026-10-30): a one-player motorcycle with guns on it, on the Valhalla
 - **Coin Bash**: hit trees and objects to knock out coins. Coins make you bigger, tougher and
   stronger.
 - **Get Huge**: become giant. More damage, but worse vision and easier to hit.
-- **Grapple**: fire at almost any surface and zip to it.
+- **Grapple** (built, everyone has it: LB on a controller, Q on a keyboard): fire at almost any
+  surface and zip to it. The hook flies out along your aim (34 m) and sticks in the level, nets
+  and ropes, bikes, dummies and people (it follows what it's in: grapple someone and you're
+  reeled right up to them for a melee). It reels you in with no gravity, steering a little with
+  the stick. You let go on arriving, with jump (a hop off the line), with another press, after
+  1.8 s, or when something stops you, and you keep the speed. Hook a wall just under a ledge and
+  it pulls you up over the top and onto it. Then 5 s until the next one (1.5 s after a miss).
+  The HUD shows a bar under the Briquettes that fills over the cooldown. Normal and Hard bots
+  use it to get up to ledges on their way and to zip down long straight stretches.
 - **The Stall** (proposal name; the idea came in as "Neo mode"): for about 3 seconds, any shot
   that would hit you stops dead in mid-air about a meter in front of you, hanging there as a
   glowing slug. Missiles and grenades freeze too. When it ends, the stalled rounds drop to the
   ground (proposal; a spicier variant flings them back at whoever fired them). Shots are
   hitscan, so this works as a bubble the shot ray checks before it hits you.
 
-How abilities are earned (loadout, pickup, cooldown, charge from kills) is an **open question**.
+How the other abilities are earned (loadout, pickup, cooldown, charge from kills) is an **open
+question**. The grapple is built in for everyone, on a cooldown.
 
 ## Ranks
 
@@ -649,7 +659,8 @@ never the same one twice in a row). Guns on "Map default" use each map's own set
 | Reload | R |
 | Pick up / interact (get on or off a Sizzler) | E |
 | Grenade | G |
-| Melee | Q or F |
+| Melee | F |
+| Grapple | Q |
 | Switch weapon | Mouse wheel or X, or 1 / 2 for a slot |
 | Scoreboard | Tab |
 | Pause | Esc |
@@ -670,7 +681,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 | Fire | RT |
 | Grenade | LT |
 | Melee | RB |
-| Ability (later) | LB |
+| Grapple | LB |
 | Sprint | Left stick click (stays on until you let off forward or crouch) |
 | Zoom | Right stick click (toggle) |
 | Pause | Menu, or D-pad down |
@@ -784,7 +795,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 Need answers before the step that uses them gets built.
 
-1. **How abilities are earned.** Needed for phase 2.
+1. **How abilities are earned.** Needed for phase 2. (The grapple is everyone's, on a cooldown.)
 2. **Names.** Weapon, map and vehicle names above are proposals.
 
 ## Decision log
@@ -1152,3 +1163,6 @@ Need answers before the step that uses them gets built.
   projectiles, bodies, dummies and guns, live players and bikes). Small crates and drums on every
   map come loose in a Gravity Gun match and people now shove props instead of walking through
   them.
+- 2026-10-30: The grapple is in, for everyone (owner's pick): LB on a controller, Q on a keyboard
+  (Q was a second melee key; melee is F now), 5 s cooldown. It sticks in almost anything, follows
+  people and bikes, and pulls you up over ledges.

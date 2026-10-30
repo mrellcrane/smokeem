@@ -11,6 +11,7 @@ export const ACTIONS = [
   'interact',
   'grenade',
   'melee',
+  'grapple',
   'switchWeapon',
   'slot1',
   'slot2',

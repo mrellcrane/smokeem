@@ -11,6 +11,7 @@ import { dealDamage } from '../combat/damage.js';
 import { CharacterModel, strideLength } from './character.js';
 import { GUNS } from '../combat/guns/index.js';
 import { Viewmodel } from './viewmodel.js';
+import { Hook, tickHook, releaseHook, pull, checkStuck } from './grapple.js';
 
 // One player's body, movement and first-person camera. Reads an InputState, so the same
 // controller drives keyboard/mouse players, gamepad players and (later) bots.
@@ -64,6 +65,7 @@ export class Player {
     this.input = input;
     this.brain = brain;
     this.isBot = !!brain;
+    this.isPlayer = true;
 
     const { RAPIER, world } = game.physics;
     this.RAPIER = RAPIER;
@@ -170,6 +172,10 @@ export class Player {
     // flying its arc.
     this.launchT = 0;
     this.launched = false;
+    // The grapple (player/grapple.js), and how long after letting go of it air steering won't
+    // brake the swing.
+    this.hook = new Hook();
+    this.hookCarryT = 0;
     // The Sizzler we ride (null on foot), the one we're standing by, and this tick's presses for
     // the bike (vehicles/sizzler.js reads them after our tick).
     this.vehicle = null;
@@ -364,6 +370,7 @@ export class Player {
       this.crouched = false;
     }
     this.net = this.rope = this.bars = null;
+    releaseHook(this.game, this);
     this.mode = 'ride';
     this.rideT = this.game.time;
     this.sprinting = false;
@@ -512,6 +519,8 @@ export class Player {
     this.bobAmt = 0;
     this.launchT = 0;
     this.launched = false;
+    this.hook.reset();
+    this.hookCarryT = 0;
     this.aimZoom = 1;
     this.sprintLock = 0;
     this.input.clear();
@@ -597,6 +606,7 @@ export class Player {
     // In someone's Gravity Gun: carried (combat/gravity.js), helpless until they let go or we
     // break free.
     if (this.heldBy) {
+      releaseHook(this.game, this);
       if (this.vitals.update(dt) && !this.isBot) this.game.sfx.play('shieldCharge');
       return;
     }
@@ -606,6 +616,7 @@ export class Player {
     this.slideCooldown = Math.max(0, this.slideCooldown - dt);
     this.kickCooldown = Math.max(0, this.kickCooldown - dt);
     this.kickSteerT = Math.max(0, this.kickSteerT - dt);
+    this.hookCarryT = Math.max(0, this.hookCarryT - dt);
     this.fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
@@ -617,6 +628,7 @@ export class Player {
     if (this.sizeT > 0 && (this.sizeT -= dt) <= 0) this.setSize(1);
 
     // Flying a Smoke Signal: the body stands there, defenseless.
+    tickHook(this.game, this, dt, pressed);
     const realInput = this.input;
     const movePressed = this.guiding ? NO_PRESSES : pressed;
     if (this.guiding) this.input = NEUTRAL_INPUT;
@@ -721,6 +733,7 @@ export class Player {
     this.game.portals?.close(this);
     this.guiding = null;
     this.lungeT = this.knockT = 0;
+    releaseHook(this.game, this);
     this.mode = 'dead';
     this.deathT = 0;
     this.deathInfo = info;
@@ -882,7 +895,13 @@ export class Player {
     if (this.inMud) speed *= MOVE.mudSpeedMul;
 
     this.knockT = Math.max(0, this.knockT - dt);
-    if (this.lungeT > 0) {
+    // Reeled in on the grapple: it sets the velocity (player/grapple.js).
+    const pulling = pull(this.game, this, dt, pressed, wx, wz, wishLen);
+    if (pulling) {
+      if (this.sliding) this.endSlide();
+      this.grounded = false;
+      this.coyote = 0;
+    } else if (this.lungeT > 0) {
       if (this.sliding) this.endSlide();
       this.lungeT -= dt;
       v.x = this.lungeDir.x * this.lungeSpeed;
@@ -895,6 +914,8 @@ export class Player {
       approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel * reverse : MOVE.groundDecel) * k * dt);
     } else if (this.launched) {
       // A launch pad's throw carries you the whole way: no steering or drag until you land.
+    } else if (this.hookCarryT > 0) {
+      // Just let go of the grapple: the swing carries on for a moment.
     } else if (wishLen > 0.01) {
       // Keep momentum from sprint jumps; steer toward the stick (less right after a wall kick).
       const cur = Math.hypot(v.x, v.z);
@@ -919,8 +940,11 @@ export class Player {
       if (this.grounded) this.groundJump();
     }
 
-    // Gravity. A small downward push while grounded keeps ground detection stable.
-    if (!this.grounded || v.y > 0) {
+    // Gravity. A small downward push while grounded keeps ground detection stable. (None on the
+    // grapple's line.)
+    if (pulling) {
+      // (pull() has the velocity.)
+    } else if (!this.grounded || v.y > 0) {
       const g = MOVE.gravity * (v.y < 0 ? MOVE.fallGravityMul : 1);
       v.y = Math.max(-MOVE.maxFallSpeed, v.y - g * dt);
     } else {
@@ -933,14 +957,18 @@ export class Player {
       if ((air || (this.blockedAhead && !this.inMud)) && this.tryMantle(air, this.fwd.x, this.fwd.z)) return;
     }
 
-    // Grab climbables.
+    // Grab climbables (letting go of the grapple).
     if (this.grabCooldown <= 0 && !inp.held.crouch) {
-      if (this.tryGrabBars() || this.tryGrabNet() || this.tryGrabRope()) return;
+      if (this.tryGrabBars() || this.tryGrabNet() || this.tryGrabRope()) {
+        releaseHook(this.game, this);
+        return;
+      }
     }
 
     // A launch pad throws you (once per landing).
     const pad = this.grounded && this.launchT <= 0 ? this.game.zones.launchAt(this.feet) : null;
     if (pad) {
+      releaseHook(this.game, this);
       v.set(pad.vel[0], pad.vel[1], pad.vel[2]);
       this.grounded = false;
       this.coyote = 0;
@@ -956,7 +984,8 @@ export class Player {
     const belt = wasGrounded ? this.game.zones.beltAt(this.feet) : null;
     // Walking, falling or jumping into a portal puts you out of the other one.
     this.game.portals?.movePlayer(this, (v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
-    this.moveBy((v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
+    const moved = this.moveBy((v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
+    if (pulling) checkStuck(this.game, this, moved, dt);
     if (fallSpeed < -2) this.stomp();
     this.clipVelocity();
 

@@ -147,6 +147,36 @@ export const MOVE = {
   wallKickSteer: 0.25,
 };
 
+// The grapple everyone has (LB / Q, player/grapple.js): the hook flies out to `range`, sticks in
+// almost anything and reels you toward it. You let go on arriving, with jump (a hop off it),
+// another press, after `maxPull`, or when something stops you; then it's `cooldown` seconds
+// until the next (`missCooldown` after a miss).
+export const GRAPPLE = {
+  range: 34,
+  hookSpeed: 120,
+  reelSpeed: 90,
+  pullSpeed: 21,
+  pullAccel: 75,
+  // Stick steering while reeled in (m/s at full tilt, sideways).
+  steer: 3.5,
+  maxPull: 1.8,
+  // Let go this close to where we're headed (a stand-off from the surface, `standOff`).
+  arrive: 1.1,
+  standOff: 0.75,
+  // Reeled to someone: let go this far from their center.
+  arriveBody: 1.7,
+  // Letting go at a wall or a ledge: an upward hop to get over it.
+  popUp: 5.5,
+  // Letting go over a ledge: the push in onto it (m/s).
+  ledgePush: 4,
+  // A jump off the line.
+  jumpOff: 6.5,
+  // After letting go, air steering doesn't brake the swing for this long (s).
+  carry: 0.45,
+  cooldown: 5,
+  missCooldown: 1.5,
+};
+
 export const CAMERA = {
   near: 0.05,
   far: 700,

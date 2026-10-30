@@ -21,6 +21,7 @@ import { Props } from './world/props.js';
 import { Portals } from './combat/portals.js';
 import { CHARACTER_IDS } from './player/body/cast.js';
 import { Gravity } from './combat/gravity.js';
+import { Ropes } from './fx/ropes.js';
 import { Replay } from './render/replay.js';
 import { Show } from './world/show.js';
 import { Finale } from './world/finale.js';
@@ -284,6 +285,9 @@ export class Game {
       this.respawn(p, this.players.length - 1);
     }
     this.physics.world.step();
+    // Everyone's grapple lines.
+    this.ropes = new Ropes(this.players);
+    scene.add(this.ropes.mesh);
     // Sounds fade with distance from the local players.
     this.sfx.listeners = this.humans;
     // Death replays record every body from here on.
@@ -373,6 +377,7 @@ export class Game {
     this.oysters?.warmup(true, fwd);
     this.portals?.warmup(true, fwd);
     this.flare?.warmup(true);
+    this.ropes.warmup(true, fwd);
     this.props?.updateVisuals(1);
     const finaleBits = Finale.warmupMeshes();
     for (const m of finaleBits) {
@@ -406,6 +411,7 @@ export class Game {
     this.vehicles?.warmup(false);
     this.oysters?.warmup(false);
     this.flare?.warmup(false);
+    this.ropes.warmup(false);
     this.portals?.warmup(false);
     for (const m of finaleBits) {
       m.removeFromParent();
@@ -788,6 +794,7 @@ export class Game {
     this.props?.updateVisuals(alpha);
     this.oysters?.updateVisuals(dt);
     this.portals?.updateVisuals(dt);
+    this.ropes.update(alpha);
     this.show?.update(dt);
     this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
@@ -824,6 +831,7 @@ export class Game {
       const p = this.humans[i];
       const rect = rects[i];
       p.updateCamera(alpha, dt, rect.w / rect.h);
+      this.ropes.setView(p);
       const replaying = this.replay?.showing(p) >= 0 && this.replay.begin(p, p.camera);
       // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
       this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
@@ -914,6 +922,7 @@ export class Game {
     this.pickups.dispose();
     this.vehicles?.dispose();
     this.beacons?.dispose();
+    this.ropes?.dispose();
     this.fx.dispose();
     this.scene.traverse((o) => {
       if (!o.isSkinnedMesh) o.geometry?.dispose();
