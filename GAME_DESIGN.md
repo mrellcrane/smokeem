@@ -142,8 +142,11 @@ Character options (owner request; built 2026-10-30): besides the Spartan you can
 Bandicoot, Link or GoldenEye's Bond, each as close to the source as we can make them out of
 simple shapes in the early-2000s look, on the Spartan's skeleton, so they move, aim, ragdoll and
 replay like everyone else (same hitbox: the look changes, the target doesn't).
-- Crash: the big orange head with the long snout, black nose, toothy grin, green eyes under heavy
-  brows and the red-brown tuft, a tan belly, blue jeans, red sneakers and brown gloves.
+- Crash: Crash-shaped (owner, 2026-10-30): a huge wide head with big cheeks sitting right on his
+  shoulders, the long snout, black nose, toothy grin, big green eyes close together under heavy
+  brows, big ears sticking out and the red-brown tuft; a skinny pear-shaped body with a tan belly
+  and brown stripes down the back, noodle arms and legs, big brown gloves, blue jeans and
+  oversized red sneakers with white soles and toe caps.
 - Link: the long green cap over blond hair, pointed ears, the green tunic with a leather belt and
   gold buckle, cream sleeves and tights, brown boots and gauntlets, and the Hylian Shield and
   the Master Sword's purple hilt on his back.
@@ -378,6 +381,9 @@ a pickup only (never in a loadout), no ammo. Bots leave it alone.
 - Every player's pair is blue and orange, with a thin outer ring in the owner's armor color, and
   your two link to each other. Your crosshair shows a blue and an orange oval, filled while that
   portal is open.
+- A wall portal with floor under it (within 2.5 m) settles down onto the floor like a doorway, so
+  wherever you hit the wall you can walk into it, and any part of your body going in counts
+  (owner report: portals shot a little high couldn't be walked through).
 - Anyone goes through anyone's linked portals, and speedy thing goes in, speedy thing comes out:
   your speed turns with you (at least 3 m/s out of the exit) and so does your view. Walk into a
   wall portal, fall into a floor one, or stand on a floor one and drop through.
