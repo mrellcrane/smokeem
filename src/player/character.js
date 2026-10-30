@@ -314,6 +314,11 @@ const CAST_SHINE = 0.08;
 // How much a gun's glowing parts glow (weaponModels.js finishes).
 const GUN_GLOW = 0.8;
 
+// How far (meters) the Spartan's armor is pushed out per bone (blended by skin weight) and how
+// much of that each region takes.
+const BONE_BULK = { spine: 0.036, armUL: 0.032, armUR: 0.032, hips: 0.02, legUL: 0.022, legUR: 0.022, armLL: 0.014, armLR: 0.014, legLL: 0.015, legLR: 0.015, footL: 0.006, footR: 0.006 };
+const REGION_BULK = { armor: 1, panel: 1, strip: 1, ember: 1, metal: 0.8, boot: 0.6, suit: 0.35 };
+
 // The body as decoded from the generated data, once per page load and shared by every body
 // (read only).
 let bodyBase = null;
@@ -337,26 +342,40 @@ function base(character = 'spartan') {
   const s8 = new Int8Array(bytes(DATA.shell).buffer);
   const position = new Float32Array(n * 3);
   const normal = new Float32Array(n * 3);
-  // The shield shell: every vertex pushed 1.75 cm out along the average normal at its place.
-  const shell = new Float32Array(n * 3);
-  for (let i = 0; i < n * 3; i++) {
-    position[i] = p16[i] / 8192;
-    normal[i] = n8[i] / 127;
-    shell[i] = position[i] + (s8[i] / 127) * 0.0175;
-  }
   const w8 = bytes(DATA.skinWeight);
   const skinWeight = new Float32Array(n * 4);
   for (let i = 0; i < n * 4; i++) skinWeight[i] = w8[i] / 255;
+  const skinIndex = new Uint16Array(bytes(DATA.skinIndex));
+  const region = bytes(DATA.region);
+  // Halo's bulk: armor pushed out along the averaged normals (so nothing cracks), most on the
+  // chest and pauldrons, by each vertex's bones and region. The helmet, visor and hands stay
+  // put (the head band fit and the grips depend on them).
+  const bulk = (v) => {
+    let b = 0;
+    for (let j = 0; j < 4; j++) b += (BONE_BULK[BODY_BONES[skinIndex[v * 4 + j]]] ?? 0) * skinWeight[v * 4 + j];
+    return b * (REGION_BULK[REGIONS[region[v]]] ?? 0);
+  };
+  // The shield shell: every vertex pushed a further 1.75 cm out along the same normal.
+  const shell = new Float32Array(n * 3);
+  for (let v = 0; v < n; v++) {
+    const out = bulk(v);
+    for (let k = v * 3; k < v * 3 + 3; k++) {
+      const dir = s8[k] / 127;
+      position[k] = p16[k] / 8192 + dir * out;
+      normal[k] = n8[k] / 127;
+      shell[k] = position[k] + dir * 0.0175;
+    }
+  }
   bodyBase = {
     count: n,
     position,
     normal,
     shell,
-    region: bytes(DATA.region),
+    region,
     // Baked shade per vertex (255 = none), from the tool: occlusion, darker plate edges, the
     // visor's gradient.
     shade: DATA.shade ? bytes(DATA.shade) : null,
-    skinIndex: new Uint16Array(bytes(DATA.skinIndex)),
+    skinIndex,
     skinWeight,
     index: new Uint16Array(bytes(DATA.index).buffer),
   };

@@ -1027,4 +1027,9 @@ Need answers before the step that uses them gets built.
   thicker about its bore line with its lengths kept, the gunmetal is darker, and each gun's main
   body has an ember-orange glowing strip down each side. Wood grips, shells, smoker parts and the
   orange accents stay. First person, bodies, pickups and the loadout pictures all match.
+- 2026-10-30: Bulkier Spartans: the armor is pushed out (up to about 3.5 cm on the chest and
+  pauldrons, less on the limbs, a little on the undersuit), so they read big at range like
+  Halo's. The helmet and hands stay put, and the hitbox is unchanged.
+- 2026-10-30: Owner asked for up to 8 players with bots in solo play (already there: 0 to 7 bots
+  on the title screen) and for bots that can use the vehicles (part of the motorcycle work).
 
