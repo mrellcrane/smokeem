@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { PHYSICS_DT, MAX_STEPS_PER_FRAME } from './config.js';
+import { PHYSICS_DT, MAX_STEPS_PER_FRAME, VIEWMODEL } from './config.js';
 import { DEG } from './util/math.js';
 import { qualityPreset, onSettingsChange } from './settings.js';
 import { createRenderer, pixelRatioFor } from './render/renderer.js';
@@ -299,7 +299,7 @@ export class Game {
     vm.add(new THREE.HemisphereLight(look.hemi.sky, look.hemi.ground, look.vm.hemi));
     this.vmSun = new THREE.DirectionalLight(look.sun.color, look.vm.sun);
     vm.add(this.vmSun, this.vmSun.target);
-    this.vmCamera = new THREE.PerspectiveCamera(58, 1, 0.01, 10);
+    this.vmCamera = new THREE.PerspectiveCamera(VIEWMODEL.fov, 1, 0.01, 10);
     viewmodelUniforms.uSky.value.set(look.hemi.sky);
     viewmodelUniforms.uGround.value.set(look.hemi.ground);
   }
@@ -791,8 +791,9 @@ export class Game {
       if (!replaying && p.showsViewmodel()) {
         for (const o of this.humans) o.viewmodel.root.visible = o === p;
         const vc = this.vmCamera;
-        if (vc.aspect !== rect.w / rect.h) {
+        if (vc.aspect !== rect.w / rect.h || vc.fov !== VIEWMODEL.fov) {
           vc.aspect = rect.w / rect.h;
+          vc.fov = VIEWMODEL.fov;
           vc.updateProjectionMatrix();
         }
         // Light the viewmodel from the real sun direction, in camera space.

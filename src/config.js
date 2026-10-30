@@ -153,4 +153,25 @@ export const CAMERA = {
   minVerticalFov: 40,
   maxVerticalFov: 80,
   maxPitch: 89 * (Math.PI / 180),
+  // Head bob on the stride (Player.tickStride): how far the eye dips at each footfall walking
+  // and sprinting (meters), how far it sways toward the planted foot, and its roll (radians).
+  // Zoomed in, it keeps this share.
+  bob: 0.03,
+  bobSprint: 0.05,
+  bobSide: 0.014,
+  bobRoll: 0.005,
+  bobZoomed: 0.3,
+};
+
+// First-person gun framing, on top of each gun's own pose (guns/*.js `view`): the viewmodel
+// camera's vertical field of view, a size multiplier, how far each gun's place (and its motions)
+// is pulled in toward the eye per axis (camera space: right, up, back), and a turn for every gun
+// (radians). Halo-style: big, close and low on the right, the barrel nearly level.
+export const VIEWMODEL = {
+  fov: 58,
+  scale: 1.5,
+  place: [0.67, 0.63, 0.58],
+  turn: [-0.04, -0.02, 0],
+  // Muzzle flash size on top of each gun's own.
+  flash: 1.3,
 };

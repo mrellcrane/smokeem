@@ -199,6 +199,7 @@ const SUPPORT_REACH = 0.88;
 // the feet plant instead of sliding.
 const STRIDE_MIN = 0.9;
 const STRIDE_MAX = 1.6;
+export const strideLength = (speed) => clamp(0.55 + speed * 0.12, STRIDE_MIN, STRIDE_MAX);
 // How much of the stride's leg reach the hips follow down (1 would plant the feet exactly), and
 // at most how far (meters); where the helmet would drop under the head line the head-band fit
 // gives the dip back.
@@ -913,7 +914,7 @@ export class CharacterModel {
     this.hipYaw += (turn * ground - this.hipYaw) * damp(9, dt);
     this.back += ((back ? 1 : 0) - this.back) * damp(9, dt);
     // Feet plant: the cycle advances with the distance covered.
-    const stride = clamp(0.55 + speed * 0.12, STRIDE_MIN, STRIDE_MAX);
+    const stride = strideLength(speed);
     this.phase += ((speed * dt) / stride) * Math.PI * (this.back > 0.5 ? -1 : 1);
     const run = Math.min(1, speed / 5) * ground * (1 - this.crouch * 0.6);
     const sn = Math.sin(this.phase);

@@ -67,7 +67,7 @@ export default {
   ],
   muzzle: [0, 0.045, -0.225],
   // First-person resting pose (viewmodel camera space), recoil kick and muzzle flash size.
-  view: { pos: [0.19, -0.165, -0.36], rot: [0.03, 0.06, 0], scale: 1, kick: 1.4, flash: 0.7, flashColor: 0xffe0a0 },
+  view: { pos: [0.19, -0.165, -0.36], rot: [0.03, 0.06, 0], scale: 0.85, kick: 1.4, flash: 0.7, flashColor: 0xffe0a0 },
   // Third-person grip point in body space (hung off the spine bone).
   carry: [0.18, 1.2, -0.36],
 };

@@ -7,7 +7,7 @@ import { WEAPONS, WeaponState, GRENADE, SWITCH_TIME } from '../combat/weapons.js
 import { InputState } from '../input/inputState.js';
 import { updateShooting, cancelReload } from '../combat/shooting.js';
 import { dealDamage } from '../combat/damage.js';
-import { CharacterModel } from './character.js';
+import { CharacterModel, strideLength } from './character.js';
 import { GUNS } from '../combat/guns/index.js';
 import { Viewmodel } from './viewmodel.js';
 
@@ -42,6 +42,9 @@ const _c = new THREE.Vector3();
 const _c2 = new THREE.Vector3();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _down = new THREE.Vector3(0, -1, 0);
+const _probe = new THREE.Vector3();
+// Footstep sound per surface (materials.js userData.surface); anything else is 'step'.
+const STEP_SOUNDS = { metal: 'stepMetal', dirt: 'stepDirt', wood: 'stepWood', mud: 'stepMud', cloth: 'stepDirt' };
 // While flying a missile the body gets no movement input.
 // How long after spawning a loadout change still swaps your guns on the spot (s).
 const LOADOUT_GRACE = 3;
@@ -150,6 +153,11 @@ export class Player {
     this.landDip = 0;
     this.fovBoost = 0;
     this.slideTilt = 0;
+    // The stride clock (steps taken; a footfall at each whole number), the last tick's, how hard
+    // the head bobs on it, and the interpolated clock the camera and gun used this frame.
+    this.stride = this.prevStride = 0;
+    this.bobAmt = 0;
+    this.bobStride = 0;
     this._fovH = this._fovA = this._fovZ = NaN;
     this.deathRoll = 0;
     this.lastLookX = 0;
@@ -448,6 +456,8 @@ export class Player {
     this.landDip = 0;
     this.deathRoll = 0;
     this.slideTilt = 0;
+    this.stride = this.prevStride = this.bobStride = 0;
+    this.bobAmt = 0;
     this.aimZoom = 1;
     this.sprintLock = 0;
     this.input.clear();
@@ -543,6 +553,7 @@ export class Player {
         break;
     }
     this.input = realInput;
+    this.tickStride(dt);
 
     if (this.inFire) {
       dealDamage(this.game, this, FIRE_DPS * dt, { cause: 'fire' });
@@ -1045,8 +1056,40 @@ export class Player {
     }
   }
 
+  // Footsteps: the stride clock runs with ground speed at the body's own stride length, so the
+  // sound, the head bob and the legs keep the same beat. Sneaking (crouched) is silent, like on
+  // the motion tracker.
+  tickStride(dt) {
+    this.prevStride = this.stride;
+    const sp = this.speed();
+    const walking = this.mode === 'move' && this.grounded && !this.sliding && sp > 0.6;
+    const walk = MOVE.walkSpeed * settings.moveSpeed * this.sizeSpeed;
+    this.bobAmt += ((walking ? Math.min(1.25, sp / walk) : 0) - this.bobAmt) * damp(walking ? 10 : 6, dt);
+    if (!walking) return;
+    this.stride += (sp * dt) / (strideLength(sp / this.size) * this.size);
+    if (Math.floor(this.stride) !== Math.floor(this.prevStride) && !this.crouched) this.footstep(sp / walk);
+  }
+
+  // A footfall's sound, by what's underfoot. loud: 1 walking, more sprinting or landing.
+  footstep(loud) {
+    let name = 'stepMud';
+    if (!this.inMud) {
+      _probe.set(this.center.x, this.center.y, this.center.z);
+      const hit = this.game.castShot(_probe, _down, this.halfHeight + this.radius + 0.4, this.collider);
+      name = STEP_SOUNDS[hit.surface] ?? 'step';
+    }
+    _probe.y = this.feetY();
+    this.game.sfx.play(name, {
+      at: _probe,
+      source: this,
+      volume: Math.min(1.6, 0.35 + 0.65 * loud) * (this.isBot ? 1 : 0.6) * Math.sqrt(this.size),
+      rate: (0.92 + Math.random() * 0.16) / Math.sqrt(this.size),
+    });
+  }
+
   land(fallSpeed) {
     this.landDip = Math.min(0.22, Math.max(0, -fallSpeed - 3) * 0.018);
+    if (fallSpeed < -4) this.footstep(1 + Math.min(1, (-fallSpeed - 4) / 8));
     this.pose.lands++;
     this.pose.landSpeed = -fallSpeed;
   }
@@ -1391,10 +1434,17 @@ export class Player {
       return;
     }
     cam.layers.disable(1 + this.id);
-    cam.position.set(_c.x, _c.y + this.eyeOff - this.landDip, _c.z);
+    // Head bob: the eye dips at each footfall and sways toward the planted foot (a sway cycle
+    // takes two steps), with a touch of roll.
+    const s = (this.bobStride = this.prevStride + (this.stride - this.prevStride) * alpha);
+    const b = settings.headBob ? this.bobAmt * (1 - (1 - CAMERA.bobZoomed) * Math.min(1, (this.aimZoom - 1) * 4)) : 0;
+    const swing = Math.sin(Math.PI * s);
+    const dip = b * (this.sprinting ? CAMERA.bobSprint : CAMERA.bob) * (1 - Math.abs(swing)) * this.size;
+    const side = b * CAMERA.bobSide * swing * this.size;
+    cam.position.set(_c.x + Math.cos(this.yaw) * side, _c.y + this.eyeOff - this.landDip - dip, _c.z - Math.sin(this.yaw) * side);
     // A slide rolls the view a little.
     this.slideTilt += ((this.sliding ? CAMERA.slideRoll : 0) - this.slideTilt) * damp(10, dt);
-    cam.rotation.set(this.pitch + sx, this.yaw + sy, this.deathRoll + this.slideTilt);
+    cam.rotation.set(this.pitch + sx, this.yaw + sy, this.deathRoll + this.slideTilt - b * CAMERA.bobRoll * swing);
 
     const fast = this.sprinting && Math.hypot(this.vel.x, this.vel.z) > MOVE.walkSpeed * settings.moveSpeed + 0.5;
     const boost = this.sliding ? CAMERA.slideFovBoost : fast ? CAMERA.sprintFovBoost : 0;

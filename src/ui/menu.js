@@ -398,6 +398,9 @@ export class Menu {
           <label><input type="checkbox" data-setting="rumble" /> Controller vibration</label>
         </div>
         <div class="row check">
+          <label><input type="checkbox" data-setting="headBob" /> Head bob when walking</label>
+        </div>
+        <div class="row check">
           <label><input type="checkbox" data-setting="showFps" /> Show FPS counter</label>
         </div>
         <div class="buttons">

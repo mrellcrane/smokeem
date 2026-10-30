@@ -22,6 +22,28 @@ function synth(ctx, seconds, fn) {
 
 const noise = () => Math.random() * 2 - 1;
 
+// One footstep take: a thump that drops in pitch, a rattle of armor a beat after, and the floor's
+// own layer (floor(t, state, rate); state.grit(k) is noise low-passed by k, state.f1 a per-take
+// pitch).
+function footstep(ctx, seconds, thump, floor) {
+  const f0 = 70 + Math.random() * 30;
+  const r1 = 0.01 + Math.random() * 0.02;
+  const r2 = r1 + 0.012 + Math.random() * 0.02;
+  const rf = 2300 + Math.random() * 1200;
+  return synth(ctx, seconds, (t, s, rate) => {
+    if (!s.grit) {
+      s.lp = 0;
+      s.f1 = 480 + Math.random() * 180;
+      s.grit = (k) => (s.lp += (noise() - s.lp) * k) * 1.6;
+    }
+    const f = f0 + 90 * Math.exp(-t * 45);
+    s.phase += (f * Math.PI * 2) / rate;
+    const boot = thump * 0.75 * Math.sin(s.phase) * Math.exp(-t * 32);
+    const rattle = 0.07 * click(t, r1, rf, 110) + 0.05 * click(t, r2, rf * 1.37, 140);
+    return boot + rattle + floor(t, s, rate);
+  });
+}
+
 function click(t, at, freq, decay) {
   if (t < at) return 0;
   const u = t - at;
@@ -201,6 +223,28 @@ const SOUNDS = {
       const env = Math.min(1, t / 0.03) * Math.pow(1 - t / 0.9, 1.4);
       return env * (1.1 * s.prev + crunch);
     }),
+  // Footsteps (Player.footstep), several takes each: a boot's thump, the scuff of the sole and
+  // a faint rattle of armor, then what the floor adds.
+  step: (ctx) => footstep(ctx, 0.2, 1, (t, s) => 0.25 * s.grit(0.35) * Math.exp(-t * 40)),
+  stepMetal: (ctx) =>
+    footstep(ctx, 0.34, 0.85, (t, s) => {
+      const ring = Math.sin(t * s.f1 * Math.PI * 2) + 0.7 * Math.sin(t * s.f1 * 2.63 * Math.PI * 2) + 0.45 * Math.sin(t * s.f1 * 4.25 * Math.PI * 2);
+      return 0.16 * ring * Math.exp(-t * 22) + 0.18 * s.grit(0.5) * Math.exp(-t * 60);
+    }),
+  stepDirt: (ctx) =>
+    footstep(ctx, 0.22, 0.75, (t, s) => {
+      const crackle = Math.random() < 0.03 ? noise() * 0.7 : 0;
+      return (0.35 * s.grit(0.22) + crackle) * Math.exp(-t * 26);
+    }),
+  stepWood: (ctx) =>
+    footstep(ctx, 0.22, 0.8, (t, s) => 0.45 * click(t, 0.002, s.f1 * 0.42, 34) + 0.2 * click(t, 0.002, s.f1 * 0.95, 50) + 0.15 * s.grit(0.3) * Math.exp(-t * 45)),
+  stepMud: (ctx) =>
+    footstep(ctx, 0.3, 0.55, (t, s, rate) => {
+      // A suck as the boot pulls out: a tone bending up through wet noise.
+      s.phase2 += ((110 + 380 * Math.min(1, t / 0.18)) * Math.PI * 2) / rate;
+      const pull = Math.sin(s.phase2) * Math.sin(Math.PI * Math.min(1, t / 0.24));
+      return 0.3 * pull * (0.6 + 0.4 * s.grit(0.15)) + 0.3 * s.grit(0.12) * Math.exp(-t * 18);
+    }),
   // A boot hitting a wall: a dropping thump with a little knock on top.
   wallKick: (ctx) =>
     synth(ctx, 0.25, (t, s, rate) => {
@@ -244,6 +288,11 @@ const MIX = {
   death: { ref: 14, wet: 0.2 },
   slide: { volume: 0.6, ref: 8, voices: 4 },
   wallKick: { volume: 0.8, ref: 10, wet: 0.15, voices: 4 },
+  step: { volume: 0.55, ref: 7, wet: 0.08, voices: 8 },
+  stepMetal: { volume: 0.55, ref: 8, wet: 0.12, voices: 8 },
+  stepDirt: { volume: 0.55, ref: 6, voices: 8 },
+  stepWood: { volume: 0.55, ref: 7, wet: 0.08, voices: 8 },
+  stepMud: { volume: 0.5, ref: 6, voices: 6 },
 };
 const DEFAULT_MIX = { volume: 1, ref: 10, wet: 0, voices: 8 };
 
@@ -298,7 +347,10 @@ export class Sfx {
       this.echoIn = ctx.createGain();
       this.echoIn.gain.value = 0.6;
       this.echoIn.connect(this.echo).connect(this.master);
-      for (const [name, make] of Object.entries(SOUNDS)) this.buffers[name] = [make(ctx)];
+      // (Footsteps get a few takes each, picked at random.)
+      for (const [name, make] of Object.entries(SOUNDS)) {
+        this.buffers[name] = Array.from({ length: name.startsWith('step') ? 4 : 1 }, () => make(ctx));
+      }
     }
     // Decode whatever has downloaded; anything that failed (a network blip) is fetched again.
     for (const f of this.files) {

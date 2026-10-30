@@ -640,7 +640,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 - Movement speed for everyone, players and bots (default 70%).
 - Mouse sensitivity (saved to `localStorage`).
 - Controller look speed and controller vibration.
-- Invert Y, field of view, FPS counter toggle.
+- Invert Y, field of view (default 78, Halo's), head bob, FPS counter toggle.
 - These are shared by every local player for now; per-player settings can come later.
 
 ## Audio
@@ -977,6 +977,19 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Bloom on High, the last of the three Halo-look items: glow strips, lamps, fire,
   explosions, muzzle flashes, shield flares and the sky by the sun bleed light. About ten passes a
   frame (not per view); the Xbox bench decides whether it stays on High (gfx switch `bloom`).
+- 2026-10-30: Owner sent a Halo 3 screenshot and asked what would make ours feel closer. The gap
+  is mostly framing and art direction, so three passes were queued: framing, a color grade and a
+  HUD restyle. Framing first: every first-person gun is pulled in big, close and low on the right
+  with the barrel nearly level (one framing block over all the guns' own poses), zooming no
+  longer pulls the gun in toward the middle, the default field of view went from 95 to 78
+  (anyone who never changed it gets the new default), muzzle flashes are bigger, and the
+  Hickory, Kindling and Rotisserie show their mag count on a small glowing screen on the gun
+  (orange when low).
+- 2026-10-30: Owner asked for Halo's walking feel in the same pass: the view now bobs with each
+  step (it dips at every footfall and sways toward the planted foot, softer when zoomed; a Head
+  bob setting turns it off) and everyone's footsteps are heard, by surface (concrete, metal,
+  dirt, wood, mud) with a faint armor rattle. Sneaking while crouched is silent, matching the
+  motion tracker, and hard landings thud.
 - 2026-10-30: Owner: in Rocky Mountain Oysters your size should stay when you die instead of
   popping back to small. It now only grows during a match (so the bounty point goes to whoever
   smokes someone with more kills).

@@ -6,6 +6,7 @@ import { gloveParts } from './gloves.js';
 import { envUniforms } from '../render/reflections.js';
 import { GUNS } from '../combat/guns/index.js';
 import { SWITCH_TIME } from '../combat/weapons.js';
+import { VIEWMODEL } from '../config.js';
 
 // First-person weapon with gloved hands. Lives in its own scene, rendered after the world with a
 // cleared depth buffer and its own camera, so it never clips into walls and keeps the same size
@@ -13,6 +14,11 @@ import { SWITCH_TIME } from '../combat/weapons.js';
 // visible. Each gun's resting pose, kick and flash size come from its module (`view`).
 
 let sharedMaterial = null;
+const _place = new THREE.Vector3();
+const _dx = new THREE.Vector3();
+const _dy = new THREE.Vector3();
+const _dz = new THREE.Vector3();
+const _dm = new THREE.Matrix4();
 
 // The first-person guns' look: Blinn-Phong whose shine depends on each vertex's finish
 // (weaponModels.js FINISHES), a sky-and-ground reflection on metal and paint so bare metal
@@ -140,6 +146,19 @@ export class Viewmodel {
     streak.dispose();
     this.flash.visible = false;
 
+    // The ammo counter on guns that have one (guns/*.js `display`), Halo's: a small canvas
+    // redrawn only when the count changes.
+    this.displayCanvas = document.createElement('canvas');
+    this.displayCanvas.width = 128;
+    this.displayCanvas.height = 128;
+    this.displayTexture = new THREE.CanvasTexture(this.displayCanvas);
+    this.displayTexture.colorSpace = THREE.SRGBColorSpace;
+    this.displayMaterial = new THREE.MeshBasicMaterial({ map: this.displayTexture, transparent: true, depthWrite: false });
+    this.displayMaterial.name = 'ammoDisplay';
+    this.display = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.displayMaterial);
+    this.display.visible = false;
+    this.shownAmmo = null;
+
     this.current = null;
     this.gun = null;
     this.setWeapon(guns[0]);
@@ -195,7 +214,50 @@ export class Viewmodel {
     this.gun.visible = true;
     this.gun.add(this.flash);
     this.flash.position.copy(this.muzzles[id]);
-    this.flash.scale.setScalar(GUNS[id].view.flash);
+    this.flash.scale.setScalar(GUNS[id].view.flash * VIEWMODEL.flash);
+    const d = GUNS[id].display;
+    this.display.visible = !!d;
+    // (Always on the held gun, so the warm-up compiles it whichever gun that is.)
+    this.gun.add(this.display);
+    if (d) {
+      this.display.position.fromArray(d.at);
+      // Turned by Euler angles (rot), or to face `normal` with its top toward `up`.
+      if (d.normal) {
+        const z = _dz.fromArray(d.normal).normalize();
+        const y = _dy.fromArray(d.up);
+        _dm.makeBasis(_dx.crossVectors(y, z).normalize(), y.crossVectors(z, _dx), z);
+        this.display.quaternion.setFromRotationMatrix(_dm);
+      } else this.display.rotation.fromArray(d.rot);
+      this.display.scale.set(d.size[0], d.size[1], 1);
+      this.shownAmmo = null;
+    }
+  }
+
+  // Draw the count: big digits in cyan, orange when the mag is low, with a faint grid behind.
+  drawAmmo(n, mag) {
+    const c = this.displayCanvas;
+    const x = c.getContext('2d');
+    x.shadowBlur = 0;
+    x.clearRect(0, 0, c.width, c.height);
+    x.fillStyle = 'rgba(6, 18, 24, 0.92)';
+    x.fillRect(0, 0, c.width, c.height);
+    x.strokeStyle = 'rgba(80, 220, 255, 0.12)';
+    x.lineWidth = 2;
+    for (let i = 8; i < c.width; i += 12) {
+      x.beginPath();
+      x.moveTo(i, 0);
+      x.lineTo(i, c.height);
+      x.stroke();
+    }
+    const low = n <= Math.ceil(mag * 0.25);
+    x.fillStyle = low ? '#ff9a3c' : '#7ff4ff';
+    x.shadowColor = x.fillStyle;
+    x.shadowBlur = 10;
+    x.font = 'bold 72px "Arial Narrow", Arial, sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillText(String(n).padStart(2, '0'), c.width / 2, c.height / 2 + 4);
+    this.displayTexture.needsUpdate = true;
   }
 
   fired() {
@@ -220,10 +282,15 @@ export class Viewmodel {
     const id = p.weapon.def.id;
     this.setWeapon(id);
     const pose = GUNS[id].view;
+    if (this.display.visible && this.shownAmmo !== p.weapon.mag) {
+      this.shownAmmo = p.weapon.mag;
+      this.drawAmmo(p.weapon.mag, p.weapon.def.mag);
+    }
 
     // A slide glides: no running bob, the gun dips and cants a little instead.
     const run = p.grounded && p.mode === 'move' && !p.sliding ? Math.min(1, p.speed() / 7) : 0;
-    this.bobPhase += dt * (6 + p.speed() * 1.2) * (run > 0.05 ? 1 : 0);
+    // The bob rides the player's stride clock, so the gun drops on each footfall with the view.
+    this.bobPhase = Math.PI * p.bobStride;
     const k = damp(10, dt);
     const rate = dt > 0 ? 1 / Math.max(dt, 1 / 240) : 0;
     // The gun trails the turn on a spring, overshooting a little as the turn stops.
@@ -270,14 +337,20 @@ export class Viewmodel {
     const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * run + Math.sin(this.breath * 1.6) * 0.0025 * still * (1 - this.aim);
     const a = this.aim;
     const g = this.gun;
+    const [tx0, ty0, tz0] = VIEWMODEL.turn;
     const [px, py, pz] = pose.pos;
-    const [rx, ry, rz] = pose.rot;
+    const rx = pose.rot[0] + tx0;
+    const ry = pose.rot[1] + ty0;
+    const rz = pose.rot[2] + tz0;
+    g.scale.setScalar(pose.scale * VIEWMODEL.scale);
     g.position.set(
-      px - 0.08 * a + bobX + this.swayX - 0.05 * this.sprint - 0.04 * bash - 0.03 * cant,
+      px - 0.05 * a + bobX + this.swayX - 0.05 * this.sprint - 0.04 * bash - 0.03 * cant,
       py + 0.035 * a + bobY + this.swayY + this.vy - 0.12 * reload + 0.012 * cant + 0.012 * slap - 0.05 * this.sprint - 0.2 * this.lower -
         p.landDip * 0.25 - 0.3 * sw - 0.16 * toss + 0.03 * bash - 0.025 * this.slide,
-      pz + 0.012 * this.kick + 0.05 * a - 0.14 * bash + 0.04 * pump + 0.03 * cant,
+      pz + 0.012 * this.kick - 0.14 * bash + 0.04 * pump + 0.03 * cant,
     );
+    // The framing pulls every gun in by the same ratios, motions and all (config.js VIEWMODEL).
+    g.position.multiply(_place.fromArray(VIEWMODEL.place));
     g.rotation.set(
       rx + 0.035 * this.kick - 0.45 * reload + 0.12 * cant + 0.05 * slap - 0.25 * this.sprint - 0.5 * this.lower - 0.9 * sw - 0.35 * toss + 0.12 * pump - 0.25 * bash,
       ry + 0.55 * this.sprint + 0.3 * bash + 0.22 * cant,
@@ -343,6 +416,8 @@ export class Viewmodel {
 
   warmup(on) {
     this.flash.visible = on;
+    if (on) this.display.visible = true;
+    else this.display.visible = !!GUNS[this.current]?.display;
     for (const m of Object.values(this.guns)) m.visible = on || m === this.gun;
   }
 
@@ -350,6 +425,9 @@ export class Viewmodel {
     for (const m of Object.values(this.guns)) m.geometry.dispose();
     this.flash.geometry.dispose();
     this.flashMaterial.dispose();
+    this.display.geometry.dispose();
+    this.displayMaterial.dispose();
+    this.displayTexture.dispose();
   }
 }
 

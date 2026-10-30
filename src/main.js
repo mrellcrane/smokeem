@@ -14,6 +14,7 @@ import { MAPS, chooseMap } from './world/maps.js';
 import { CHARACTERS, CHARACTER_IDS } from './player/body/cast.js';
 import { WEAPONS } from './combat/weapons.js';
 import { gfx } from './render/gfx.js';
+import * as config from './config.js';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 // ?bench runs a scripted split-screen match and reports frame times (src/render/bench.js).
@@ -381,6 +382,8 @@ if (DEBUG) {
     settings,
     sfx,
     gfx,
+    // Tuning numbers (config.js), live: e.g. smokeem.config.VIEWMODEL.scale = 1.2.
+    config,
     // Every body color in a row ahead of player 1 (returns a function that removes them).
     lineup: (opts) => import('./render/lineup.js').then((m) => m.lineup(game, opts)),
     // Bodies run through each movement state ahead of player 1 (returns a function that

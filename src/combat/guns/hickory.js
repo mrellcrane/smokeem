@@ -46,6 +46,8 @@ export default {
     [[0, 0.079, -0.18], [0.056, 0.004, 0.012], METAL, { bevel: 0 }],
     [[0, 0.092, 0.0], [0.034, 0.03, 0.045], METAL],
     [[0, 0.096, -0.023], [0.012, 0.012, 0.004], GLOW],
+    // The ammo counter's housing, tilted up toward the eye (the number is `display`).
+    [[0, 0.1, -0.09], [0.056, 0.036, 0.062], BORE, { rot: [0.5, 0, 0] }],
     // Ejection port and charging handle on the right.
     [[0.0335, 0.032, -0.1], [0.002, 0.03, 0.085], BORE, { bevel: 0 }],
     [[0.046, 0.05, -0.03], [0.028, 0.014, 0.014], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
@@ -83,6 +85,8 @@ export default {
     [[-0.035, -0.07, -0.33], [0.05, 0.05, 0.1], GLOVE],
   ],
   muzzle: [0, 0.02, -0.65],
+  // First-person ammo counter: the screen's middle, size and turn in gun space (viewmodel.js).
+  display: { at: [0, 0.1168, -0.0814], size: [0.046, 0.05], rot: [-Math.PI / 2 + 0.5, 0, 0] },
   // First-person resting pose (viewmodel camera space), recoil kick and muzzle flash size.
   view: { pos: [0.21, -0.215, -0.48], rot: [0.025, 0.06, 0], scale: 0.72, kick: 1, flash: 1, flashColor: 0xffc070 },
   // Third-person grip point in body space (hung off the spine bone).
