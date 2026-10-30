@@ -1139,3 +1139,7 @@ Need answers before the step that uses them gets built.
   break off at cover and pick up again: the 30 s loop); Creek on Competition Cut Kindling 3.6, the
   outlier, since an SMG drags fights out on an open valley. Creek's default set is now Backyard
   (Hickory 1.5, Kindling 2.6 there). Lives run about 12 to 14 s with 8 players.
+- 2026-10-30: Graphics pass, guns first (owner: the guns, environment and characters can still get
+  better). First-person guns get panel seams, worn paint, a top-lit falloff, softer rounded edges
+  (bevels up to 1 cm) and a dented surface, so highlights stop washing whole faces white. All in
+  the shader: no new textures or geometry. Characters and Creek's terrain are next.
