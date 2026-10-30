@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { InputState } from '../input/inputState.js';
 import { DEG, clamp } from '../util/math.js';
 import { WEAPONS, GRENADE } from '../combat/weapons.js';
-import { SIZZLER, GRAPPLE } from '../config.js';
+import { GRAPPLE } from '../config.js';
 
 // A bot is a regular Player whose InputState is written by this brain instead of a controller,
 // so it moves, climbs, shoots and dies by exactly the same rules as people.
@@ -910,14 +910,43 @@ export class BotBrain {
         this.strafe = Math.random() < 0.5 ? -1 : 1;
         this.strafeT = 1.5 + Math.random() * 2;
       }
-      p.driveYaw = dist > 9 ? wrap(this.wantYaw + this.strafe * SIZZLER.gun.swing * 0.5) : null;
+      const G = b.S.gun;
+      // (No guns: straight at them.)
+      p.driveYaw = G && dist > 9 ? wrap(this.wantYaw + this.strafe * G.swing * 0.5) : null;
       s.moveY = 1;
-      s.held.sprint = dist > 22 && b.boost > 0.3;
-      // Let the guns cool before they lock up (Easy bots run them hot).
-      if (b.heat > (this.skillName === 'easy' ? 0.97 : 0.82)) this.cooling = true;
-      if (b.heat < 0.35) this.cooling = false;
       const cone = (sk.fireCone * DEG + Math.atan(0.6 / Math.max(1, dist))) * 1.4;
-      if (this.reactT <= 0 && !this.cooling && !b.overheated && dist < SIZZLER.gun.range && this.aimError(_t) < cone) s.held.fire = true;
+      if (G) {
+        s.held.sprint = dist > 22 && b.boost > 0.3;
+        // Let the guns cool before they lock up (Easy bots run them hot).
+        if (b.heat > (this.skillName === 'easy' ? 0.97 : 0.82)) this.cooling = true;
+        if (b.heat < 0.35) this.cooling = false;
+        if (this.reactT <= 0 && !this.cooling && !b.overheated && dist < G.range && this.aimError(_t) < cone) s.held.fire = true;
+      } else if (b.S.slam) {
+        // The drum: boost in, slam when they're close.
+        s.held.sprint = dist > 8 && b.boost > 0.3;
+        if (this.reactT <= 0 && b.slamWait <= 0 && dist < b.S.slam.radius * 0.75) s.press('fire');
+      } else if (b.S.charge) {
+        // The hog: charge them from mid range, and shoot our own gun.
+        if (dist > 6 && dist < 20 && b.chargeWait <= 0 && this.aimError(_t) < 0.3) s.press('sprint');
+        // (Not too close: it would run them down before we got a shot off anyway.)
+        if (dist < 5) s.moveY = 0.3;
+        const w = p.weapon.def;
+        const inRange = dist <= Math.min(w.bot.max * 1.2, w.range ?? Infinity);
+        this.burstT -= dt;
+        if (this.burstT <= 0) {
+          this.burstOn = !this.burstOn;
+          this.burstT = (this.burstOn ? sk.burst[0] : sk.burst[1]) * (0.7 + Math.random() * 0.6);
+        }
+        if (this.reactT <= 0 && inRange && this.aimError(_t) < cone) {
+          if (w.auto) {
+            if (this.burstOn || w.bot.hold) s.held.fire = true;
+          } else if (p.weapon.cooldown <= 0 && this.tapT <= 0) {
+            s.press('fire');
+            this.tapT = 1 / (w.fireRate * sk.semiRate);
+          }
+        }
+        if (p.weapon.mag === 0 && p.weapon.reserve > 0 && !p.weapon.reloading) s.press('reload');
+      }
       this.path = null;
       this.driveStuck(dt, b);
       return;
@@ -955,7 +984,7 @@ export class BotBrain {
     this.turnToward(yaw, -0.08, 4, dt);
     const off = Math.abs(wrap(yaw - b.yaw));
     s.moveY = off > 1.3 ? 0.3 : off > 0.6 ? 0.65 : 1;
-    s.held.sprint = off < 0.25 && b.boost > 0.5 && path.length - this.step > 8;
+    s.held.sprint = !b.S.charge && off < 0.25 && b.boost > 0.5 && path.length - this.step > 8;
     this.driveStuck(dt, b);
   }
 

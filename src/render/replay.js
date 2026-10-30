@@ -34,7 +34,7 @@ export class Replay {
     this.sackOff = size;
     if (sacks) size += sacks.instanceMatrix.array.length + game.oysters.owners.array.length + 1;
     // Sizzlers: their frames' and wheels' matrices and counts.
-    this.bikes = game.vehicles ? [game.vehicles.frames, game.vehicles.wheels] : [];
+    this.bikes = game.vehicles ? game.vehicles.meshList : [];
     this.bikeOff = size;
     for (const m of this.bikes) size += m.instanceMatrix.array.length + 1;
     this.frames = Array.from({ length: FRAMES }, () => ({ t: -Infinity, d: new Float32Array(size) }));

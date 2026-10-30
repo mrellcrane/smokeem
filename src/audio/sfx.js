@@ -217,6 +217,15 @@ const SOUNDS = {
       const ratchet = t > 0.05 ? 0.3 * Math.max(0, Math.sin(t * rate * Math.PI * 2)) ** 12 * Math.exp(-(t - 0.05) * 4) * noise() : 0;
       return clank + ratchet;
     }),
+  // A big hog's grunt (the Big Hog charging): a nasal buzz that drops, in two pulses.
+  oink: (ctx) =>
+    synth(ctx, 0.42, (t, s, rate) => {
+      const f = 210 * Math.exp(-t * 1.6) + 70;
+      s.phase += (f * Math.PI * 2) / rate;
+      const buzz = Math.sign(Math.sin(s.phase)) * 0.5 + Math.sin(s.phase * 2) * 0.3;
+      const env = Math.sin((Math.PI * Math.min(t, 0.18)) / 0.18) * (t < 0.18 ? 1 : 0) + (t > 0.22 ? Math.sin((Math.PI * (t - 0.22)) / 0.2) * 0.8 : 0);
+      return 0.4 * buzz * Math.max(0, env);
+    }),
   // A boot hitting a wall: a dropping thump with a little knock on top.
   wallKick: (ctx) =>
     synth(ctx, 0.25, (t, s, rate) => {
@@ -500,8 +509,9 @@ export class Sfx {
   }
 
   // at: where the engine is; source: its rider (their own engine plays up close); rev: 0 idle to
-  // about 1 flat out; level: 0 off to 1.
-  setEngine(h, at, source, rev, level) {
+  // about 1 flat out; level: 0 off to 1; pitch: the engine's own (the hovercraft whines higher,
+  // the drum rumbles lower).
+  setEngine(h, at, source, rev, level, pitch = 1) {
     if (!h || !this.ctx) return;
     let dist = 0;
     if (!(source && this.listeners.includes(source))) {
@@ -512,7 +522,7 @@ export class Sfx {
     const now = this.ctx.currentTime;
     const gain = level * 0.32 * (1 / (1 + Math.pow(dist / 12, 1.6)));
     h.g.gain.setTargetAtTime(gain, now, 0.06);
-    h.src.playbackRate.setTargetAtTime(0.75 + rev * 1.3, now, 0.08);
+    h.src.playbackRate.setTargetAtTime((0.75 + rev * 1.3) * pitch, now, 0.08);
     h.lp.frequency.setTargetAtTime(Math.max(500, (900 + rev * 2400) * Math.exp(-dist / 60)), now, 0.08);
   }
 

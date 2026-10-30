@@ -5,7 +5,6 @@ import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
 import { controlsHtml } from './controls.js';
 import { clockText, ordinal } from '../match.js';
 import { Radar } from './radar.js';
-import { SIZZLER } from '../config.js';
 
 // Per-player HUD laid over that player's viewport. Plain DOM; every write is cached so the
 // DOM is only touched when a value actually changes.
@@ -41,6 +40,18 @@ export function visibleFeed(match, now) {
   let first = match.feed.length;
   while (first > 0 && now - match.feed[first - 1].t < FEED_TIME) first--;
   return { first, key: `${match.feedVersion}:${first}` };
+}
+
+// The controls on a vehicle, for a few seconds after getting on.
+function rideHelp(v, k) {
+  const S = v.S;
+  const fire = S.gun ? `${k.fire} guns` : S.slam ? `${k.fire} slam` : `${k.fire} shoot`;
+  const sprint = S.charge ? `${k.sprint} charge` : `${k.sprint} boost`;
+  const parts = [fire, sprint];
+  if (S.strafe) parts.push(`${k.turn} slide`);
+  if (S.hop > 0) parts.push(`${k.jump} hop`);
+  parts.push(`${k.interact} get off`);
+  return parts.join(' · ');
 }
 
 export class Hud {
@@ -188,7 +199,7 @@ export class Hud {
         return '';
       case 'ride':
         // (For a few seconds after getting on: it sits over the bike.)
-        return game.time - player.rideT < 5 ? `${k.fire} guns · ${k.sprint} boost · ${k.jump} hop · ${k.interact} get off` : '';
+        return game.time - player.rideT < 5 ? rideHelp(player.vehicle, k) : '';
       default:
         break;
     }
@@ -198,7 +209,7 @@ export class Hud {
     const prompt = player.pickupPrompt;
     if (prompt && player.pickupDual) return `${k.interact}: dual wield ${prompt.def.name}`;
     if (prompt) return `${k.interact}: swap ${player.weapon.def.name} for ${prompt.def.name}`;
-    if (player.vehiclePrompt) return `${k.interact}: ride the Sizzler`;
+    if (player.vehiclePrompt) return `${k.interact}: ride the ${player.vehiclePrompt.name}`;
     if (player.inFire) return 'Too hot!';
     if (player.inMud) return 'Mud: slow going, weak jumps';
     const w = player.weapon;
@@ -244,11 +255,14 @@ export class Hud {
       this.set('dmgOp', '0', (x) => (e.dmgArrow.style.opacity = x));
     }
 
-    // Ammo (on a Sizzler: its hull, the guns' heat as the ticks, and the boost).
-    const bike = player.vehicle;
+    // Ammo (on a vehicle: its hull, the guns' heat or the slam's charge as the ticks, and the
+    // boost; on a hog, our own gun, with the hog's hull and charge below).
+    const ride = player.vehicle;
+    const bike = ride && !ride.T.riderShoots ? ride : null;
     if (bike) {
+      const S = bike.S;
       const hull = Math.ceil(bike.vitals.healthFrac * 100);
-      this.set('wname', 'Sizzler', (x) => (e.wname.textContent = x));
+      this.set('wname', bike.name, (x) => (e.wname.textContent = x));
       this.set('mag', `${hull}%`, (x) => (e.mag.textContent = x));
       this.set('reserve', -1, (x) => (e.reserve.textContent = ''));
       this.set('magLow', hull <= 30 || bike.overheated, (x) => e.ammo.classList.toggle('low', x));
@@ -257,8 +271,10 @@ export class Hud {
         e.ammoTicks.style.setProperty('--cap', x);
         e.ammoTicks.classList.toggle('big', false);
       });
-      this.set('tickFill', Math.ceil((1 - bike.heat) * 20), (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
-      this.set('ammoNote', bike.overheated ? 'Overheated' : 'Hull', (x) => (e.ammoNote.textContent = x));
+      const ticks = S.gun ? 1 - bike.heat : S.slam ? bike.boost2 : 1;
+      this.set('tickFill', Math.ceil(ticks * 20), (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
+      const note = bike.overheated ? 'Overheated' : S.slam ? (bike.boost2 >= 1 ? `Hull · ${this.keys.fire} slam ready` : 'Hull · slam charging') : 'Hull';
+      this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
       this.set('other', `Boost ${Math.round(bike.boost * 100)}%`, (x) => (e.other.textContent = x));
     } else {
       // Dual wielding: both names, and the left gun's mag before the right's.
@@ -284,7 +300,10 @@ export class Hud {
       const note = lw ? (lw.reloading || w.reloading ? 'Reloading' : `${this.keys.fire2} fires left`) : w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
       this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
       const o = player.slots[1 - player.slot];
-      this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
+      const other = ride
+        ? `${ride.name} ${Math.ceil(ride.vitals.healthFrac * 100)}% · ${ride.boost >= 1 ? 'charge ready' : `charge ${Math.round(ride.boost * 100)}%`}`
+        : o ? `${o.def.name} ${o.mag}/${o.reserve}` : '';
+      this.set('other', other, (x) => (e.other.textContent = x));
     }
     // The grapple: a bar that fills over the cooldown, lit when it's ready.
     const hook = player.hook;
@@ -309,10 +328,10 @@ export class Hud {
     const cam = player.camera;
     // On a Sizzler the chase camera looks a little below the aim, so the reticle sits above the
     // middle by as much.
-    const lift = bike ? (Math.tan(SIZZLER.camTilt) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2) : 0;
+    const lift = bike ? (Math.tan(bike.S.camTilt) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2) : 0;
     this.set('aimLift', Math.round(lift), (x) => this.el.style.setProperty('--aim-lift', `${x}px`));
     const gap = alive
-      ? 3 + (Math.tan((bike ? SIZZLER.gun.spread : currentSpread(player)) * DEG) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2)
+      ? 3 + (Math.tan((bike ? bike.S.gun?.spread ?? 2 : currentSpread(player)) * DEG) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2)
       : 3;
     this.set('gap', Math.round(gap), (g) => {
       const [up, down, left, right] = e.ticks;

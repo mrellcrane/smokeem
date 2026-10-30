@@ -70,24 +70,35 @@ Live build: https://mrellcrane.github.io/smokeem/
   `game.match`; when time runs out `game.endMatch()` sets state `'over'` and `main.js` shows
   the results.
 - `src/config.js`: movement and body tuning numbers.
-- `src/vehicles/sizzler.js`: the Sizzler motorcycle (`game.vehicles`, built when the map's build
-  returns `vehicles` spots; tuning in `SIZZLER`, `config.js`). Each bike is a kinematic body moved
-  by its own character controller: a ball floating `BALL_LIFT` over the ground that only meets
-  walls, rocks and bodies, while a ball cast down (`groundBelow`) puts the bike on the ground
-  (steps up to the float height, snaps down `SNAP`, won't drive up slopes over about 38 degrees,
-  and leaves the ground off a lip or a crest with the speed it was climbing at, so terrain's
-  creases and the creek's banks never catch it). Plus a box registered as an entity (the one collider
-  shots and blasts see; `kind: 'vehicle'`, hull `vitals`, `die()` blows up with the rider). It
-  ticks after the players: it reads its rider's `InputState` and `ridePressed`, turns toward the
-  rider's `yaw` (or a bot's `driveYaw`), drives, splatters (`runInto`), fires its twin guns at
-  `aimPoint` (the chase camera's line for people, the eye's for bots) and carries the rider's
-  capsule on the seat (`seat`). The rider is in mode `'ride'` (`Player.startRide` / `endRide`;
-  `Vehicles.mount` / `dismount`, `touch` offers a free bike as `vehiclePrompt`), takes
-  `riderTakes` of damage, sees through `Vehicles.camera` (tipped `camTilt` below the aim; the HUD
-  lifts the reticle by as much, `--aim-lift`), and its body sits on the bike (`riding`, `roll`,
-  `tilt` in `Player.pose`; `RIDE` in `character.js`). Frames and wheels are two instanced meshes
-  for every bike (Phong with glow parts lit by `aFinish`); the engine is one looping voice per
-  bike (`sfx.engine` / `setEngine`); replays record both meshes.
+- `src/vehicles/sizzler.js`: every vehicle (`game.vehicles`, built when the map's build returns
+  `vehicles` spots `{ pos, yaw, type }`). One `Bike` class for all of them; `TYPES` holds what
+  differs per type: the tuning block in `config.js` (`S`: `SIZZLER`, `SMOKE_RING`, `DRUM_ROLL`,
+  `BIG_HOG`, the last three spreading `SIZZLER`), the frame and "wheel" models (wheels `roll`,
+  `steer` or swing with a `gait`: the hog's legs; the drum is all wheel), the ball and shot box,
+  the seat (`z` and `feet`, or `center` for a rider curled up inside), muzzles, smoke vents, the
+  engine's pitch, and flags: `hover` (the Smoke Ring floats `S.hover` up and rides on water and
+  mud, `groundBelow` takes `zones.mudTop`; `S.strafe` slides it on A/D), `hideRider` and
+  `S.slam` (the Drum Roll: the rider's body hidden, the trigger is `slam()`; `S.bounce` reflects it
+  off walls), `riderShoots` / `firstPerson` (the Big Hog: the rider keeps their own gun, the view
+  stays first person, `S.charge` on sprint, `straddle` spreads the seated legs, and with no
+  `S.blast` it throws the rider off instead of blowing up). Each vehicle is a kinematic body moved
+  by its own character controller: a ball floating over the ground that only meets walls, rocks
+  and bodies, while a ball cast down (`groundBelow`) puts it on the ground (steps up to the float
+  height, snaps down `SNAP`, won't drive up slopes over `S.maxSlope` (40 degrees by default), and
+  leaves the ground off a lip or a crest with the speed it was climbing at, so terrain's creases
+  and the creek's banks never catch it). Plus a box registered as an entity (the one collider
+  shots and blasts see; `kind: 'vehicle'`, hull `vitals`, `die()`). It ticks after the players:
+  it reads its rider's `InputState` and `ridePressed`, turns toward the rider's `yaw` (or a bot's
+  `driveYaw`), drives, splatters (`runInto`), fires its guns (if `S.gun`) at `aimPoint` (the chase
+  camera's line for people, the eye's for bots) and carries the rider's capsule on the seat
+  (`seat`). The rider is in mode `'ride'` (`Player.startRide` / `endRide`; `Vehicles.mount` /
+  `dismount`, `touch` offers a free one as `vehiclePrompt`), takes `S.riderTakes` of damage, sees
+  through `Vehicles.camera` (tipped `camTilt` below the aim; the HUD lifts the reticle by as much,
+  `--aim-lift`), and its body sits on it (`riding`, `rideArms` (hands on the bars, gun slung),
+  `straddle`, `roll`, `tilt` in `Player.pose`; `RIDE` in `character.js`). Each type on the map
+  gets one instanced mesh for frames and one for wheels (`meshes`, `meshList`; Phong with glow
+  parts lit by `aFinish`); engines are one looping voice per vehicle (`sfx.engine` / `setEngine`,
+  with a pitch); replays record `meshList`.
 - `src/modes/`: optional match modes on top of free-for-all, picked on the title screen
   (`settings.mode`, `game.mode`). `oysters.js` is Rocky Mountain Oysters: per-player sack size,
   its sway on a short rope from the belt (one instanced mesh), shots that hit it (`castShot`
@@ -272,7 +283,7 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
   (walk / drop / jump / doublejump / firejump edges, plus map links, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
-  `InputState` each tick. Besides fighting, chasing and roaming it rides Sizzlers (`goalBikeNear`
+  `InputState` each tick. Besides fighting, chasing and roaming it rides vehicles (`goalBikeNear`
   claims a free one in reach; `ride`, `drive` and `driveStuck` drive walk and drop edges only, via
   `findPath`'s edge filter), flings props with the Gravity
   Gun at range (`fling`, `FLING_BAND`), walks into anyone's linked portal when it's a big shortcut
