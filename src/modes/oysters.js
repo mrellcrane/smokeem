@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // grows a cartoon sack hanging off the back of your belt; big ones drag and bounce along the
 // ground behind you. Shots that hit it hurt you more, each size slows you a little, smoking
 // someone bigger than you is worth a bonus point, crouching three times over someone you just
-// smoked shouts SAUCED! (and grows you a size), and dying pops you back to small.
+// smoked shouts SAUCED! (and grows you a size). Your size stays through deaths: it only grows.
 //
 // Each sack is a point on a short rope from the belt, stepped with the render frame (it's only
 // looks and a target; nothing collides with it). The sack always hangs straight off the belt
@@ -131,7 +131,7 @@ export class Oysters {
   }
 
   // From Game.onKill, after the match scored it. Bounty: smoking someone bigger is worth a point
-  // more. Then the killer grows, and the victim pops back to small.
+  // more. Then the killer grows; the victim keeps theirs (owner call: sizes never reset).
   onKill(victim, info, match) {
     if (victim.kind !== 'player') return;
     const a = info.attacker;
@@ -148,14 +148,9 @@ export class Oysters {
       this.grow(a);
       as.sauce = { victim, x: victim.center.x, z: victim.center.z, t: this.game.time, count: 0 };
     }
-    if (vs.size > 0 && vs.placed) {
-      this.game.fx.deathPuff(vs.pos.x, vs.pos.y - 0.9, vs.pos.z, SKIN);
-      this.game.sfx.play('pop', { at: vs.pos });
-    }
-    vs.size = 0;
+    // (Hidden while they're down, and hung back on the belt when they respawn.)
     vs.placed = false;
     vs.sauce = null;
-    this.applyBurden(victim);
   }
 
   tick() {
