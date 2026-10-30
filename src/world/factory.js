@@ -6,6 +6,8 @@ import { bakeArena } from './bake.js';
 import { crate, barrier, drum, pickupPads, grandstands } from './parts.js';
 import { gfx } from '../render/gfx.js';
 import { dressFactory } from './dressing.js';
+import { createShafts } from './shafts.js';
+import { FACTORY_LOOK } from './looks.js';
 
 // Map 2: Smokestack Works. An indoor smokehouse factory turned into a game-show arena: a long
 // hall under a trussed roof with skylights, a giant smoker in the middle (the power pad on its
@@ -28,6 +30,8 @@ const WALK = 18.5;
 const BRIDGE = 1.6;
 const VAT = { x0: 16, x1: 26, z0: -4.5, z1: 4.5, floor: -0.8, top: -0.25 };
 const DOCK = 2.4;
+// The roof's open skylight bands (z ranges), the full length of the hall.
+const SKYLIGHTS = [[-15, -11], [-2.5, 2.5], [11, 15]];
 const BELT_SPEED = 2;
 // The stands reach this far out from the middle (grandstands: 5 tiers of 1.6 m past the wall).
 const OUTER = HZ + 1 + 5 * 1.6 + 1;
@@ -51,7 +55,7 @@ const DUMMY_POSTS = [
   { name: 'Dock Dummy', post: [14, DOCK, -1], yaw: -Math.PI / 2 },
 ];
 
-export function buildFactory({ scene, RAPIER, world, materials: M, textures, bakeSize = 512 }) {
+export function buildFactory({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, preset = null }) {
   const B = new StaticBuilder(RAPIER, world);
   const zones = new Zones();
 
@@ -92,6 +96,17 @@ export function buildFactory({ scene, RAPIER, world, materials: M, textures, bak
 
   const fire = createFire(textures, fires);
   scene.add(fire.mesh);
+
+  // Sunbeams down through the skylight bands, one per truss bay.
+  let shafts = null;
+  if (gfx.shafts && preset?.shafts !== false) {
+    const openings = [];
+    for (let x = -30; x < 30; x += 6) {
+      for (const [z0, z1] of SKYLIGHTS) openings.push({ x0: x + (x > -30 ? 0.15 : 0), x1: x + 6 - (x + 6 < 30 ? 0.15 : 0), z0, z1 });
+    }
+    shafts = createShafts({ openings, top: ROOF - 0.4, sunDir: FACTORY_LOOK.sun.dir });
+    scene.add(shafts.group);
+  }
 
   const spawnPoints = [
     [-25, 0, -15], [-11, 0, -16], [10, 0, -16], [25, 0, -15], [25, 0, 15], [11, 0, 16],
@@ -136,6 +151,7 @@ export function buildFactory({ scene, RAPIER, world, materials: M, textures, bak
     trims: B.trims,
     update(dt, time, fx) {
       fire.update(time);
+      shafts?.update(time);
       greaseMap.offset.x = Math.sin(time * 0.04) * 0.15;
       greaseMap.offset.y = time * 0.002;
       // The belts run east on the north line and west on the south line (one texture: the
@@ -249,6 +265,7 @@ function roof(B, M) {
   for (const z of [-OUTER + 1, -24, -17, -9, 0, 9, 17, 24, OUTER - 1]) {
     B.boxMinMax(M.metalDark, [-HX, top, z - 0.1], [HX, top + 0.25, z + 0.1], deco);
   }
+  // (The gaps between these are the skylights, SKYLIGHTS.)
   for (const [z0, z1] of [[-OUTER - 1, -15], [-11, -2.5], [2.5, 11], [15, OUTER + 1]]) {
     B.boxMinMax(M.metal, [-HX - 1, ROOF - 0.1, z0], [HX + 1, ROOF + 0.1, z1], deco);
   }

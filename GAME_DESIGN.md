@@ -958,3 +958,6 @@ Need answers before the step that uses them gets built.
   going round; the mesas and gas giant stay behind it all. The sky got the sun's glow and a
   drifting band of clouds. Everything fades into the horizon haze with distance. About 3 draw
   calls per view (gfx switch `skyline` for the Xbox bench).
+- 2026-10-30: Atmosphere for Smokestack: soft sunbeams slant down through every skylight bay to
+  the floor along the real sun, with dust drifting in them (Medium and High only; beams fade
+  right in front of the camera so walking through one doesn't flash the screen). Two draw calls.
