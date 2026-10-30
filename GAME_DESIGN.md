@@ -81,7 +81,8 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
   - Bounty: smoking someone bigger than you is worth a bonus point ("bounty" in the kill feed).
   - Crouch three times over someone you just smoked (within 3 s, within 2.6 m) and the kill feed
     shouts "SAUCED!" and you grow a size.
-  - Dying pops it in a puff, back to small. Bots don't sauce anyone (yet).
+  - Your size stays when you die (owner call, 2026-10-30): it only ever grows during a match.
+    Bots sauce too.
 - **Later:** team modes, online play between separate houses.
 
 ## The show
@@ -976,3 +977,6 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Bloom on High, the last of the three Halo-look items: glow strips, lamps, fire,
   explosions, muzzle flashes, shield flares and the sky by the sun bleed light. About ten passes a
   frame (not per view); the Xbox bench decides whether it stays on High (gfx switch `bloom`).
+- 2026-10-30: Owner: in Rocky Mountain Oysters your size should stay when you die instead of
+  popping back to small. It now only grows during a match (so the bounty point goes to whoever
+  smokes someone with more kills).
