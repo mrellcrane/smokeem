@@ -6,6 +6,9 @@ import { crate, barrier, drum, pickupPads } from './parts.js';
 import { gfx } from '../render/gfx.js';
 import { mulberry32 } from '../util/rng.js';
 import { MOVE } from '../config.js';
+import { grassTufts } from './foliage.js';
+import { envUniforms } from '../render/reflections.js';
+import { viewmodelUniforms } from '../player/viewmodel.js';
 
 // Map 3: Smokehouse Creek (owner pick: Halo's Valhalla shape). A grass valley with two rival
 // smokehouses facing each other from plateaus at its ends, a creek down the middle (wade it, or
@@ -37,6 +40,65 @@ const smooth = (a, b, x) => {
 };
 const bump = (x, z, cx, cz, r, hgt) => hgt * Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * r * r));
 
+// Boulders: clusters on the hills, along the creek banks and scattered over the open ground
+// ([x, z, radius]).
+const ROCKS = [
+  [-16, 19, 1.4], [-14, 21.5, 0.9], [-18.5, 17, 1.0], [16, -19, 1.4], [14, -21.5, 0.9], [18.5, -17, 1.0],
+  [15, 20, 1.1], [-15, -20, 1.1], [-8, -4, 0.9], [8, 4, 0.9], [-8.5, 14, 0.8], [8.5, -14, 0.8],
+  [-24, -12, 1.2], [24, 12, 1.2], [-26, 10, 0.9], [26, -10, 0.9], [-20, 4, 0.7], [20, -4, 0.7],
+  [-11, -22, 1.0], [11, 22, 1.0], [-30, 18, 1.3], [30, -18, 1.3], [-32, -20, 1.1], [32, 20, 1.1],
+];
+
+// Smooth value noise in 0..1 (for where the ground wears to dirt and breaks into rock).
+function hash2(i, j) {
+  const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
+function noise2(x, z) {
+  const i = Math.floor(x);
+  const j = Math.floor(z);
+  const fx = x - i;
+  const fz = z - j;
+  const u = fx * fx * (3 - 2 * fx);
+  const v = fz * fz * (3 - 2 * fz);
+  const a = hash2(i, j) + (hash2(i + 1, j) - hash2(i, j)) * u;
+  const b = hash2(i, j + 1) + (hash2(i + 1, j + 1) - hash2(i, j + 1)) * u;
+  return a + (b - a) * v;
+}
+const fbm = (x, z) => noise2(x, z) * 0.6 + noise2(x * 2.3 + 7.1, z * 2.3 + 3.7) * 0.4;
+function segDist(x, z, ax, az, bx, bz) {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+  return Math.hypot(x - ax - dx * t, z - az - dz * t);
+}
+
+// How much of the ground at (x, z) is worn to dirt and how much is rock, 0 to 1 each (y: its
+// height, ny: its normal's up part). Dirt on the wet banks, round the bases and pads, along the
+// tracks from each base's door to the pad and on to the bridges, at the boulders' feet and in
+// patches; rock on the steep slopes and the rim's top.
+function groundMix(x, z, y, ny) {
+  const ax = Math.abs(x);
+  let dirt = smooth(0.3, -0.45, y) * 0.95;
+  const base = Math.max(Math.abs(ax - BASE_X) - BASE_HX, Math.abs(z) - BASE_HZ);
+  dirt = Math.max(dirt, smooth(2.6, 0.3, base));
+  dirt = Math.max(dirt, smooth(2.7, 1.6, Math.hypot(ax - PAD_X, z)) * 0.85);
+  const s = x < 0 ? -1 : 1;
+  const track = Math.min(
+    segDist(x, z, s * (BASE_X - BASE_HX), 0, s * PAD_X, 0),
+    segDist(x, z, s * PAD_X, 0, s * 7, BRIDGE_Z),
+    segDist(x, z, s * PAD_X, 0, s * 7, -BRIDGE_Z),
+  );
+  const wear = fbm(x * 0.35, z * 0.35);
+  dirt = Math.max(dirt, smooth(1.3, 0.4, track) * (0.45 + 0.55 * wear));
+  for (const [rx, rz, r] of ROCKS) dirt = Math.max(dirt, smooth(r * 1.6, r * 0.95, Math.hypot(x - rx, z - rz)) * 0.7);
+  dirt = Math.max(dirt, smooth(0.7, 0.8, fbm(x * 0.09 + 3.3, z * 0.09 + 1.1)) * 0.6);
+  const n = fbm(x * 0.25 + 9.1, z * 0.25 + 4.4);
+  let rock = Math.min(1, Math.max(0, smooth(0.88, 0.7, ny) * 1.25 + (n - 0.5) * 0.6));
+  rock = Math.max(rock, smooth(7.5, 9.5, y) * smooth(0.45, 0.65, n));
+  return [Math.min(1, dirt), rock];
+}
+
 // The ground's height anywhere (also used for placing things on it).
 export function heightAt(x, z) {
   const ax = Math.abs(x);
@@ -64,6 +126,157 @@ function heightOfPad() {
   return PLATEAU * smooth(24, 33, PAD_X) - 2.6 * Math.exp(-((PAD_X / 5.5) ** 2));
 }
 
+// Where a grass tuft can stand: on gentle grass (not dirt, rock, water, the bases, pads or
+// bridges), more of them in clumps. Returns the ground height there, or null.
+function tuftSpot(x, z, rand) {
+  const ax = Math.abs(x);
+  if (ax > HX - 3 || Math.abs(z) > HZ - 3) return null;
+  if (ax < 8 && Math.abs(Math.abs(z) - BRIDGE_Z) < 2.2) return null;
+  const y = heightAt(x, z);
+  if (y < WATER + 0.25) return null;
+  const e = 0.5;
+  const dx = heightAt(x + e, z) - heightAt(x - e, z);
+  const dz = heightAt(x, z + e) - heightAt(x, z - e);
+  const ny = 1 / Math.hypot(dx / (2 * e), 1, dz / (2 * e));
+  if (ny < 0.82) return null;
+  const [dirt, rock] = groundMix(x, z, y, ny);
+  if (dirt > 0.3 || rock > 0.2) return null;
+  for (const [rx, rz, r] of ROCKS) if (Math.hypot(x - rx, z - rz) < r * 0.9) return null;
+  if (rand() > 0.25 + 0.75 * smooth(0.35, 0.65, fbm(x * 0.2 + 5.5, z * 0.2 + 2.2))) return null;
+  return y;
+}
+
+// The meadow's material blends three textures per pixel: grass (its own map), worn dirt and rock
+// (on steep faces projected from the side, so it doesn't smear), by each vertex's aMix (dirt,
+// rock), with the edges broken up by the textures themselves: dirt shows first in the grass's
+// dark gaps, rock where its own face is light. Wrapped around whatever the material already does
+// (the grime, the bake), which still darkens the result.
+function terrainBlend(material, tex) {
+  const before = material.onBeforeCompile;
+  const beforeKey = material.customProgramCacheKey.call(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    before.call(material, shader, renderer);
+    shader.uniforms.uTerrDirt = { value: tex.ground };
+    shader.uniforms.uTerrRock = { value: tex.rock };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 aMix;\nvarying vec2 vMix;\nvarying vec3 vTerrP;\nvarying vec3 vTerrN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvMix = aMix;\n\tvTerrP = position;\n\tvTerrN = normal;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uTerrDirt;\nuniform sampler2D uTerrRock;\nvarying vec2 vMix;\nvarying vec3 vTerrP;\nvarying vec3 vTerrN;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+	{
+		vec3 an = abs(normalize(vTerrN));
+		vec3 tDirt = texture2D(uTerrDirt, vTerrP.xz / 4.0 + 0.37).rgb * vec3(0.86, 0.88, 0.84);
+		vec2 ruv = an.y > 0.8 ? vTerrP.xz : (an.x > an.z ? vTerrP.zy : vTerrP.xy);
+		vec3 tRock = texture2D(uTerrRock, ruv / 3.0).rgb;
+		float gl = dot(sampledDiffuseColor.rgb, vec3(0.3333));
+		float rl = dot(tRock, vec3(0.3333));
+		float wd = smoothstep(0.0, 1.0, clamp(vMix.x * 1.7 - 0.35 + (0.33 - gl) * 1.6, 0.0, 1.0));
+		float wr = smoothstep(0.0, 1.0, clamp(vMix.y * 1.8 - 0.4 + (rl - 0.45) * 1.6, 0.0, 1.0));
+		diffuseColor.rgb = diffuse * mix(mix(sampledDiffuseColor.rgb, tDirt, wd), tRock, wr);
+	}`,
+      );
+    if (!shader.fragmentShader.includes('uTerrRock, ruv')) console.warn('valley: shader chunks changed, ground drawn as grass only');
+  };
+  material.customProgramCacheKey = () => `${beforeKey}+terrain`;
+}
+
+// The creek's water: a grid over the creek that knows its depth (aDepth, from heightAt), so it's
+// clear and brown over the shallows, foamy right at the banks and deep green-blue mid-stream.
+// Ripples run downstream (normals bent by moving waves, so the sun glints across them), and it
+// reflects the arena (render/reflections.js) or the sky, more at grazing angles.
+const creekTime = { value: 0 };
+function water(scene, M) {
+  const W = 12;
+  const L = HZ * 2 + 4;
+  const g = new THREE.PlaneGeometry(W, L, W * 2, L * 2).rotateX(-Math.PI / 2);
+  const pos = g.attributes.position;
+  const depth = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    pos.setY(i, WATER);
+    depth[i] = WATER - heightAt(pos.getX(i), pos.getZ(i));
+  }
+  g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
+  const m = M.water;
+  m.shininess = 140;
+  m.specular.set(0xfff4e0);
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = creekTime;
+    shader.uniforms.uSky = viewmodelUniforms.uSky;
+    shader.uniforms.uGround = viewmodelUniforms.uGround;
+    shader.uniforms.uEnv = envUniforms.uEnv;
+    shader.uniforms.uEnvOn = envUniforms.uEnvOn;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aDepth;\nvarying float vDepth;\nvarying vec3 vWaterP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvDepth = aDepth;\n\tvWaterP = position;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+uniform float uTime;
+uniform vec3 uSky;
+uniform vec3 uGround;
+uniform samplerCube uEnv;
+uniform float uEnvOn;
+varying float vDepth;
+varying vec3 vWaterP;
+vec2 creekWaves(vec2 p, float t) {
+	// Slopes (d/dx, d/dz) of a few waves running downstream (+z), and a cross chop.
+	vec2 d = vec2(0.0);
+	d += vec2(0.15, 1.0) * cos(dot(p, vec2(0.15, 1.0)) * 2.1 - t * 2.4) * 0.09;
+	d += vec2(-0.4, 1.0) * cos(dot(p, vec2(-0.4, 1.0)) * 3.7 - t * 3.3 + 1.7) * 0.06;
+	d += vec2(0.7, 0.6) * cos(dot(p, vec2(0.7, 0.6)) * 6.3 - t * 4.1 + 0.6) * 0.035;
+	d += vec2(1.0, -0.2) * cos(dot(p, vec2(1.0, -0.2)) * 9.1 + t * 2.2 + 2.9) * 0.022;
+	d += vec2(-0.6, 0.8) * cos(dot(p, vec2(-0.6, 0.8)) * 14.0 - t * 5.0) * 0.014;
+	return d;
+}`,
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+	float wDeep = smoothstep(0.05, 0.75, vDepth);
+	diffuseColor.rgb = mix(vec3(0.34, 0.33, 0.24), vec3(0.08, 0.2, 0.22), wDeep);
+	diffuseColor.a = mix(0.3, 0.9, wDeep);
+	// Foam where it laps the bank.
+	float foam = (1.0 - smoothstep(0.0, 0.1, vDepth)) * (0.55 + 0.45 * sin(vWaterP.z * 3.0 + vWaterP.x * 7.0 - uTime * 2.0));
+	diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.88, 0.86), foam * 0.6);
+	diffuseColor.a = max(diffuseColor.a, foam * 0.8);`,
+      )
+      .replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+	{
+		// (Calmer far off, where ripples would only sparkle as noise.)
+		vec2 sl = creekWaves(vWaterP.xz, uTime) * (1.0 - 0.8 * smoothstep(12.0, 40.0, length(vViewPosition)));
+		normal = normalize(normal - (viewMatrix * vec4(sl.x, 0.0, sl.y, 0.0)).xyz);
+	}`,
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `{
+		vec3 V = normalize(vViewPosition);
+		float ndv = saturate(dot(normal, V));
+		vec3 R = inverseTransformDirection(reflect(-V, normal), viewMatrix);
+		vec3 env = mix(uGround, uSky, smoothstep(-0.2, 0.3, R.y));
+		env = mix(env, textureLod(uEnv, R, 2.0).rgb * 1.2, uEnvOn);
+		float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
+		outgoingLight = mix(outgoingLight, env, fres * 0.65);
+		diffuseColor.a = mix(diffuseColor.a, 1.0, fres * 0.5);
+	}
+	#include <opaque_fragment>`,
+      );
+    if (!shader.fragmentShader.includes('creekWaves(vWaterP')) console.warn('valley: shader chunks changed, flat water');
+  };
+  m.customProgramCacheKey = () => 'creek-water';
+  const mesh = new THREE.Mesh(g, m);
+  mesh.name = 'creek';
+  mesh.renderOrder = 2;
+  scene.add(mesh);
+  return mesh;
+}
+
 // The ground: a 1 m grid, drawn with the meadow texture and lit per vertex by its slope, darker
 // and browner in the creek bed and grayer on the steep rim; collision is the same triangles.
 function terrain(B, M, RAPIER, world) {
@@ -72,6 +285,7 @@ function terrain(B, M, RAPIER, world) {
   const pos = new Float32Array(nx * nz * 3);
   const uv = new Float32Array(nx * nz * 2);
   const col = new Float32Array(nx * nz * 3);
+  const mix = new Float32Array(nx * nz * 2);
   const tile = M.grass.userData.tile;
   for (let j = 0; j < nz; j++) {
     for (let i = 0; i < nx; i++) {
@@ -102,24 +316,25 @@ function terrain(B, M, RAPIER, world) {
   for (let k = 0; k < nx * nz; k++) {
     const y = pos[k * 3 + 1];
     const ny = nor.getY(k);
-    // Slopes a little darker; wet banks and the bed browner; the steep rim rockier.
-    let r = 0.78 + 0.22 * ny;
-    let g = r;
-    let b = r;
+    // Slopes a little darker, wet banks and the bed darker still (the textures blend in the
+    // shader, by aMix: dirt and rock).
+    const x = pos[k * 3];
+    const z = pos[k * 3 + 2];
+    const [dirt, rock] = groundMix(x, z, y, ny);
+    mix[k * 2] = dirt;
+    mix[k * 2 + 1] = rock;
+    let r = 0.8 + 0.2 * ny;
     const wet = smooth(0.2, -0.9, y);
-    r *= 1 - 0.12 * wet;
-    g *= 1 - 0.28 * wet;
-    b *= 1 - 0.38 * wet;
-    const steep = smooth(0.85, 0.6, ny);
-    r = r * (1 - steep) + 0.82 * steep;
-    g = g * (1 - steep) + 0.78 * steep;
-    b = b * (1 - steep) + 0.76 * steep;
+    r *= 1 - 0.25 * wet;
+    let g = r * (1 - 0.06 * wet);
+    let b = r * (1 - 0.1 * wet);
     const n = 0.94 + rand() * 0.08;
     col[k * 3] = r * n;
     col[k * 3 + 1] = g * n;
     col[k * 3 + 2] = b * n;
   }
   geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geom.setAttribute('aMix', new THREE.BufferAttribute(mix, 2));
   B._add(M.grass, geom, false, null, false);
   // Collision: the same triangles.
   const c = world.createCollider(RAPIER.ColliderDesc.trimesh(pos.slice(), new Uint32Array(index)));
@@ -139,7 +354,8 @@ function boulder(B, M, RAPIER, world, rand, x, z, r) {
   _q.setFromEuler(_e.set((rand() - 0.5) * 0.4, rand() * Math.PI * 2, (rand() - 0.5) * 0.4));
   g.applyMatrix4(_m.compose(_p.set(x, y + _s.y * 0.45, z), _q, _s));
   const uv = g.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r * 2, uv.getY(i) * r);
+  // (Large on the rock texture, so its layers read as a few bands, not rings.)
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r * 0.8, uv.getY(i) * r * 0.4);
   g.setIndex([...Array(g.attributes.position.count).keys()]);
   const pos = g.attributes.position;
   const col = new Float32Array(pos.count * 3);
@@ -151,7 +367,7 @@ function boulder(B, M, RAPIER, world, rand, x, z, r) {
     col[i * 3 + 2] = lit * 0.86;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  B._add(M.concrete, g, true);
+  B._add(M.rock ?? M.concrete, g, true);
   // Solid: a box a little inside the rock's shape.
   const hx = _s.x * 0.72;
   const hz = _s.z * 0.72;
@@ -282,7 +498,7 @@ export const VALLEY_LINKS = [-1, 1].map((s) => ({
   b: [s * PAD_TO_X, heightAt(s * PAD_TO_X, 0), 0],
 }));
 
-export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512, loose = false }) {
+export function buildValley({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, preset = {}, loose = false }) {
   const B = new StaticBuilder(RAPIER, world, { loose });
   const zones = new Zones();
   const rand = mulberry32(53);
@@ -308,14 +524,7 @@ export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512
     zones.addLaunch([x - 1.2, y - 0.5, -1.2], [x + 1.2, y + 1, 1.2], padVelocity(s));
   }
 
-  // Boulders: clusters on the hills, along the creek banks and scattered over the open ground.
-  const rocks = [
-    [-16, 19, 1.4], [-14, 21.5, 0.9], [-18.5, 17, 1.0], [16, -19, 1.4], [14, -21.5, 0.9], [18.5, -17, 1.0],
-    [15, 20, 1.1], [-15, -20, 1.1], [-8, -4, 0.9], [8, 4, 0.9], [-8.5, 14, 0.8], [8.5, -14, 0.8],
-    [-24, -12, 1.2], [24, 12, 1.2], [-26, 10, 0.9], [26, -10, 0.9], [-20, 4, 0.7], [20, -4, 0.7],
-    [-11, -22, 1.0], [11, 22, 1.0], [-30, 18, 1.3], [30, -18, 1.3], [-32, -20, 1.1], [32, 20, 1.1],
-  ];
-  for (const [x, z, r] of rocks) boulder(B, M, RAPIER, world, rand, x, z, r);
+  for (const [x, z, r] of ROCKS) boulder(B, M, RAPIER, world, rand, x, z, r);
   // A few crates and drums by the bases.
   // (Each sunk a little into the slope it stands on.)
   const at = (x, z) => heightAt(x, z) - 0.1;
@@ -339,13 +548,13 @@ export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512
   const bake = bakeArena(B, { id: 'valley', half: HX + 2, size: bakeSize, seed: 41 });
   const meshes = B.build(scene, gfx.vertexLight ? bake : null);
   if (gfx.bake) bake.apply(M.grass);
+  // Grass, dirt and rock blended (after the bake: it overwrites the grass's color, which the
+  // bake and grime then darken).
+  if (gfx.terrainBlend && textures.rock) terrainBlend(M.grass, textures);
 
-  // The water: one plane over the creek.
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(11, HZ * 2 + 4).rotateX(-Math.PI / 2), M.water);
-  water.position.set(0, WATER, 0);
-  water.name = 'creek';
-  water.renderOrder = 2;
-  scene.add(water);
+  water(scene, M);
+  // Grass tufts swaying in the wind over the meadow (Medium and High).
+  const tufts = gfx.foliage && preset.foliage ? grassTufts(scene, textures.blades, { count: preset.foliage, place: tuftSpot }) : null;
 
   const spawnPoints = [
     [-BASE_X, PLATEAU + 0.1, -3], [-BASE_X + 2, PLATEAU + 0.1, 3], [-BASE_X + 1, ROOF + 0.3, -2], [-BASE_X - 9, PLATEAU, 9],
@@ -380,6 +589,8 @@ export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512
     // Crates and drums for the Gravity Gun to throw (world/props.js), when it's in the match.
     loose: B.loose ?? [],
     update(dt, time, fx) {
+      creekTime.value = time;
+      if (tufts) tufts.uniforms.uTime.value = time;
       for (const v of vents) {
         v.acc += dt * v.wisps;
         while (v.acc >= 1) {

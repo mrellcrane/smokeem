@@ -39,6 +39,10 @@ export const gfx = {
   flare: true,
   // God rays from the sun through gaps (high preset, outdoor maps; render/bloom.js).
   godRays: true,
+  // Smokehouse Creek's ground blends grass, dirt and rock (world/valley.js).
+  terrainBlend: true,
+  // Grass tufts on Smokehouse Creek (medium and high presets; world/foliage.js).
+  foliage: true,
   // Dynamic resolution: the render scale drops when frames run long (render/dynres.js).
   dynamicResolution: true,
 };

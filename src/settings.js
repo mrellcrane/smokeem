@@ -24,6 +24,8 @@ export const QUALITY_PRESETS = {
     shafts: false,
     // The sun's lens flare (render/flare.js).
     flare: false,
+    // Grass tufts on Smokehouse Creek (world/foliage.js): how many (0: none).
+    foliage: 0,
   },
   medium: {
     label: 'Medium',
@@ -39,6 +41,7 @@ export const QUALITY_PRESETS = {
     portalViews: 6,
     shafts: true,
     flare: true,
+    foliage: 2200,
   },
   high: {
     label: 'High',
@@ -54,6 +57,7 @@ export const QUALITY_PRESETS = {
     portalViews: 3,
     shafts: true,
     flare: true,
+    foliage: 3600,
     // Bloom: bright things glow (render/bloom.js).
     bloom: true,
     // Normal maps on the relief-painted surfaces (textures.js).

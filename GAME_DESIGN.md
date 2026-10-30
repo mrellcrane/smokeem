@@ -1171,3 +1171,8 @@ Need answers before the step that uses them gets built.
   bare metal, and a dented surface so the shine stops looking like plastic; the undersuit gets a
   ribbed weave and a soft sheen. All in the body shader, drawn in the rest pose so it moves with
   the armor; no new textures, geometry or draw calls.
+- 2026-10-30: Graphics pass, Smokehouse Creek. The ground blends grass, worn dirt (banks, tracks
+  from each base to the bridges, round the bases, pads and boulders) and rock (the steep rim)
+  instead of one green texture; boulders are rock. Grass tufts sway in the wind (Medium and High).
+  The creek's water ripples downstream with sun glints, reflects the valley, foams at the banks,
+  and goes from clear shallows to deep green-blue, so the stones in it no longer show through.

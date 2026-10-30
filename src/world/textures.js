@@ -431,6 +431,81 @@ function grass(S) {
   return toTexture(c);
 }
 
+// Smokehouse Creek's rock (one 3 m tile, on the steep rim and banks): gray-brown stone in
+// layers, with blocky patches, cracks, a few pale lichen spots, lit from above like a wall.
+function rock(S) {
+  const k = S / 256;
+  const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
+  const rand = mulberry32(83);
+  ctx.fillStyle = '#7e766b';
+  ctx.fillRect(0, 0, S, S);
+  hctx.fillStyle = gray(128);
+  hctx.fillRect(0, 0, S, S);
+  blobs(ctx, S, S, rand, 50, 10 * k, 40 * k, ['#6c655b', '#8d857a', '#746c61', '#857a6a'], 0.4);
+  // Layers: bands across, each raised a little more at its top.
+  let y = 0;
+  while (y < S) {
+    const h = (6 + rand() * 18) * k;
+    const tone = ['#736b60', '#857d72', '#6a6359', '#8b8276'][Math.floor(rand() * 4)];
+    const lift = 120 + Math.floor(rand() * 40);
+    ctx.globalAlpha = 0.35;
+    both(ctx, hctx, tone, lift, (q) => q.fillRect(0, y, S, h));
+    ctx.globalAlpha = 0.28;
+    both(ctx, hctx, '#4f4942', 110, (q) => q.fillRect(0, y + h - 1.2 * k, S, 1.2 * k));
+    ctx.globalAlpha = 1;
+    y += h;
+  }
+  // Blocky chunks standing out of the face.
+  for (let i = 0; i < 40 * k * k; i++) {
+    const x = rand() * S;
+    const yy = rand() * S;
+    const w = (4 + rand() * 12) * k;
+    const hh = (3 + rand() * 7) * k;
+    const tone = ['#8f877b', '#6e675d', '#7a7266'][Math.floor(rand() * 3)];
+    ctx.globalAlpha = 0.5;
+    wrapped(ctx, S, S, x, yy, (cc, px, py) => both(cc, hctx, tone, 150 + Math.floor(rand() * 30), (q) => q.fillRect(px, py, w, hh)));
+    ctx.globalAlpha = 1;
+  }
+  blobs(ctx, S, S, rand, 300 * k * k, 0.5 * k, 1.6 * k, ['#5a544c', '#a39a8c'], 0.5);
+  // Lichen.
+  blobs(ctx, S, S, rand, 14, 1.5 * k, 5 * k, ['#9a9a6a', '#8a9060'], 0.35);
+  for (let i = 0; i < 7; i++) crack(ctx, hctx, S, rand, 8 + Math.floor(rand() * 16), '#3e3933');
+  relief(ctx, hctx, S, WALL_LIGHT, 0.4, { grain: 18, rand });
+  return toTexture(c);
+}
+
+// Grass blades for Smokehouse Creek's tufts (world/foliage.js): a clump of tapered blades on a
+// clear background, darker at the roots, lighter at the tips.
+function blades() {
+  const W = 64;
+  const H = 64;
+  const [c, ctx] = canvas(W, H);
+  const rand = mulberry32(97);
+  ctx.clearRect(0, 0, W, H);
+  for (let i = 0; i < 26; i++) {
+    const x0 = 6 + rand() * (W - 12);
+    const lean = (rand() - 0.5) * 26;
+    const top = 4 + rand() * 26;
+    const w = 1.6 + rand() * 1.8;
+    const g = ctx.createLinearGradient(0, H, 0, top);
+    const tip = ['#a6bb68', '#93ad5c', '#b4c274', '#86a252'][Math.floor(rand() * 4)];
+    g.addColorStop(0, '#4a6230');
+    g.addColorStop(0.5, '#6b8742');
+    g.addColorStop(1, tip);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x0 - w, H);
+    ctx.quadraticCurveTo(x0 + lean * 0.3, (H + top) / 2, x0 + lean, top);
+    ctx.quadraticCurveTo(x0 + lean * 0.3 + w * 0.5, (H + top) / 2, x0 + w, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const t = toTexture(c);
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}
+
 // Metal wall panels, 4 across and 2 up per tile (1 m x 2 m at the 4 m tile): each its own tint,
 // with seams, worn bright edges, rivets, grime low down, and two rust streaks under rivets.
 // (No stenciled numbers: anything that distinctive shows the 4 m repeat along a wall.)
@@ -1267,6 +1342,8 @@ function painters(S) {
     mud: ['mud', mud],
     slab: [`slab@${S}`, () => slab(S)],
     grass: [`grass@${S}`, () => grass(S)],
+    rock: [`rock@${S}`, () => rock(S)],
+    blades: ['blades', blades],
     belt: ['belt', belt],
     net: ['net', net],
     rope: ['rope', rope],
