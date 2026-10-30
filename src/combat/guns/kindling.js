@@ -45,8 +45,8 @@ export default {
     [[0, 0.08, -0.19], [0.006, 0.02, 0.006], METAL],
     [[-0.0345, 0.03, -0.08], [0.002, 0.03, 0.08], BORE, { bevel: 0 }],
     // The drum magazine and its neck.
-    [[0, -0.08, -0.14], [0.062, 0.12, 0.12], ORANGE, { shape: 'cyl', axis: 'x', seg: 18 }],
-    [[0, -0.08, -0.14], [0.068, 0.04, 0.04], METAL, { shape: 'cyl', axis: 'x' }],
+    [[0, -0.08, -0.14], [0.062, 0.12, 0.12], ORANGE, { shape: 'cyl', axis: 'x', seg: 18, group: 'mag' }],
+    [[0, -0.08, -0.14], [0.068, 0.04, 0.04], METAL, { shape: 'cyl', axis: 'x', group: 'mag' }],
     [[0, -0.025, -0.14], [0.04, 0.03, 0.04], METAL],
     // The vented barrel shroud, its glowing vents and the muzzle.
     [[0, 0.03, -0.29], [0.052, 0.052, 0.16], METAL_LIGHT, { shape: 'cyl', seg: 14 }],

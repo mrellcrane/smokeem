@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp, clamp } from '../util/math.js';
 import { partsGeometry } from '../combat/weaponModels.js';
+import { gloveParts } from './gloves.js';
 import { GUNS } from '../combat/guns/index.js';
 import { SWITCH_TIME } from '../combat/weapons.js';
 
@@ -21,9 +22,14 @@ export const viewmodelUniforms = {
   uUp: { value: new THREE.Vector3(0, 1, 0) },
   uSky: { value: new THREE.Color(0xb8d4f0) },
   uGround: { value: new THREE.Color(0x4a3a2c) },
+  // How far each group (none, mag, pump, support hand: weaponModels.js GROUPS) is moved, in gun
+  // space; set from the drawn player's viewmodel before each view (Viewmodel.bind).
+  uGroupOff: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
 };
 const VM_VERTEX_HEAD = /* glsl */ `
   attribute float aFinish;
+  attribute float aGroup;
+  uniform vec3 uGroupOff[4];
   varying float vFinish;
   varying vec3 vGun;
 `;
@@ -90,14 +96,14 @@ export function viewmodelMaterial() {
     Object.assign(shader.uniforms, viewmodelUniforms);
     shader.vertexShader = VM_VERTEX_HEAD + shader.vertexShader.replace(
       '#include <begin_vertex>',
-      '#include <begin_vertex>\n  vFinish = aFinish;\n  vGun = position;',
+      '#include <begin_vertex>\n  transformed += uGroupOff[int(aGroup + 0.5)];\n  vFinish = aFinish;\n  vGun = position;',
     );
     shader.fragmentShader = VM_FRAGMENT_HEAD + shader.fragmentShader
       .replace('#include <color_fragment>', VM_COLOR)
       .replace('#include <lights_phong_fragment>', VM_LIGHTS)
       .replace('#include <envmap_fragment>', VM_ENV);
   };
-  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v2';
+  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v3';
   return sharedMaterial;
 }
 
@@ -144,11 +150,19 @@ export class Viewmodel {
     this.lower = 0;
     this.slide = 0;
     this.vy = 0;
+    this.swayVX = 0;
+    this.swayVY = 0;
+    this.roll = 0;
+    this.breath = 0;
+    this.cant = 0;
+    // Where the mag, the pump and the support hand are, relative to the gun (gun space).
+    this.groupOff = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
   }
 
   addGun(id) {
     const g = GUNS[id];
-    const mesh = new THREE.Mesh(partsGeometry([...g.parts, ...g.hands], this.armorColor), sharedMaterial);
+    const mesh = new THREE.Mesh(partsGeometry([...g.parts, ...gloveParts(g.hands)], this.armorColor), sharedMaterial);
+    mesh.userData.mag = g.parts.some((part) => part[3]?.group === 'mag');
     mesh.scale.setScalar(g.view.scale);
     mesh.visible = false;
     if (g.spin) {
@@ -205,8 +219,17 @@ export class Viewmodel {
     this.bobPhase += dt * (6 + p.speed() * 1.2) * (run > 0.05 ? 1 : 0);
     const k = damp(10, dt);
     const rate = dt > 0 ? 1 / Math.max(dt, 1 / 240) : 0;
-    this.swayX += (clamp(-lookX * rate * 0.004, -0.05, 0.05) - this.swayX) * k;
-    this.swayY += (clamp(lookY * rate * 0.004, -0.04, 0.04) - this.swayY) * k;
+    // The gun trails the turn on a spring, overshooting a little as the turn stops.
+    const sx = clamp(-lookX * rate * 0.004, -0.05, 0.05);
+    const sy = clamp(lookY * rate * 0.004, -0.04, 0.04);
+    const step = Math.min(dt, 1 / 30);
+    this.swayVX += ((sx - this.swayX) * 170 - this.swayVX * 17) * step;
+    this.swayVY += ((sy - this.swayY) * 170 - this.swayVY * 17) * step;
+    this.swayX += this.swayVX * step;
+    this.swayY += this.swayVY * step;
+    // Strafing leans the gun into the move; standing still it breathes.
+    this.roll += (clamp(-p.pose.side * 0.012, -0.08, 0.08) - this.roll) * k;
+    this.breath += dt;
     this.sprint += ((p.sprinting && run > 0.5 ? 1 : 0) - this.sprint) * damp(9, dt);
     this.aim += ((p.aimZoom > 1.02 ? 1 : 0) - this.aim) * damp(14, dt);
     const lowered = p.mode === 'mantle' ? 1 : p.mode === 'net' || p.mode === 'rope' || p.mode === 'bars' ? 0.35 : 0;
@@ -223,26 +246,37 @@ export class Viewmodel {
     const bash = curve(this.bashT);
     const toss = curve(this.tossT);
     const pump = this.pumpT > 0.25 ? curve((this.pumpT - 0.25) / 0.75) : 0;
-    const reload = Math.sin(Math.PI * p.weapon.reloadProgress);
+    // Reloading a mag or loading shells, the gun cants toward you so you see the hands work
+    // (the mag slaps home near the end); anything else dips out of the way.
+    const w = p.weapon;
+    const rt = w.reloadProgress;
+    const magReload = rt > 0 && !w.def.reloadPerShell && this.gun.userData.mag;
+    const cantTo = magReload ? (rt < 0.86 ? 1 : 0) : w.reloading && w.def.reloadPerShell ? 0.7 : 0;
+    this.cant += (cantTo - this.cant) * damp(9, dt);
+    const reload = rt > 0 && !magReload && !w.def.reloadPerShell ? Math.sin(Math.PI * rt) : 0;
+    const slap = magReload && rt > 0.74 && rt < 0.86 ? Math.sin((Math.PI * (rt - 0.74)) / 0.12) : 0;
+    const cant = this.cant;
     const sw = p.switchT > 0 ? Math.min(1, p.switchT / (p.weapon.def.switchTime ?? SWITCH_TIME)) : 0;
 
+    const still = 1 - Math.min(1, run * 4);
     const bobX = Math.sin(this.bobPhase) * 0.012 * run;
-    const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * run;
+    const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * run + Math.sin(this.breath * 1.6) * 0.0025 * still * (1 - this.aim);
     const a = this.aim;
     const g = this.gun;
     const [px, py, pz] = pose.pos;
     const [rx, ry, rz] = pose.rot;
     g.position.set(
-      px - 0.08 * a + bobX + this.swayX - 0.05 * this.sprint - 0.04 * bash,
-      py + 0.035 * a + bobY + this.swayY + this.vy - 0.12 * reload - 0.05 * this.sprint - 0.2 * this.lower -
+      px - 0.08 * a + bobX + this.swayX - 0.05 * this.sprint - 0.04 * bash - 0.03 * cant,
+      py + 0.035 * a + bobY + this.swayY + this.vy - 0.12 * reload + 0.012 * cant + 0.012 * slap - 0.05 * this.sprint - 0.2 * this.lower -
         p.landDip * 0.25 - 0.3 * sw - 0.16 * toss + 0.03 * bash - 0.025 * this.slide,
-      pz + 0.012 * this.kick + 0.05 * a - 0.14 * bash + 0.04 * pump,
+      pz + 0.012 * this.kick + 0.05 * a - 0.14 * bash + 0.04 * pump + 0.03 * cant,
     );
     g.rotation.set(
-      rx + 0.035 * this.kick - 0.45 * reload - 0.25 * this.sprint - 0.5 * this.lower - 0.9 * sw - 0.35 * toss + 0.12 * pump - 0.25 * bash,
-      ry + 0.55 * this.sprint + 0.3 * bash,
-      rz + 0.6 * reload + this.swayX * 2 + 0.5 * bash + 0.12 * this.slide,
+      rx + 0.035 * this.kick - 0.45 * reload + 0.12 * cant + 0.05 * slap - 0.25 * this.sprint - 0.5 * this.lower - 0.9 * sw - 0.35 * toss + 0.12 * pump - 0.25 * bash,
+      ry + 0.55 * this.sprint + 0.3 * bash + 0.22 * cant,
+      rz + 0.6 * reload + 0.5 * cant + this.swayX * 2 + 0.5 * bash + 0.12 * this.slide + this.roll * (1 - 0.6 * a),
     );
+    this.moveGroups(w, pump, g.userData.mag);
 
     // Rotisserie barrels turn with the spin-up.
     const spinner = g.userData.spinner;
@@ -254,6 +288,50 @@ export class Viewmodel {
     } else if (this.flash.visible) {
       this.flash.visible = false;
     }
+  }
+
+  // The mag, the pump and the support hand. A mag reload: the mag drops out, the hand goes down
+  // for a fresh one and brings it up into the well. Loading shells one at a time, the hand dips
+  // to the port for each. Other reloads take the hand off the gun and back. The pump racks back
+  // with the hand on it.
+  moveGroups(w, pump, hasMag) {
+    const [, mag, slide, hand] = this.groupOff;
+    mag.set(0, 0, 0);
+    slide.set(0, 0, 0);
+    hand.set(0, 0, 0);
+    const t = w.reloadProgress;
+    if (t > 0) {
+      const ease = (a, b) => {
+        const x = clamp((t - a) / (b - a), 0, 1);
+        return x * x * (3 - 2 * x);
+      };
+      if (w.def.reloadPerShell) {
+        const dip = Math.sin(Math.PI * t);
+        hand.set(0.01 * dip, -0.07 * dip, 0.09 * dip);
+      } else if (hasMag) {
+        const fetch = ease(0.14, 0.42) * (1 - ease(0.5, 0.8));
+        hand.set(-0.03 * fetch, -0.24 * fetch, 0.06 * fetch);
+        if (t < 0.46) {
+          const out = ease(0.06, 0.3);
+          mag.set(0, -0.4 * out * out, 0.03 * out);
+        } else {
+          mag.copy(hand);
+        }
+      } else {
+        const off = ease(0.1, 0.35) * (1 - ease(0.65, 0.9));
+        hand.set(-0.02 * off, -0.18 * off, 0.08 * off);
+      }
+    }
+    if (pump > 0) {
+      slide.set(0, 0, 0.075 * pump);
+      hand.z += 0.075 * pump;
+    }
+  }
+
+  // Hands this viewmodel's group offsets to the shared material, before its view renders.
+  bind() {
+    const offs = viewmodelUniforms.uGroupOff.value;
+    for (let i = 0; i < 4; i++) offs[i].copy(this.groupOff[i]);
   }
 
   warmup(on) {

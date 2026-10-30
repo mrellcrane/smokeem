@@ -771,6 +771,7 @@ export class Game {
         _invQ.copy(p.camera.quaternion).invert();
         this.vmSun.position.copy(_sunDir).applyQuaternion(_invQ).multiplyScalar(5);
         viewmodelUniforms.uUp.value.set(0, 1, 0).applyQuaternion(_invQ);
+        p.viewmodel.bind();
         r.clearDepth();
         r.render(this.vmScene, vc);
       }

@@ -45,7 +45,7 @@ export default {
     [[0, 0.02, -0.1], [0.058, 0.075, 0.3], METAL],
     [[0.04, 0.04, 0.0], [0.04, 0.01, 0.01], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
     [[0.062, 0.036, 0.0], [0.018, 0.018, 0.018], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
-    [[0, -0.05, -0.12], [0.042, 0.06, 0.06], METAL],
+    [[0, -0.05, -0.12], [0.042, 0.06, 0.06], METAL, { group: 'mag' }],
     // A long barrel, tapering to the muzzle brake, over a slim fore end.
     [[0, 0.03, -0.57], [0.028, 0.028, 0.62], METAL_LIGHT, { shape: 'cyl', taper: 0.75 }],
     [[0, 0.03, -0.87], [0.036, 0.036, 0.05], METAL, { shape: 'cyl', bore: 0.45 }],

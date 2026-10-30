@@ -15,6 +15,8 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 //   bore: a dark disk this fraction of the radius in the cylinder's far cap (barrels).
 //   seg: a cylinder's sides at high detail (default from its size).
 //   finish: 'metal', 'wood', 'paint', 'matte' or 'glow' (default from the color; see FINISH).
+//   group: 'mag', 'pump' or 'support' (the support hand): parts the first-person view moves on
+//     their own (reloads, racking the pump), as the aGroup attribute.
 // Detail 'hi' (first person, pickups, pictures) has chamfers and round cylinders; 'lo' (the
 // third-person guns baked into every body) is plain boxes and six-sided cylinders.
 
@@ -47,6 +49,8 @@ const FINISH = {
   [GLOW]: 'glow',
   [SCREEN]: 'glow',
 };
+export const GROUPS = { mag: 1, pump: 2, support: 3 };
+
 export function finishOf(color, opts) {
   return FINISHES[opts?.finish ?? FINISH[color] ?? 'paint'];
 }
@@ -300,8 +304,8 @@ export function tagColor(out, base, tag, finish) {
   return out;
 }
 
-// Merge parts into one vertex-colored geometry, with each vertex's finish (aFinish) for the
-// first-person material. `extra` adds skinning or other attributes per vertex:
+// Merge parts into one vertex-colored geometry, with each vertex's finish (aFinish) and group
+// (aGroup) for the first-person material. `extra` adds skinning or other attributes per vertex:
 // extra(geometry, vertexCount).
 export function partsGeometry(parts, armorColor, { offset = [0, 0, 0], scale = 1, inflate = 0, extra = null, detail = 'hi' } = {}) {
   const geoms = [];
@@ -316,6 +320,7 @@ export function partsGeometry(parts, armorColor, { offset = [0, 0, 0], scale = 1
     for (let i = 0; i < n; i++) tagColor(_col, base, tags[i], finish).toArray(col, i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.setAttribute('aFinish', new THREE.BufferAttribute(new Float32Array(n).fill(finish), 1));
+    g.setAttribute('aGroup', new THREE.BufferAttribute(new Float32Array(n).fill(GROUPS[opts?.group] ?? 0), 1));
     if (extra) extra(g, n);
     geoms.push(g);
   }
