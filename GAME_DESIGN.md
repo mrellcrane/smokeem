@@ -609,7 +609,8 @@ Gun and plenty of crates and barrels to throw).
 
 Owner pick (2026-10-30): Halo's Valhalla shape. A 100 m x 64 m grass valley under a big
 afternoon sky, rimmed by steep slopes. Wide open, long sight lines, built for the field guns and
-(later) the Sizzler: its default set is Competition Cut.
+the Sizzler: its default set is Backyard (the Hickory for the range, the Smoke Signal for the
+bikes).
 
 - **The smokehouses** (west and east ends): one on each plateau, 3 m above the valley. Doors on
   every side, a smoker with a glowing firebox on the porch, a smokestack, and a roof deck with a
@@ -1129,3 +1130,12 @@ Need answers before the step that uses them gets built.
   strip it takes that color, most on its underside. Your first-person gun dims in shade and loses
   the sun when something's between you and it. No new draw calls or shaders. (The static
   one-bounce tint from the research was left out: bodies were where it showed.)
+- 2026-10-30: Time-to-kill pass (feel research: Bungie tuned a handful of numbers against a 3 s
+  exchange, a 30 s fight and a 3 min arc). On paper, at close range on a full-shield target: Hickory
+  1.67 s, Kindling 1.36 s, Rotisserie 1.33 s, Toothpick 2.25 s, Cold Smoke 2 s (about 1 s on
+  headshots), Mesquite two shots in 0.85 s: in the range of Halo 3's rifle, SMG and pistol, so
+  the guns stay as they are. Measured in 4-minute 8-player bot matches (seconds from the killer's
+  first hit to the kill, median): Mudlark Hickory 1.4, Kindling 2.2; Smokestack Hickory 3.7 (fights
+  break off at cover and pick up again: the 30 s loop); Creek on Competition Cut Kindling 3.6, the
+  outlier, since an SMG drags fights out on an open valley. Creek's default set is now Backyard
+  (Hickory 1.5, Kindling 2.6 there). Lives run about 12 to 14 s with 8 players.

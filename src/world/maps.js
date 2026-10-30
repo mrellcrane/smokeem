@@ -29,7 +29,9 @@ export const MAPS = {
     build: buildValley,
     look: VALLEY_LOOK,
     links: VALLEY_LINKS,
-    defaultSet: 'competitionCut',
+    // (A mid-range rifle for an open valley, and the Smoke Signal for the bikes, as Valhalla has
+    // its rockets: Competition Cut's SMG dragged fights out here.)
+    defaultSet: 'backyard',
   },
 };
 
