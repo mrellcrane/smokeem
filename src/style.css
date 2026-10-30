@@ -216,8 +216,9 @@ button.big {
 }
 
 .segmented button {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 0;
+  /* (Never narrower than its longest word, so one-word labels like Smokestack fit.) */
+  min-width: min-content;
   font-size: 16px;
   padding: 10px 12px;
   background: transparent;

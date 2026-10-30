@@ -444,8 +444,10 @@ synthesized.
 
 ### Grenades and melee
 
-- **Briquette** grenade: start with 2, carry up to 4. Thrown hard (17 m/s plus a lift), it
-  bounces, settles and blows up 2.4 s after the throw. Blast: 5 m radius, full 130 damage
+- **Briquette** grenade: start with 2, carry up to 4. Thrown hard (20 m/s plus a lift) with next
+  to no drag in the air, so aiming higher throws further, as in Halo (about 13 m flat, 26 m at
+  30 degrees up); from its first bounce it drags and settles. It blows up 2.4 s after the throw,
+  or, if it's still in the air then, a third of a second after it lands. Blast: 5 m radius, full 130 damage
   within 1 m. Solid cover between you and a blast blocks it. Blasts shove people and other
   grenades, shake nearby cameras, and hurt the thrower.
 - Every blast flashes white, rolls fire that cools from yellow to red into dark smoke, and
@@ -874,3 +876,7 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Rocky Mountain Oysters fix (owner report: sacks floating around unattached). Your
   own sack now hides in your own view like your body does, and the killcam replays the sacks
   with the bodies instead of drawing them where people are now.
+- 2026-10-30: Owner: grenades should go further when you aim higher, as in Halo. They had heavy
+  air drag (losing over half their speed a second), so a high lob stalled and fell short of a
+  flat one. Now almost no drag until the first bounce, a faster throw (20 m/s), a fuse that waits
+  for a long lob to land, and bots lob with the arc solver.
