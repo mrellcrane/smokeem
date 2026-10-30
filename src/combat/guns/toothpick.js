@@ -7,6 +7,8 @@ export default {
     name: 'Toothpick',
     blurb: 'Sidearm pistol. Quick to draw: finish people off instead of reloading.',
     kind: 'hitscan',
+    // One in each hand (Halo 2's dual wielding): the left fires on LT or right click.
+    dual: true,
     auto: false,
     fireRate: 4,
     damage: 20,

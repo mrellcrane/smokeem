@@ -9,9 +9,11 @@ import { gunDemo } from './gunDemos.js';
 // repaint every frame there, and at that size they're too small to follow anyway.
 export function loadoutCard(loadout, { note = '', demos = true } = {}) {
   const guns = loadout.guns
-    .map((id) => {
+    .map((id, i) => {
       const src = gunIcon(id);
-      return `<figure>${src ? `<img src="${src}" alt="">` : ''}${demos ? gunDemo(id) : ''}<figcaption>${WEAPONS[id].name}</figcaption></figure>`;
+      // (A dual-wield loadout's primary comes two at a time.)
+      const name = i === 0 && loadout.left ? `${WEAPONS[id].name} x2` : WEAPONS[id].name;
+      return `<figure>${src ? `<img src="${src}" alt="">` : ''}${demos ? gunDemo(id) : ''}<figcaption>${name}</figcaption></figure>`;
     })
     .join('');
   return `<div class="loadout-card"><b>${loadout.name}</b><div class="guns">${guns}</div>${note ? `<em>${note}</em>` : ''}</div>`;

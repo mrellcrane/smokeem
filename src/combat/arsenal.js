@@ -6,6 +6,7 @@ import { WEAPONS } from './weapons.js';
 //   sidearm    the set's sidearm, in both loadouts
 //   field      the gun on the map's field pads
 //   power      the gun on the map's power pad (power guns never go in loadouts)
+//   dual       primaries a loadout carries two of, one in each hand (dual-wield guns only)
 // heat says how much a set asks you to learn: Mild (the default), Medium (no wacky guns in
 // loadouts), Hot, Extra Hot (anything goes; opt-in only, never picked by Mystery Meat).
 // A set only shows up once all its guns are built.
@@ -82,7 +83,8 @@ export const WEAPON_SETS = {
     sidearm: 'carver',
     field: 'mesquite',
     power: 'hotLinks',
-    loadoutNames: ['Pitmaster', 'Hot n Fast'],
+    dual: ['kindling'],
+    loadoutNames: ['Pitmaster', 'Double Down'],
   },
   hogWild: {
     name: 'Hog Wild',
@@ -108,6 +110,8 @@ export function setLoadouts(set) {
   return set.primaries.map((g, i) => ({
     name: set.loadoutNames?.[i] ?? WEAPONS[g].name,
     guns: [g, set.sidearm],
+    // A second of the primary in the left hand.
+    left: set.dual?.includes(g) ? g : null,
   }));
 }
 
@@ -132,7 +136,7 @@ export function loadoutLabel(set, i) {
   const loadouts = setLoadouts(set);
   const n = loadouts.length;
   const l = loadouts[((i % n) + n) % n];
-  return `${l.name}: ${l.guns.map((g) => WEAPONS[g].name).join(' + ')}`;
+  return `${l.name}: ${l.guns.map((g, j) => (j === 0 && l.left ? `${WEAPONS[g].name} x2` : WEAPONS[g].name)).join(' + ')}`;
 }
 
 // Catch mistakes in the table above at load rather than mid-match (only for sets that exist).

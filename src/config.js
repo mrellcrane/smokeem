@@ -210,6 +210,16 @@ export const VIEWMODEL = {
   flash: 1.3,
 };
 
+// Dual wielding (Halo 2's): guns with `dual` in their def can be held one in each hand. Each
+// gun's spread is this much wider and its rounds do this share of the damage (two SMGs would
+// otherwise kill in half the time), and the first-person pair sits a little wider and lower.
+export const DUAL = {
+  spreadMul: 1.3,
+  damageMul: 0.75,
+  spread: 0.035,
+  drop: 0.015,
+};
+
 // The Sizzler (vehicles/sizzler.js): a one-seat motorcycle with twin guns, on maps that have
 // spots for it. Speeds in m/s, accelerations in m/s², turns in rad/s.
 export const SIZZLER = {

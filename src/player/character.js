@@ -45,17 +45,24 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // The skeleton for a body carrying these guns: the body bones plus one bone per gun, at the
 // gun's grip point (each gun module's `carry`), hung off the spine.
+// Dual-wield guns get a second bone for the left hand, at the mirror image of the carry.
 function rig(guns) {
   const joints = { ...JOINTS };
   const parent = { ...PARENT };
   const gunBones = {};
+  const leftBones = {};
   for (const id of guns) {
     const bone = `gun:${id}`;
     joints[bone] = GUNS[id].carry;
     parent[bone] = 'spine';
     gunBones[id] = bone;
+    if (!GUNS[id].def.dual) continue;
+    const c = GUNS[id].carry;
+    joints[`${bone}:L`] = [-c[0], c[1], c[2]];
+    parent[`${bone}:L`] = 'spine';
+    leftBones[id] = `${bone}:L`;
   }
-  return { joints, parent, gunBones, names: [...BODY_BONES, ...Object.values(gunBones)] };
+  return { joints, parent, gunBones, leftBones, names: [...BODY_BONES, ...Object.values(gunBones), ...Object.values(leftBones)] };
 }
 
 // Legs: rest vectors (hip socket to knee, knee to ankle) and heights, for keeping the feet on
@@ -234,6 +241,8 @@ const CLIMB = { rate: 2.6, reach: 0.18, knee: 0.55 };
 // On a Sizzler: thighs forward along the seat, shins down to the pegs (radians), the torso leaned
 // over the tank, and the hands on the grips (body space: the bike's bars from where the rider's
 // feet are, vehicles/sizzler.js). The gun goes on the back as for climbing.
+// Dual wielding: how far each gun moves out to its side (meters).
+const DUAL_APART = 0.09;
 const RIDE = { thigh: 1.45, knee: -1.75, lean: 0.32, grips: { R: new THREE.Vector3(0.34, 0.86, -0.8), L: new THREE.Vector3(-0.34, 0.86, -0.8) } };
 // Climbing, the gun goes on the back, muzzle up over the shoulder (spine space).
 const SLING_POS = new THREE.Vector3(0.06, 0.12, 0.22);
@@ -262,6 +271,8 @@ const _e = new THREE.Euler();
 const _m = new THREE.Matrix4();
 const _gq = new THREE.Quaternion();
 const _gp = new THREE.Vector3();
+const _gqL = new THREE.Quaternion();
+const _gpL = new THREE.Vector3();
 const _t = new THREE.Vector3();
 const _d = new THREE.Vector3();
 const _p = new THREE.Vector3();
@@ -485,13 +496,16 @@ function buildGeometry(colors, inflate, r, character) {
     g.setIndex(new THREE.BufferAttribute(b.index, 1));
     geoms.push(g);
   }
-  // Every weapon is baked in on its own bone; the ones not held are scaled to nothing.
-  for (const [id, bone] of Object.entries(r.gunBones)) {
-    const j = r.joints[bone];
+  // Every weapon is baked in on its own bone; the ones not held are scaled to nothing. A
+  // dual-wield gun's left-hand copy is the mirror image (x flipped, winding turned back).
+  const baked = [...Object.entries(r.gunBones).map(([id, bone]) => [id, bone, false]), ...Object.entries(r.leftBones).map(([id, bone]) => [id, bone, true])];
+  for (const [id, bone, mirror] of baked) {
+    const j = r.joints[mirror ? r.gunBones[id] : bone];
     const bi = r.names.indexOf(bone);
     for (const [c, size, color, opts] of allParts(id)) {
       if (!showsAtLow(size)) continue;
       const g = partGeometry(c, size, opts, 'lo', { offset: j, inflate: inflate ? 0.035 : 0 });
+      if (mirror) mirrorX(g);
       const n = g.attributes.position.count;
       const part = [new THREE.Color().set(color ?? colors.armor)];
       const finish = finishOf(color, opts);
@@ -515,6 +529,33 @@ function buildGeometry(colors, inflate, r, character) {
   const merged = mergeGeometries(geoms, false);
   for (const g of geoms) g.dispose();
   return merged;
+}
+
+// Flips a geometry across x = 0 in place: positions and normals, and each triangle's winding
+// so its faces still face out.
+function mirrorX(g) {
+  for (const name of ['position', 'normal']) {
+    const a = g.attributes[name];
+    for (let i = 0; i < a.count; i++) a.setX(i, -a.getX(i));
+  }
+  const idx = g.index.array;
+  for (let i = 0; i < idx.length; i += 3) {
+    const t = idx[i + 1];
+    idx[i + 1] = idx[i + 2];
+    idx[i + 2] = t;
+  }
+}
+
+// A grip for the left hand on the mirror image of a gun: the right hand's, mirrored.
+const _mirrorCache = {};
+function mirroredGrip(id) {
+  if (_mirrorCache[id]) return _mirrorCache[id];
+  const r = grips(id).right;
+  return (_mirrorCache[id] = {
+    wrist: new THREE.Vector3(-r.wrist.x, r.wrist.y, r.wrist.z),
+    q: new THREE.Quaternion(r.q.x, -r.q.y, -r.q.z, r.q.w),
+    slideMax: 0,
+  });
 }
 
 // One material for every body. Blinn-Phong whose highlight follows each vertex's shine (aShine:
@@ -813,6 +854,8 @@ export class CharacterModel {
     this.group.add(this.shell);
 
     this.weaponId = null;
+    // The left hand's gun when dual wielding (null for none).
+    this.leftId = null;
     // Each gun bone's resting place, for the holds to move it from.
     this.gunRest = {};
     for (const [id, bone] of Object.entries(r.gunBones)) this.gunRest[id] = this.bones[bone].position.clone();
@@ -961,6 +1004,14 @@ export class CharacterModel {
       // Not exactly zero, so skinned normals never divide by zero.
       this.bones[bone].scale.setScalar(wid === id ? 1 : 1e-4);
     }
+  }
+
+  // Dual wielding: the left hand's gun (a dual-wield gun's mirrored copy), or null.
+  setLeft(id) {
+    const want = id && this.rig.leftBones[id] ? id : null;
+    if (want === this.leftId) return;
+    this.leftId = want;
+    for (const [wid, bone] of Object.entries(this.rig.leftBones)) this.bones[bone].scale.setScalar(wid === want ? 1 : 1e-4);
   }
 
   setLayer(layer) {
@@ -1121,7 +1172,8 @@ export class CharacterModel {
       flinch * FLINCH.side * this.hurtSide,
     );
     // The bladed stance: the torso turns about its own (bent) axis, so the bend stays on the aim.
-    const twist = TWIST * this.twoHand * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb) * (1 - rd);
+    // (Square to the front with a gun in each hand.)
+    const twist = TWIST * this.twoHand * (this.leftId ? 0 : 1) * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb) * (1 - rd);
     B.spine.quaternion.multiply(_qe.setFromAxisAngle(Y_AXIS, twist));
     this.twistInv.setFromAxisAngle(Y_AXIS, -twist);
 
@@ -1222,21 +1274,33 @@ export class CharacterModel {
       _qr.copy(B.root.quaternion).multiply(B.hips.quaternion).multiply(B.spine.quaternion).invert();
       _sp.copy(B.spine.position).applyQuaternion(B.hips.quaternion).add(B.hips.position).applyQuaternion(B.root.quaternion).add(B.root.position);
     }
+    // Dual wielding: the guns held a little apart, the left one the right one's mirror image.
+    if (this.leftId) _gp.x += DUAL_APART;
     if (bone) {
       B[bone].position.copy(_gp);
       B[bone].quaternion.copy(_gq);
+    }
+    const leftBone = this.leftId ? this.rig.leftBones[this.leftId] : null;
+    if (leftBone) {
+      _gpL.set(-_gp.x, _gp.y, _gp.z);
+      _gqL.set(_gq.x, -_gq.y, -_gq.z, _gq.w);
+      B[leftBone].position.copy(_gpL);
+      B[leftBone].quaternion.copy(_gqL);
     }
     // Both hands on the gun (spine space), or reaching up to climb. When the gun's fore grip is
     // out of reach the support shoulder comes forward, then the hand slides back along the gun.
     for (const sd of SIDES) {
       const arm = ARM[sd];
-      const gr = sd === 'R' ? this.grips.right : this.grips.left;
-      _t.copy(gr.wrist).applyQuaternion(_gq).add(_gp);
+      // (The left hand on the left gun when there is one.)
+      const dualL = sd === 'L' && leftBone;
+      const gr = sd === 'R' ? this.grips.right : dualL ? mirroredGrip(this.leftId) : this.grips.left;
+      const gq = dualL ? _gqL : _gq;
+      _t.copy(gr.wrist).applyQuaternion(gq).add(dualL ? _gpL : _gp);
       _sh.copy(arm.shoulder);
       // The support hand leaves the gun: down to the belt for a reload, over the shoulder and out
       // for a throw (a free hand, so it doesn't slide along the gun).
       let free = 0;
-      if (sd === 'L') {
+      if (sd === 'L' && !dualL) {
         if (handOff > 0) {
           _t.x += RELOAD.hand[0] * handOff;
           _t.y += RELOAD.hand[1] * handOff;
@@ -1269,7 +1333,7 @@ export class CharacterModel {
       B[arm.upper].position.copy(_sh);
       solveArm(arm, _sh, _t, arm.pole, _qa, _qb);
       // The hand turns to its grip: its rest frame onto the grip's, as seen from the forearm.
-      _qf.copy(_gq).multiply(gr.q).multiply(arm.handRestInv);
+      _qf.copy(gq).multiply(gr.q).multiply(arm.handRestInv);
       _qg.copy(_qa).multiply(_qb).invert().multiply(_qf);
       const qu = B[arm.upper].quaternion;
       const ql = B[arm.lower].quaternion;

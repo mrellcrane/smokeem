@@ -95,6 +95,8 @@ export class KeyboardMouseInput {
     if (!action) return;
     this.mouseButtons.add(e.button);
     this.state.press(action);
+    // (The right button also fires the left-hand gun when dual wielding.)
+    if (e.button === 2) this.state.press('fire2');
   }
 
   onMouseUp(e) {
@@ -139,6 +141,7 @@ export class KeyboardMouseInput {
     }
     s.held.fire = this.mouseButtons.has(0);
     s.held.aim = this.mouseButtons.has(2);
+    s.held.fire2 = this.mouseButtons.has(2);
   }
 
   dispose() {

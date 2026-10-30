@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WEAPONS, GRENADE } from './weapons.js';
+import { WEAPONS, GRENADE, WeaponState } from './weapons.js';
 import { partsGeometry, briquetteGeometry } from './weaponModels.js';
 import { allParts } from './guns/index.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -118,6 +118,15 @@ export class Pickups {
     p.slots.forEach((w, i) => {
       if (w && !w.spawnGun) this.drop(w.def, w.mag, w.reserve, p.center.x + (i ? 0.5 : -0.5), y, p.center.z);
     });
+    this.dropLeft(p);
+  }
+
+  // The gun in the left hand goes (to the floor, unless it came with the loadout).
+  dropLeft(p) {
+    const w = p.left;
+    if (!w) return;
+    p.left = null;
+    if (!w.spawnGun) this.drop(w.def, w.mag, w.reserve, p.center.x, p.feetY(), p.center.z + 0.5);
   }
 
   tick(dt) {
@@ -150,6 +159,7 @@ export class Pickups {
   // Called from the player's tick with that tick's button presses.
   touch(p, pressed) {
     p.pickupPrompt = null;
+    p.pickupDual = false;
     if (!p.alive || p.guiding) return;
     const feet = p.feetY();
     for (const item of this.items) {
@@ -162,6 +172,23 @@ export class Pickups {
         p.grenades = Math.min(GRENADE.max, p.grenades + item.count);
         this.consume(item);
         this.taken(p, `+${item.count} ${GRENADE.name}s`);
+        return;
+      }
+      // A dual-wield gun in hand and another under us: take it in the left hand (on a hold, so
+      // walking over one never does it by surprise).
+      if (!p.left && p.weapon.def.dual && item.def.dual && p.switchT <= 0) {
+        p.pickupPrompt = item;
+        p.pickupDual = true;
+        if (pressed.interact) {
+          p.left = new WeaponState(item.def);
+          p.left.mag = item.mag;
+          p.left.reserve = item.reserve;
+          this.consume(item);
+          this.taken(p, `Dual wielding ${item.def.name}s`);
+          p.pickupPrompt = null;
+          p.pickupDual = false;
+          this.game.sfx.play('swap', { at: p.center, source: p });
+        }
         return;
       }
       const held = p.slots.find((w) => w && w.def === item.def);
@@ -190,6 +217,8 @@ export class Pickups {
       p.pickupPrompt = item;
       if (pressed.interact) {
         const old = p.weapon;
+        // (Only dual-wield guns go two at a time.)
+        if (p.left && !item.def.dual) this.dropLeft(p);
         p.giveWeapon(item.def, item.mag, item.reserve);
         this.consume(item);
         // A loadout gun swapped away is gone until respawn; picked-up guns hit the floor.

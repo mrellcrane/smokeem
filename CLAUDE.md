@@ -154,6 +154,17 @@ Live build: https://mrellcrane.github.io/smokeem/
   hitscan shot leg by leg through portals (its tracers per leg), `carry` moves missiles, bolts and
   bugs, `carryBody` grenades and props; `snapshot` renders the low-frame-rate pictures into an
   atlas after the views (preset's `portalViews`, gfx switch `portalViews`).
+- Dual wielding (Halo 2's): guns with `dual` in their def (Kindling, Toothpick) can be held one
+  in each hand. `player.left` is the left gun's `WeaponState`; while it fires, `firingLeft` makes
+  `player.weapon` return it, so `fire`, spread and reloads work for either hand (`leftHand` in
+  `shooting.js`; `pullTrigger` is one gun's trigger; the left uses the `fire2` input: right click,
+  LT). `DUAL` in `config.js` (spread, damage, first-person spread). Pickups offer a second
+  dual-wield gun (`pickupDual`) and `dropLeft` lets it go (switching, swapping, dying). A set's
+  `dual` list gives a loadout two of that primary (`left` on the loadout). First person:
+  `Viewmodel.leftGuns`, mirror-image meshes sharing each gun's geometry, posed as the right
+  gun's mirror. Bodies: each dual gun also gets a mirrored bone and baked copy (`rig`'s
+  `leftBones`, `mirrorX`), shown by `CharacterModel.setLeft`; the left arm takes the mirrored
+  grip and the stance stays square.
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system. Beams get
   their own small tracer pool, built only when the match's set has a beam gun. Grapple lines are
   `ropes.js` (one draw call, hidden while no hook is out).

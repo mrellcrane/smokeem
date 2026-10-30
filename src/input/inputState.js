@@ -6,6 +6,8 @@ export const ACTIONS = [
   'sprint',
   'crouch',
   'fire',
+  // The left-hand gun when dual wielding (right click, LT).
+  'fire2',
   'aim',
   'reload',
   'interact',
