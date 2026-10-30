@@ -46,3 +46,16 @@ export const VALLEY_LOOK = {
   grade: { sat: 0.74, contrast: 1.12, tint: [0.96, 1.0, 1.06], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.7, haze: 1.3 },
 };
 
+
+// Cook-Off Yard: a hazy late afternoon, the sun low in the northwest so the towers and the shed
+// throw long shadows down the yard; the facility's skyline round it.
+export const YARD_LOOK = {
+  sun: { dir: [-34, 46, -30], color: 0xffd6a0, intensity: 3.0 },
+  hemi: { sky: 0xa4c0f0, ground: 0x8a6448, intensity: 1.55 },
+  fog: { near: 90, far: 400 },
+  sky: { zenith: 0x2c5698, mid: 0x8eb0d4, horizon: 0xd8cfc0, below: 0xa58d78, skyline: true },
+  flare: true,
+  godRays: true,
+  vm: { hemi: 2.4, sun: 2.4 },
+  grade: { sat: 0.72, contrast: 1.12, tint: [0.97, 1.0, 1.04], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.7, haze: 1.35 },
+};

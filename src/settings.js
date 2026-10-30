@@ -104,7 +104,7 @@ export const BOT_SKILLS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 export const TIME_LIMITS = { 3: '3 min', 5: '5 min', 10: '10 min', 0: 'No limit' };
 export const MODES = { ffa: 'Free-for-all', oysters: 'Rocky Mountain Oysters' };
 // The title screen's map choices (world/maps.js has the maps).
-export const MAP_CHOICES = { mudlark: 'Mudlark', factory: 'Smokestack', valley: 'Creek', random: 'Random' };
+export const MAP_CHOICES = { mudlark: 'Mudlark', factory: 'Smokestack', valley: 'Creek', yard: 'Cook-Off', random: 'Random' };
 
 function load() {
   const out = { ...DEFAULTS };
