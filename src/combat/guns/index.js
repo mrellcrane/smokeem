@@ -10,12 +10,13 @@ import brander from './brander.js';
 import swarmJar from './swarmJar.js';
 import stickybomb from './stickybomb.js';
 import gravityGun from './gravityGun.js';
+import shrinkWrap from './shrinkWrap.js';
 
 // Every gun in the game. Each module exports { def, parts, hands, muzzle, view, carry }:
 // stats (see weapons.js), box model, first-person hands, muzzle point, first-person pose and the
 // third-person grip point. Adding a gun means adding a module here and putting it in a set
 // (arsenal.js).
-export const GUNS = { hickory, mesquite, smokeSignal, toothpick, kindling, coldSmoke, chimney, rotisserie, brander, swarmJar, stickybomb, gravityGun };
+export const GUNS = { hickory, mesquite, smokeSignal, toothpick, kindling, coldSmoke, chimney, rotisserie, brander, swarmJar, stickybomb, gravityGun, shrinkWrap };
 
 // Every box of a gun as one static model (spinning parts included), for third-person bodies
 // and pickups.

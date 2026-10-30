@@ -176,6 +176,23 @@ const DEMOS = {
       flyer('M24 20 L 136 22', '#c08850', 0.85, { cls: 'dm-jar', head: 9, trail: 'rgba(99,242,255,0.35)' }) +
       blast(138, 22, 10, '#63f2ff', 1.25),
   },
+  // Shrink ray, then the grow ray: back to normal, supersized, and a third zap pops them.
+  shrinkWrap: {
+    still: 0.8,
+    draw: () => {
+      const cyan = '#63f2ff';
+      const pink = '#ff5ad8';
+      const t = [0.25, 1.1, 1.5, 1.84];
+      return (
+        `<g class="dm-sizes">${target(140, [])}</g>` +
+        shot(140, 20, cyan, t[0], 2.6) +
+        shot(140, 20, pink, t[1], 2.6) +
+        shot(140, 16, pink, t[2], 2.6) +
+        shot(140, 14, pink, t[3], 2.6) +
+        blast(140, 16, 16, pink, t[3] + ARRIVE)
+      );
+    },
+  },
 };
 
 // The demo for a gun, as an inline SVG (a generic stream of shots for guns without their own).

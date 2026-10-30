@@ -131,6 +131,29 @@ const SOUNDS = {
     ),
   grab: (ctx) =>
     synth(ctx, 0.3, (t) => 0.35 * Math.sin(t * 2 * Math.PI * (180 + 520 * t)) * Math.sin((Math.PI * t) / 0.3) + 0.05 * noise() * Math.exp(-t * 12)),
+  // Shrink Wrap: a warble that falls (shrink) or climbs (grow), and the squish of a stomp.
+  shrinkZap: (ctx) =>
+    synth(ctx, 0.45, (t, s, rate) => {
+      s.phase += (1400 * Math.exp(-t * 4.5) + 160) / rate;
+      const wob = 0.7 + 0.3 * Math.sin(t * 2 * Math.PI * 28);
+      return 0.32 * Math.sin(s.phase * Math.PI * 2) * wob * Math.min(1, t / 0.01) * Math.exp(-t * 3.5);
+    }),
+  growZap: (ctx) =>
+    synth(ctx, 0.5, (t, s, rate) => {
+      s.phase += (140 + 900 * (1 - Math.exp(-t * 5))) / rate;
+      const saw = (s.phase % 1) * 2 - 1;
+      const wob = 0.7 + 0.3 * Math.sin(t * 2 * Math.PI * 22);
+      return 0.22 * saw * wob * Math.min(1, t / 0.01) * Math.min(1, (0.5 - t) / 0.12);
+    }),
+  squish: (ctx) =>
+    synth(
+      ctx,
+      0.3,
+      (t) =>
+        0.7 * Math.sin(t * 2 * Math.PI * (90 - 120 * t)) * Math.exp(-t * 14) +
+        0.25 * Math.sin(t * 2 * Math.PI * (1900 - 3000 * t)) * Math.exp(-t * 22) +
+        0.2 * noise() * Math.exp(-t * 25),
+    ),
   swat: (ctx) => synth(ctx, 0.14, (t) => 0.5 * noise() * Math.exp(-t * 40) + 0.4 * click(t, 0, 300, 40)),
   // Last seconds of the match clock, and time's up.
   tick: (ctx) => synth(ctx, 0.09, (t) => 0.35 * Math.sin(t * 1320 * Math.PI * 2) * Math.exp(-t * 40)),

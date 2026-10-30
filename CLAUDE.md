@@ -99,7 +99,12 @@ Live build: https://mrellcrane.github.io/smokeem/
   (`aimAssist.js`), bolts (`bolts.js`: ballistic projectiles with no physics body,
   one ray per tick, like the Swarm Jar's jar), bug swarms (`swarms.js`: pure-math seekers,
   one instanced mesh), area damage (`explosions.js`), pickups, and `dealDamage`, the single
-  path all damage goes through.
+  path all damage goes through (it also applies the Shrink Wrap's size multipliers). The Shrink
+  Wrap (`kind: 'size'`, `fireSize` in `shooting.js`, numbers in `SIZE`, `config.js`) calls
+  `Player.setSize`: the collider, its test shapes, the head line, the camera, speed, jumps and
+  the drawn body all scale with `player.size` (use `player.radius`, `halfHeight` and
+  `eyeOffset()` rather than `BODY` for a player's own size); `Player.stomp` smokes a shrunk
+  player someone lands on.
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system. Beams get
   their own small tracer pool, built only when the match's set has a beam gun.
   - Particles pick a cell of their system's 4 x 4 atlas (`textures.fxAtlas` / `smokeAtlas`) and

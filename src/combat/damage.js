@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SIZE } from '../config.js';
 
 // The one path all damage goes through, so players, targets and bots react the same way.
 //
@@ -10,6 +11,9 @@ const _c = new THREE.Vector3();
 
 export function dealDamage(game, target, amount, info) {
   if (!target.alive) return null;
+  // Shrink Wrap: a grown target takes more, a shrunk attacker deals less.
+  if (target.size > 1) amount *= SIZE.bigDamageIn;
+  if (info?.attacker?.size < 1) amount *= SIZE.smallDamageOut;
   const res = target.vitals.damage(amount);
   if (res.shieldDamage > 0) target.model?.flashShield(res.broke ? 1 : 0.55);
   if (res.broke) game.fx.shieldPop(target.centerPosition(_c));

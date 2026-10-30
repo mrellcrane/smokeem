@@ -15,6 +15,24 @@ export const BODY = {
   skin: 0.02,
 };
 
+// Shrink Wrap (combat/guns/shrinkWrap.js): how small or big a hit makes you and for how long,
+// and what that costs. Shrunk: slower, lower jumps, your shots do half damage, and anyone who
+// lands on you (feet within `stompReach` of your head) smokes you. Grown: slower, you take more
+// damage, and a second grow while still big pops you.
+export const SIZE = {
+  small: 0.4,
+  big: 1.6,
+  time: 6,
+  // Seconds the body takes to change size (the hitbox changes at once).
+  morph: 0.25,
+  smallSpeed: 0.8,
+  smallJump: 0.75,
+  smallDamageOut: 0.5,
+  bigSpeed: 0.85,
+  bigDamageIn: 1.5,
+  stompReach: 0.45,
+};
+
 // Controller aim assist (src/combat/aimAssist.js), Halo style.
 export const AIM = {
   // Magnetism: a shot this far past the edge of a body (meters, as an angle, capped) bends onto
