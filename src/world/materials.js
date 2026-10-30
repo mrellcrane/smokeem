@@ -1,4 +1,42 @@
 import * as THREE from 'three';
+import { gfx } from '../render/gfx.js';
+
+// World-space grime (Halo's grit): the grime map (textures.js) laid over level geometry by world
+// position, big blotches on floors and blotches plus rain streaks on walls, at two scales, so
+// surfaces darken and brown in patches that don't repeat with the 3 to 4 m texture tiles. Two
+// texture lookups per pixel. Static geometry sits at the origin, so `position` is the world's.
+const GRIME_VERTEX = /* glsl */ `
+  vGrimeP = position;
+  vGrimeN = normal;
+`;
+const GRIME_FRAGMENT = /* glsl */ `
+  {
+    vec3 gn = abs(vGrimeN);
+    bool flatFace = gn.y > 0.7;
+    vec2 guv = flatFace ? vGrimeP.xz : vec2(gn.x > gn.z ? vGrimeP.z : vGrimeP.x, vGrimeP.y);
+    vec4 g1 = texture2D(uGrime, guv / 9.0);
+    vec4 g2 = texture2D(uGrime, guv / 3.1 + 0.37);
+    // Patches with edges (most of a surface stays clean), and on walls streaks running down.
+    float dirt = smoothstep(0.42, 0.78, mix(g1.r, g2.r, 0.45));
+    if (!flatFace) dirt = max(dirt, smoothstep(0.55, 0.95, g2.g) * 0.8);
+    float k = uGrimeAmt * dirt;
+    diffuseColor.rgb *= (1.0 - 0.55 * k) * mix(vec3(1.0), vec3(0.95, 0.87, 0.74), k);
+  }
+`;
+
+function applyGrime(material, map, amount) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uGrime = { value: map };
+    shader.uniforms.uGrimeAmt = { value: amount };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vGrimeP;\nvarying vec3 vGrimeN;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>\n${GRIME_VERTEX}`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uGrime;\nuniform float uGrimeAmt;\nvarying vec3 vGrimeP;\nvarying vec3 vGrimeN;')
+      .replace('#include <map_fragment>', `#include <map_fragment>\n${GRIME_FRAGMENT}`);
+  };
+  material.customProgramCacheKey = () => 'grime';
+}
 
 // Shared materials. Lambert/Phong only: cheap per-pixel lighting that holds up in split-screen.
 // `tile` is the texture repeat size in meters used by StaticBuilder for world-space UVs.
@@ -73,6 +111,11 @@ export function createMaterials(tex) {
     if (!n) continue;
     mat.normalMap = n;
     mat.normalScale.set(1, 1);
+  }
+  // World-space grime over the level's surfaces, how much on each (gfx switch `grime`).
+  if (gfx.grime && tex.grime) {
+    const amounts = { ground: 0.5, metal: 0.75, metalDark: 0.65, concrete: 0.85, slab: 0.8, plank: 0.5, paint: 0.55, steel: 0.45, hazard: 0.55 };
+    for (const [name, a] of Object.entries(amounts)) applyGrime(m[name], tex.grime, a);
   }
   // A little grime low down on tall faces (StaticBuilder).
   for (const name of ['metal', 'metalDark', 'concrete', 'paint']) m[name].userData.grime = true;

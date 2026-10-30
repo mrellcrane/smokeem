@@ -1013,4 +1013,14 @@ Need answers before the step that uses them gets built.
   clicks are gone; footsteps are now CC0 recordings (stone, sand and metal-boot takes) pitched
   down and low-passed into soft, heavy thuds with a sub-thump and a faint armor jingle, and your
   own steps sit lower in the mix than other people's.
+- 2026-10-30: Owner queued every remaining Halo graphics item: a grit pass, chunkier guns,
+  bulkier Spartans, sun lens flare and outdoor god rays, glowing projectiles, and a third map.
+  Owner picks: map 3 is Valhalla-style (two rival smokehouses facing each other across a creek
+  valley, hills, a launch pad), and the guns get chunky Halo proportions, darker gunmetal and
+  more glowing parts while keeping their wood grips, smoker parts and orange accents. Owner also
+  asked for the one-seat motorcycle with mounted guns (the Sizzler) on the Valhalla map.
+- 2026-10-30: Grit pass: concrete walls get damp patches, rust weeping from the tie holes, rain
+  streaks and cracks; metal panels get soot, streaks and scraped paint; factory floors ground-in
+  dirt. On top, every level surface gets grime patches and streaks laid by world position, so
+  the dirt doesn't repeat with the textures (two texture lookups, no draw calls).
 
