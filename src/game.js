@@ -168,7 +168,8 @@ export class Game {
     const look = (this.look = this.map.look);
     scene.fog = new THREE.Fog(look.sky.horizon, look.fog.near, look.fog.far);
     this.setupLights(preset);
-    scene.add(createSky(this.textures, this.materials, look));
+    this.sky = createSky(this.textures, this.materials, look);
+    scene.add(this.sky);
     this.arena = this.map.build({
       scene,
       RAPIER,
@@ -707,6 +708,7 @@ export class Game {
 
   updateVisuals(dt, alpha) {
     this.arena.update(dt, this.time, this.fx);
+    this.sky.update?.(this.time);
     for (const p of this.players) p.updateVisuals(dt, alpha);
     for (const d of this.dummies) d.updateVisual(dt, alpha);
     this.missiles.updateVisuals(alpha);

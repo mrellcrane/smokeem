@@ -8,7 +8,8 @@ export const MUDLARK_LOOK = {
   hemi: { sky: 0xa8c8ff, ground: 0x8a6040, intensity: 1.55 },
   fog: { near: 90, far: 420 },
   // The fog color is the horizon color, so far walls fade into the sky.
-  sky: { zenith: 0x2a5aa0, mid: 0x86b4dc, horizon: 0xcad7d9, below: 0xa58d78 },
+  // skyline: the facility around the arena (skyline.js).
+  sky: { zenith: 0x2a5aa0, mid: 0x86b4dc, horizon: 0xcad7d9, below: 0xa58d78, skyline: true },
   // The first-person gun and hands have their own lights in their own scene.
   vm: { hemi: 2.4, sun: 2.4 },
 };
