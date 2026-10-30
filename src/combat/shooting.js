@@ -7,7 +7,7 @@ import { SWARM } from './swarms.js';
 import { GUNS } from './guns/index.js';
 import { gfx } from '../render/gfx.js';
 import { AIM, SIZE } from '../config.js';
-import { assists, assistTarget, magnetize } from './aimAssist.js';
+import { assists, assistOf, assistTarget, magnetize } from './aimAssist.js';
 import { PORTAL_COLORS } from './portals.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
@@ -155,9 +155,14 @@ export function updateShooting(game, p, dt, pressed) {
   // near it (the wider aim slowdown).
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
-  const hit = game.castShot(_o, _f, 150, p.collider);
-  p.aimTarget = hit.entity && hit.entity.alive ? hit.entity : null;
-  p.aimNear = assists(p) && !p.aimTarget ? assistTarget(game, p, _o, _f, p.weapon.def.range ?? 60, AIM.nearCones, _c) : null;
+  // Red only in the gun's assist range (Halo's red reticle range), and for a controller exactly
+  // where a shot would bend onto someone.
+  const a = assistOf(p.weapon.def);
+  const hit = game.castShot(_o, _f, a.range, p.collider);
+  const onIt = hit.entity && hit.entity.alive ? hit.entity : null;
+  const assist = assists(p);
+  p.aimTarget = onIt ?? (assist ? assistTarget(game, p, _o, _f, 1, _c) : null);
+  p.aimNear = assist && !p.aimTarget ? assistTarget(game, p, _o, _f, AIM.nearCones, _c) : null;
 }
 
 function tickReload(game, p, w, dt, firing) {
@@ -275,7 +280,7 @@ function fire(game, p, alt = false) {
   }
 
   // Controllers: a near miss bends onto the body (spread still applies after).
-  if (assists(p)) magnetize(game, p, _o, _f, _r, _u, d.range, d.magnetism ?? 1);
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u);
   const spread = currentSpread(p) * DEG;
   w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
   // Tracers start near the first-person barrel in our own view, and at our third-person gun
@@ -380,7 +385,7 @@ function fireSize(game, p, grow) {
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
   muzzleFlash(game, p, _f);
-  if (assists(p)) magnetize(game, p, _o, _f, _r, _u, d.range, d.magnetism ?? 1);
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u);
   const spread = currentSpread(p) * DEG;
   w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
   const rr = Math.tan(spread) * Math.sqrt(Math.random());
@@ -499,7 +504,7 @@ function fireBeam(game, p) {
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
   _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.12);
-  if (assists(p)) magnetize(game, p, _o, _f, _r, _u, d.range, d.magnetism ?? 1);
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u);
   const hit = game.castShot(_o, _f, d.range, p.collider);
   const dist = hit.hit ? hit.distance : d.range;
   _end.copy(_o).addScaledVector(_f, dist);

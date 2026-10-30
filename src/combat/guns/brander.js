@@ -50,6 +50,9 @@ export default {
     sound: 'sizzle',
     soundEvery: 0.15,
     reloadSound: 'vent',
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 7, radius: 0.35, range: 22 },
     bot: { min: 0, max: 20, pref: 9, hold: true },
   },
   parts: [

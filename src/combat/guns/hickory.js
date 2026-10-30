@@ -33,6 +33,9 @@ export default {
     tracerColor: 0xffc070,
     sound: 'shot',
     // Range band bots like to use it in, meters.
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 6, radius: 0.3, range: 45 },
     bot: { min: 0, max: 70, pref: 18 },
   },
   // Parts in gun space (barrel along -z, origin at the grip): [center, size, color, options]

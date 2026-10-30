@@ -47,6 +47,10 @@ export const AIM = {
   frictionOn: 0.5,
   frictionNear: 0.72,
   nearCones: 1.6,
+  // Tracking: while you're aiming (moving a stick) with someone in the cone, the view follows
+  // this share of how fast they cross it, so a strafing target doesn't slide off the reticle.
+  track: 0.3,
+  // (Each gun can set its own: its def's `assist`, combat/aimAssist.js.)
 };
 
 // Ragdoll-ish deaths (Player.startCorpse): how hard the body is knocked (m/s) by a bullet, a

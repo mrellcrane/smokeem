@@ -38,6 +38,9 @@ export default {
     tracerLife: 0.25,
     sound: 'marksman',
     reloadRate: 0.8,
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 5, radius: 0.35, range: 110, slow: 0.45 },
     bot: { min: 12, max: 80, pref: 32, zoomAt: 15, careful: 0.6, highGround: 0.7, headshots: true },
   },
   parts: [

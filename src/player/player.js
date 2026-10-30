@@ -6,6 +6,7 @@ import { Vitals } from '../combat/vitals.js';
 import { WEAPONS, WeaponState, GRENADE, SWITCH_TIME } from '../combat/weapons.js';
 import { InputState } from '../input/inputState.js';
 import { updateShooting, cancelReload } from '../combat/shooting.js';
+import { assistOf } from '../combat/aimAssist.js';
 import { dealDamage } from '../combat/damage.js';
 import { CharacterModel, strideLength } from './character.js';
 import { GUNS } from '../combat/guns/index.js';
@@ -526,8 +527,9 @@ export class Player {
     this.model.group.visible = true;
   }
 
-  // Called every rendered frame, so aiming stays responsive at any display rate.
-  applyLook() {
+  // Called every rendered frame, so aiming stays responsive at any display rate. dt: the frame's
+  // (for the aim assist's tracking).
+  applyLook(dt = 0) {
     let [lx, ly] = this.input.takeLook();
     if (this.guiding) {
       this.guiding.steer(lx * 0.8, ly * 0.8);
@@ -537,11 +539,32 @@ export class Player {
     // Slower turning while zoomed so aim feels the same on screen.
     lx /= this.aimZoom;
     ly /= this.aimZoom;
-    // Controllers: slower over someone, and a little slower near them (Halo-style slowdown).
+    // Controllers: slower over someone, and a little slower near them (Halo-style slowdown); and
+    // while aiming or moving, the view follows part of a target's sideways and vertical motion
+    // across it (Halo's magnetism tracking).
     if (this.input.assist && !this.isBot && (this.aimTarget || this.aimNear)) {
-      const f = this.aimTarget ? AIM.frictionOn : AIM.frictionNear;
+      const a = assistOf(this.weapon.def);
+      const f = this.aimTarget ? a.slow : a.near;
       lx *= f;
       ly *= f;
+      const t = this.aimTarget;
+      const inp = this.input;
+      if (t?.vel && dt > 0 && a.track > 0 && (lx || ly || inp.moveX || inp.moveY)) {
+        t.centerPosition(_c);
+        this.eyePosition(_c2);
+        const dx = _c.x - _c2.x;
+        const dz = _c.z - _c2.z;
+        const dist = Math.hypot(dx, _c.y - _c2.y, dz);
+        if (dist > 1) {
+          // Their velocity relative to ours, across the line of sight: to our right and up.
+          const rx = t.vel.x - this.vel.x;
+          const ry = t.vel.y - this.vel.y;
+          const rz = t.vel.z - this.vel.z;
+          const right = (rz * dx - rx * dz) / Math.hypot(dx, dz);
+          lx += (a.track * right * dt) / dist;
+          ly -= (a.track * ry * 0.5 * dt) / dist;
+        }
+      }
     }
     this.yaw -= lx;
     // Keep yaw in [-PI, PI] so long sessions never lose precision.

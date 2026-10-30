@@ -36,6 +36,9 @@ export default {
     tracerColor: 0xffd890,
     sound: 'shotgun',
     // Range band bots like to use it in, meters.
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 10, radius: 0.5, range: 14, slow: 0.6 },
     bot: { min: 0, max: 12, pref: 4 },
   },
   parts: [
