@@ -11,6 +11,7 @@ import { settings, updateSettings, onSettingsChange, qualityPreset } from './set
 import { prepaintTextures } from './world/textures.js';
 import { loadoutLabel, chooseSet } from './combat/arsenal.js';
 import { MAPS, chooseMap } from './world/maps.js';
+import { CHARACTERS, CHARACTER_IDS } from './player/body/cast.js';
 import { WEAPONS } from './combat/weapons.js';
 import { gfx } from './render/gfx.js';
 
@@ -49,6 +50,7 @@ const menu = new Menu(uiRoot, {
   onRematch: rematch,
   onJoinKbm: () => join(kbm),
   onLeave: (i) => leave(seats[i]),
+  onCharacter: (i, dir) => cycleCharacter(i, dir),
   inMatch: () => !!game,
   lobby: () => ({ seats: seats.map(seatInfo), padsSeen: pads.seen }),
   onLoadout: (i, dir) => cycleLoadout(i, dir),
@@ -71,7 +73,21 @@ const menu = new Menu(uiRoot, {
 const nav = new PadNav(uiRoot);
 
 function seatInfo(src) {
-  return { kind: src.kind, label: src.kind === 'gamepad' ? `Controller ${src.index + 1}` : 'Keyboard + mouse' };
+  return {
+    kind: src.kind,
+    label: src.kind === 'gamepad' ? `Controller ${src.index + 1}` : 'Keyboard + mouse',
+    character: CHARACTERS[src.character ?? 'spartan'].name,
+  };
+}
+
+// A seat's character (picked on the title screen, kept between matches).
+function cycleCharacter(i, dir) {
+  const s = seats[i];
+  if (!s || game || loading) return;
+  const n = CHARACTER_IDS.length;
+  const at = CHARACTER_IDS.indexOf(s.character ?? 'spartan');
+  s.character = CHARACTER_IDS[(at + dir + n) % n];
+  menu.renderLobby();
 }
 
 function join(src) {
@@ -179,7 +195,7 @@ async function startMatch() {
       hudRoot,
       fps,
       sfx,
-      players: seats.map((source, i) => ({ source, name: `Player ${i + 1}`, loadout: source.loadout ?? 0 })),
+      players: seats.map((source, i) => ({ source, name: `Player ${i + 1}`, loadout: source.loadout ?? 0, character: source.character ?? 'spartan' })),
       bots: settings.bots,
       botSkill: settings.botSkill,
       practiceTargets: settings.bots === 0,
@@ -293,6 +309,8 @@ function padMenu(gp, e, seat) {
       resumeMatch();
     } else if (screen === 'title' && seat) leave(seat);
   }
+  // LB / RB on the title screen: that controller's character.
+  if (screen === 'title' && seat && (e.lb || e.rb)) cycleCharacter(seats.indexOf(seat), e.rb ? 1 : -1);
   if (e.menu && (screen === 'pause' || screen === 'ready')) {
     menu.lastInput = 'pad';
     resumeMatch();

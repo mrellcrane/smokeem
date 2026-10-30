@@ -108,6 +108,10 @@ export class Menu {
       case 'leave':
         h.onLeave?.(Number(btn.dataset.seat));
         break;
+      case 'char-prev':
+      case 'char-next':
+        h.onCharacter?.(Number(btn.dataset.seat), action === 'char-next' ? 1 : -1);
+        break;
       case 'settings':
         this.showSettings(this.screen);
         break;
@@ -288,7 +292,11 @@ export class Menu {
       const color = `--seat:${SEAT_COLORS[i]}`;
       if (s) {
         const leave = s.kind === 'gamepad' ? 'B to leave' : `<span class="leave" data-action="leave" data-seat="${i}">Leave</span>`;
-        html += `<div class="slot joined" style="${color}"><b>P${i + 1}</b><span>${s.label}</span><small>${leave}</small></div>`;
+        const pick =
+          s.kind === 'gamepad'
+            ? `<em class="char">${s.character} <small>LB / RB</small></em>`
+            : `<em class="char"><span class="step" data-action="char-prev" data-seat="${i}">◀</span>${s.character}<span class="step" data-action="char-next" data-seat="${i}">▶</span></em>`;
+        html += `<div class="slot joined" style="${color}"><b>P${i + 1}</b><span>${s.label}</span>${pick}<small>${leave}</small></div>`;
       } else {
         const kbm = kbmIn ? '' : ' data-action="join-kbm"';
         html += `<div class="slot empty" style="${color}"${kbm}><b>P${i + 1}</b><span>Press A to join</span><small>${

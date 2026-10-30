@@ -307,6 +307,10 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   Keep poses inside the headshot band (lean 8 degrees or less).
   Smoked bodies go ragdoll-ish: `Player.startCorpse` / `updateCorpse` push, drop and tip the
   body (numbers in `CORPSE`, `config.js`) and `CharacterModel.ragdoll()` poses it limp.
+  Characters (`body/cast.js`: Crash, Link, Bond; the Spartan is the generated mesh) are built
+  from ellipsoids, tapered limbs, boxes and cones, each riding one bone of the same skeleton, in
+  the decoded mesh's form plus a palette (null color: the player's); `CharacterModel` takes
+  `character`, and each seat's pick (`source.character`) comes from the join screen.
   `CharacterModel.reset()` clears carried state on every respawn (players and dummies), puts
   every body bone back at rest after a ragdoll, and
   `endSprint()` snaps the gun out of the sprint hold the tick a shot fires.

@@ -35,7 +35,7 @@ export class PadNav {
     }
     // repeat: dir came from holding a direction, not a fresh push. dpad: it came from the D-pad.
     // settled: the pad has rested since the menu opened (holdAll), so it isn't still playing.
-    const out = { a: false, b: false, x: false, y: false, menu: false, view: false, down: false, dir: null, repeat: false, dpad: false, settled: false };
+    const out = { a: false, b: false, x: false, y: false, lb: false, rb: false, menu: false, view: false, down: false, dir: null, repeat: false, dpad: false, settled: false };
     const edge = (i) => {
       const d = buttonDown(gp, i);
       const e = d && !st.prev[i];
@@ -46,6 +46,8 @@ export class PadNav {
     out.b = edge(PAD.B);
     out.x = edge(PAD.X);
     out.y = edge(PAD.Y);
+    out.lb = edge(PAD.LB);
+    out.rb = edge(PAD.RB);
     out.menu = edge(PAD.MENU);
     out.view = edge(PAD.VIEW);
     // D-pad down on its own (pauses in play); the directional repeat below is for menus.
