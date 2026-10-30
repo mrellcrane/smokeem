@@ -171,7 +171,10 @@ Live build: https://mrellcrane.github.io/smokeem/
     links, default weapon set); `settings.map` picks one ('random' never repeats the last), and
     `Game.create({ map })` sets `game.mapId` / `game.map`. `arena.js` is Mudlark Gauntlet,
     `factory.js` Smokestack Works; shared pieces (crates, barriers, drums, pickup pads, the
-    grandstands) are in `parts.js`. A build function returns the arena object everything else
+    grandstands) are in `parts.js`; set dressing (Mudlark's sponsor boards, TV cameras, wall-top
+    drum smokers and cable runs; Smokestack's hanging sausages, gauges, warning boards and corner
+    pallets) is in `dressing.js`: looks only except the pallets, built from materials the map
+    already draws so it costs no draw calls; it returns smoke vents for the map's `update`. A build function returns the arena object everything else
     reads: `half` (the info panel map's half size), `shadowHalf` / `shadowTop` (the sun's
     shadow box), `stands` and `screen` (show.js: crowd rows, big-screen faces), `podium`
     (finale.js), `spawnPoints`, `pickupSpots`, `dummyPosts`, `zones`, `bake`, `update`, and

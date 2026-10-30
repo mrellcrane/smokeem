@@ -6,6 +6,7 @@ import { bakeArena } from './bake.js';
 import { crate, barrier, drum, pickupPads, grandstands, STAND_TIERS, TIER_DEPTH } from './parts.js';
 import { DUMMY_POSTS } from './dummies.js';
 import { gfx } from '../render/gfx.js';
+import { dressMudlark } from './dressing.js';
 
 // Map 1: Mudlark Gauntlet. A small obstacle-race arena inside tall metal walls.
 // Coordinates: x east, z south, y up. The playable floor is x, z in [-30, 30].
@@ -55,6 +56,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   netBlock(B, M, zones);
   cover(B, M);
   lightPylons(B, M, H);
+  const vents = dressMudlark(B, M, H, WALL_H);
   pickupPads(B, M, PICKUP_SPOTS);
 
   // Damp ground around the mud pit.
@@ -121,6 +123,11 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
         acc.wisps += dt * WISPS * fx.fxScale;
         for (; acc.embers >= 1; acc.embers--) fx.fireEmber(troughX(tr), tr.y + 0.3 + Math.random() * 0.6, troughZ(tr));
         for (; acc.wisps >= 1; acc.wisps--) fx.fireWisp(troughX(tr), tr.y + tr.height * 0.8, troughZ(tr));
+      }
+      // Smoke out of the drum smokers on the wall tops.
+      for (const v of vents) {
+        v.acc = (v.acc ?? Math.random()) + dt * 0.6 * fx.fxScale;
+        for (; v.acc >= 1; v.acc--) fx.fireWisp(v.x, v.y, v.z);
       }
     },
   };

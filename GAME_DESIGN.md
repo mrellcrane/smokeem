@@ -700,7 +700,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
   separate from legs, jumps and landings (done); (8) pickup beacons (done); (9) explosions, impacts and
-  decals (done); (10) arena dressing; (11) first-person feel; gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
+  decals (done); (10) arena dressing (done); (11) first-person feel; gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
   high only; (15) a shadowless low tier only if the Xbox bench needs it.
 - **More maps** (owner wants this): Map 2, Smokestack Works, and the map choice are done.
@@ -934,3 +934,9 @@ Need answers before the step that uses them gets built.
   reflects the sky like curved glass; Crash's nose and eyes, Link's buckle, shield rim and hilt, and
   Bond's shoes, hair and tie shine too; undersuits and cloth stay matte. Guns on bodies take their
   finish (metal shines, wood doesn't).
+- 2026-10-30: Arena dressing (overnight step 4). Mudlark got sponsor boards between the wall
+  buttresses, TV cameras on tripods at the corners of the wall tops, drum smokers puffing on the
+  wall tops and cable runs along the foot of the side walls. Smokestack got strings of smoked
+  sausages hanging from the trusses, gauges on the pipe drops, hazard warning boards on the end
+  walls and pallet stacks in the two free corners (the only new cover). No new materials, so no new
+  draw calls.
