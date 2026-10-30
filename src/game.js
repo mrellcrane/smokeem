@@ -707,7 +707,7 @@ export class Game {
 
     if (this.state === 'playing') {
       for (const src of this.inputs) src.update(dt);
-      for (const p of this.humans) p.applyLook();
+      for (const p of this.humans) p.applyLook(dt);
       this.acc += dt;
       let steps = 0;
       while (this.state === 'playing' && this.acc >= PHYSICS_DT && steps < MAX_STEPS_PER_FRAME) {

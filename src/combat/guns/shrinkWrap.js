@@ -40,6 +40,9 @@ export default {
     tracerWidth: 0.05,
     tracerLife: 0.25,
     sound: 'shrinkZap',
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 6, radius: 0.35, range: 45 },
     bot: { min: 0, max: 40, pref: 12, power: true },
   },
   parts: [

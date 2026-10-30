@@ -33,6 +33,9 @@ export default {
     sound: 'pistol',
     reloadSound: 'reloadPistol',
     reloadRate: 1.25,
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 6, radius: 0.32, range: 50 },
     bot: { min: 0, max: 45, pref: 14, sidearm: true },
   },
   parts: [

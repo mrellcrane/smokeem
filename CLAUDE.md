@@ -116,7 +116,10 @@ Live build: https://mrellcrane.github.io/smokeem/
   per look, with optional contact fuses; stickies switch to fixed bodies where they land), the
   Gravity Gun's grab, hold, throw and punt (`gravity.js`, with the loose props it throws in
   `src/world/props.js`, built only when the match's set has it), controller aim assist
-  (`aimAssist.js`), bolts (`bolts.js`: ballistic projectiles with no physics body,
+  (`aimAssist.js`: magnetism, slowdown and tracking; each gun's def can set `assist` (cone in
+  degrees, reach, range, slowdown, tracking) over the `AIM` defaults (`assistOf`), cones shrink
+  by `player.aimZoom`, and `player.aimTarget` (the red reticle) is set exactly where a shot would
+  bend), bolts (`bolts.js`: ballistic projectiles with no physics body,
   one ray per tick, like the Swarm Jar's jar), bug swarms (`swarms.js`: pure-math seekers,
   one instanced mesh), area damage (`explosions.js`), pickups, and `dealDamage`, the single
   path all damage goes through (it also applies the Shrink Wrap's size multipliers). The Shrink

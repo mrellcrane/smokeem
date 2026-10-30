@@ -674,11 +674,19 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   boost after a moment at full tilt, so you can still spin around. Full tilt is about
   180 degrees per second before the boost.
 - Controller aim assist, Halo style (controllers only, never mouse or bots):
-  - Slowdown: look slows to 50% while the crosshair is on someone and to 72% just around them.
-  - Magnetism: a shot that would just miss (within about 35 cm of the body's edge, at most 8
-    degrees) bends onto the nearest point of the body, so aiming at the head still gets the
-    head. Spread and bloom still apply after the bend, so spraying still misses. No lock-on
-    and no turning the view for you.
+  - Every gun sets its own assist, like Halo's: how wide the cone is (6 to 10 degrees at most,
+    and about 30 to 50 cm past the body's edge) and its range (14 m for the Mesquite, 26 for the
+    Kindling, 45 to 50 for rifles and the Toothpick, 110 for the Cold Smoke). Zoomed, the cone
+    shrinks by the zoom, so it stays the same size on screen.
+  - The reticle turns red exactly when assist is on someone: inside the cone, in range, in sight
+    (with a mouse, when the crosshair is right on them in range). Past a gun's range it never
+    goes red and nothing bends.
+  - Slowdown: look slows to about 50% while assist is on someone and to 72% just around them.
+  - Magnetism: a shot inside the cone bends onto the nearest point of the body, so aiming at the
+    head still gets the head. Spread and bloom still apply after the bend, so spraying still
+    misses.
+  - Tracking: while you're moving a stick with assist on someone, the view follows 30% of how
+    fast they cross it, so a strafing target doesn't slide straight off the reticle. No lock-on.
 - Rumble when you get hurt, smoked, or shaken by a blast (can be turned off).
 - Edge on Xbox treats B as the browser's Back button, so once a controller shows up the game
   keeps a spare history entry and B can never leave the page.
@@ -1094,3 +1102,7 @@ Need answers before the step that uses them gets built.
   the rider, a chase camera with the reticle above the middle, and bots that board, drive, make
   strafing runs and bail. Riders take 75% damage so a rider isn't just a bigger target. About 2
   draw calls per view (frames and wheels, instanced).
+- 2026-10-30: Feel research (Halo 3; owner asked for all five follow-ups). First, aim assist like
+  Halo's: per-gun cones and ranges, cones that shrink with zoom, a red reticle that turns on
+  exactly when assist engages (and never past the gun's range), and a little tracking on a
+  strafing target while you're aiming.

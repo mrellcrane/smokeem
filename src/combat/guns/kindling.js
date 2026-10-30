@@ -35,6 +35,9 @@ export default {
     tracerColor: 0xffb070,
     sound: 'smg',
     reloadRate: 1.1,
+    // Controller aim assist (combat/aimAssist.js): cone cap (degrees), reach past the body (m),
+    // range (m, also the red reticle's).
+    assist: { cone: 7, radius: 0.35, range: 26 },
     bot: { min: 0, max: 22, pref: 8, mobile: true },
   },
   parts: [
