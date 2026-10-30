@@ -523,6 +523,39 @@ const RIM_FRAGMENT = /* glsl */ `
   }
 `;
 
+// The shield shell's shimmer (see the constructor). Bands run up the body in its own space; the
+// pop pushes the shell out along its normals.
+const SHIELD_POP = 0.3;
+const SHIELD_VERTEX_HEAD = /* glsl */ `
+  uniform float uPop;
+  varying vec3 vShieldPos;
+  varying vec3 vShieldNormal;
+  varying vec3 vShieldView;
+`;
+const SHIELD_BEGIN = /* glsl */ `
+  #include <begin_vertex>
+  vShieldPos = position;
+  transformed += normal * uPop * 0.07;
+  vShieldNormal = normalize(transformedNormal);
+`;
+const SHIELD_FRAGMENT_HEAD = /* glsl */ `
+  uniform float uTime;
+  uniform float uFlash;
+  uniform float uPop;
+  varying vec3 vShieldPos;
+  varying vec3 vShieldNormal;
+  varying vec3 vShieldView;
+`;
+const SHIELD_FRAGMENT = /* glsl */ `
+  float edge = 1.0 - abs(dot(normalize(vShieldNormal), normalize(vShieldView)));
+  float wave = sin(vShieldPos.x * 23.0 + uTime * 5.0) * 1.6;
+  float bands = 0.5 + 0.5 * sin(vShieldPos.y * 46.0 - uTime * 16.0 + wave);
+  float sparkle = step(0.93, fract(sin(dot(floor(vShieldPos * 60.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453 + uTime * 3.0));
+  float a = uFlash * (0.18 + 0.82 * edge * edge) * (0.45 + 0.55 * bands) + sparkle * uFlash * 0.35;
+  vec3 col = mix(diffuseColor.rgb, vec3(1.0, 0.97, 0.85), uPop * 0.55 + edge * 0.25);
+  gl_FragColor = vec4(col * a * (1.0 + uPop), 1.0);
+`;
+
 let sharedMaterial = null;
 function bodyMaterial() {
   if (!sharedMaterial) {
@@ -615,15 +648,26 @@ export class CharacterModel {
     this.mesh.bind(this.skeleton);
     this.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 1.4);
 
-    // Shield shimmer: a slightly inflated copy on the same skeleton, only drawn while flashing.
+    // Shield shimmer: a slightly inflated copy on the same skeleton, only drawn while flashing
+    // (SHIELD_* shaders): a golden flare, brightest at the silhouette, with energy bands running up
+    // the body; a break also bulges it out and flashes it white-gold (pop).
+    this.shellUniforms = { uTime: { value: 0 }, uFlash: { value: 0 }, uPop: { value: 0 } };
     this.shellMaterial = new THREE.MeshBasicMaterial({
-      color: 0x8ff4ff,
+      color: 0xffc94a,
       transparent: true,
-      opacity: 0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     this.shellMaterial.name = 'shieldShell';
+    this.shellMaterial.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.shellUniforms);
+      shader.vertexShader = SHIELD_VERTEX_HEAD + shader.vertexShader
+        .replace('#include <begin_vertex>', SHIELD_BEGIN)
+        .replace('#include <project_vertex>', '#include <project_vertex>\n  vShieldView = -mvPosition.xyz;');
+      shader.fragmentShader = SHIELD_FRAGMENT_HEAD + shader.fragmentShader.replace('#include <opaque_fragment>', SHIELD_FRAGMENT);
+    };
+    this.shellMaterial.customProgramCacheKey = () => 'shield-shimmer';
+    this.popT = 9;
     this.shell = new THREE.SkinnedMesh(buildGeometry(colors, true, r, character), this.shellMaterial);
     this.shell.bind(this.skeleton, this.mesh.bindMatrix);
     this.shell.boundingSphere = this.mesh.boundingSphere;
@@ -786,8 +830,10 @@ export class CharacterModel {
     this.shell.layers.set(layer);
   }
 
+  // strength 1: the shield broke (it pops).
   flashShield(strength) {
     this.shieldFlash = Math.max(this.shieldFlash, strength);
+    if (strength >= 1) this.popT = 0;
   }
 
   // state: { x, y, z (feet), yaw, pitch, speed, grounded, crouched, climbing } plus optional
@@ -1091,10 +1137,14 @@ export class CharacterModel {
       }
     }
 
+    this.popT += dt;
     if (this.shieldFlash > 0) {
+      const u = this.shellUniforms;
       this.shell.visible = true;
-      this.shellMaterial.opacity = Math.min(1, this.shieldFlash) * 0.8;
-      this.shieldFlash = Math.max(0, this.shieldFlash - dt * 4);
+      u.uFlash.value = Math.min(1, this.shieldFlash);
+      u.uTime.value += dt;
+      u.uPop.value = this.popT < SHIELD_POP ? Math.sin((this.popT / SHIELD_POP) * Math.PI) : 0;
+      this.shieldFlash = Math.max(0, this.shieldFlash - dt * 3);
     } else if (this.shell.visible) {
       this.shell.visible = false;
     }
@@ -1103,7 +1153,7 @@ export class CharacterModel {
   // Force every part visible for shader warm-up.
   warmup(on) {
     this.shell.visible = on;
-    this.shellMaterial.opacity = on ? 0.5 : 0;
+    this.shellUniforms.uFlash.value = on ? 0.5 : 0;
   }
 
   dispose() {

@@ -325,7 +325,10 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   ember, metal), times the tool's baked `DATA.shade` per vertex (occlusion at rest, darker plate
   edges, the visor's gradient); guns are appended as boxes on their bones (about 1.1k more
   vertices per set). The shield shell is the same mesh pushed
-  1.75 cm along precomputed averaged normals, so it has no cracks. The skeleton's joints come
+  1.75 cm along precomputed averaged normals, so it has no cracks; while it flashes
+  (`flashShield`) its shader (`SHIELD_*`) draws a golden flare brightest at the silhouette, with
+  energy bands running up the body and sparkle, and a break (strength 1) bulges it out and flashes
+  it white-gold for `SHIELD_POP` seconds (per-body uniforms on one shared program). The skeleton's joints come
   from the data, so changing the rig means changing `tools/build_body.mjs` and rebuilding.
 - A player's own body sits on layer `1 + id`, which that player's camera disables (except while
   flying a missile). The sun's shadow camera enables all layers so you still see your own
