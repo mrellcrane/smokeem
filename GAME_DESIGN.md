@@ -973,3 +973,6 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Shield shimmer, Halo's way: a hit on shields flares the body gold, brightest at the
   edges, with energy bands rippling up it; a break bulges the shell out in a white-gold pop and the
   burst of shards is gold too (it was cyan).
+- 2026-10-30: Bloom on High, the last of the three Halo-look items: glow strips, lamps, fire,
+  explosions, muzzle flashes, shield flares and the sky by the sun bleed light. About ten passes a
+  frame (not per view); the Xbox bench decides whether it stays on High (gfx switch `bloom`).

@@ -50,6 +50,8 @@ export const QUALITY_PRESETS = {
     decals: 160,
     portalViews: 3,
     shafts: true,
+    // Bloom: bright things glow (render/bloom.js).
+    bloom: true,
     // Normal maps on the relief-painted surfaces (textures.js).
     normalMaps: true,
   },

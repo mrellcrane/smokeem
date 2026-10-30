@@ -34,6 +34,7 @@ import { Player } from './player/player.js';
 import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial, viewmodelUniforms } from './player/viewmodel.js';
 import { captureReflections, releaseReflections, envUniforms } from './render/reflections.js';
+import { Bloom } from './render/bloom.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
@@ -161,6 +162,7 @@ export class Game {
     await nextFrame();
     this.textures = createTextures(preset.textureSize, { normalMaps: !!preset.normalMaps && gfx.normalMaps });
     this.applyAnisotropy(preset);
+    this.setupBloom(preset);
     this.materials = createMaterials(this.textures);
 
     onProgress('Building the course', 0.4);
@@ -302,6 +304,16 @@ export class Game {
     viewmodelUniforms.uGround.value.set(look.hemi.ground);
   }
 
+  // Bloom on the High preset (render/bloom.js).
+  setupBloom(preset) {
+    const on = !!preset.bloom && gfx.bloom;
+    if (on && !this.bloom) this.bloom = new Bloom({ samples: preset.antialias ? 4 : 0 });
+    if (!on && this.bloom) {
+      this.bloom.dispose();
+      this.bloom = null;
+    }
+  }
+
   applyAnisotropy(preset) {
     const max = this.renderer.capabilities.getMaxAnisotropy();
     applyAnisotropy(this.textures, Math.max(1, Math.min(preset.anisotropy, max)));
@@ -382,6 +394,7 @@ export class Game {
         this.sun.shadow.map = null;
       }
       this.applyAnisotropy(preset);
+      this.setupBloom(preset);
       this.beacons?.setHalos(gfx.halos && preset.halos);
       // (Room for marks is set at load: a new count applies from the next match.)
       this.fx.fxScale = preset.fxScale;
@@ -746,6 +759,8 @@ export class Game {
     r.info.reset();
     r.shadowMap.needsUpdate = true;
     r.setScissorTest(rects.length > 1);
+    const bloom = this.bloom;
+    bloom?.begin(r);
     const st = this.stats;
     st.views = rects.length;
     let before = 0;
@@ -764,8 +779,11 @@ export class Game {
       // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
       this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
       if (this.oysters) this.oysters.uniforms.uHide.value = replaying ? this.replay.killerOf(p).id : p.guiding ? -1 : p.id;
-      r.setViewport(rect.x, rect.y, rect.w, rect.h);
-      r.setScissor(rect.x, rect.y, rect.w, rect.h);
+      if (bloom) bloom.view(r, rect);
+      else {
+        r.setViewport(rect.x, rect.y, rect.w, rect.h);
+        r.setScissor(rect.x, rect.y, rect.w, rect.h);
+      }
       r.clear(true, true, false);
       r.render(this.scene, p.camera);
       if (replaying) this.replay.end(p.camera);
@@ -797,6 +815,7 @@ export class Game {
     // Portal pictures of the other side, a few times a second (after the views, so the shadow
     // map is already this frame's).
     this.portals?.snapshot(r);
+    bloom?.end(r);
     if (this.infoPanel) {
       this.infoPanel.layout(viewportRects(4, W, H)[3], H);
       if (dt === 0) this.infoPanel.update(1);
@@ -815,6 +834,7 @@ export class Game {
     this.oysters?.dispose();
     this.portals?.dispose();
     releaseReflections(this.reflections);
+    this.bloom?.dispose();
     this.show?.dispose();
     this.finale?.dispose();
     this.hudRoot.classList.remove('finale');

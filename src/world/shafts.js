@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../util/rng.js';
+import { DISPLAY_ADD } from '../render/displayOut.js';
 
 // Sunbeams through an indoor map's skylights, and dust drifting in them. Each beam is a slanted
 // open prism from a skylight opening down to the floor along the sun; its sides are drawn
@@ -31,6 +32,7 @@ const BEAM_FRAGMENT = /* glsl */ `
     // (Fade right at the camera, so walking through a beam doesn't flash the screen.)
     a *= smoothstep(1.5, 5.0, length(vView));
     gl_FragColor = vec4(uColor * a, 1.0);
+    ${DISPLAY_ADD}
   }
 `;
 
@@ -59,6 +61,7 @@ const DUST_FRAGMENT = /* glsl */ `
     vec2 d = gl_PointCoord - 0.5;
     float a = (1.0 - smoothstep(0.1, 0.5, length(d))) * vAlpha;
     gl_FragColor = vec4(uColor * a, 1.0);
+    ${DISPLAY_ADD}
   }
 `;
 

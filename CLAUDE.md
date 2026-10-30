@@ -297,6 +297,14 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
 - Each view renders the world, then clears depth and renders the viewmodel scene (its own
   camera and lights) so guns never clip into walls. `renderer.autoClear` is off; views clear
   themselves inside their scissor rect.
+- Bloom (`render/bloom.js`, High preset only: `preset.bloom`, gfx switch `bloom`): every view
+  draws into one offscreen half-float frame (`Bloom.view` sets the target's own viewport and
+  scissor, since a render target ignores the renderer's), then `end()` keeps what's over the
+  threshold at half size, blurs it down five levels and back up, and draws frame plus glow to the
+  canvas: about ten passes a frame. Custom effect shaders that write display-ready colors end
+  with `DISPLAY_OUT` (blended) or `DISPLAY_ADD` (additive) from `render/displayOut.js`, so they
+  look the same drawn into that linear frame as on the canvas; shaders that build on three's
+  chunks or end with `colorspace_fragment` need nothing.
 - First-person guns (and the loadout pictures) use `viewmodelMaterial()` (`viewmodel.js`): Phong
   whose shine follows each vertex's finish (`aFinish`: matte, wood, paint, metal, glow), a
   sky-and-ground reflection on metal and paint (`viewmodelUniforms`, the world's up set per view
