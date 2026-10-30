@@ -202,8 +202,12 @@ Live build: https://mrellcrane.github.io/smokeem/
   (`replay.js`: records bodies, eyes and tracers every frame; `Game.render` draws replaying views
   last, between `replay.begin` and `replay.end`; tracers with owner `1000 + viewer` show only
   in that view).
-- `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD (with
-  the motion tracker, `radar.js`: one small 2D canvas per view), the
+- `src/ui/`: menus (with the join lobby), controller menu navigation (`padNav.js`), HUD (laid
+  out like Halo 3's visor: grenades top left, shield top center, weapon with round ticks top
+  right, motion tracker bottom left, scores bottom right, kill feed above the tracker; colors in
+  the `--visor*` CSS variables; the controls strip always shows, and `Hud.layout` measures it
+  into `--ctl-lift` so the bottom corners sit above it; with the motion tracker, `radar.js`:
+  one small 2D canvas per view), the
   3-player info panel (`infoPanel.js`), FPS counter, and the loadout cards
   (`loadoutCard.js`): gun pictures rendered once per page at match load with the match's
   renderer (`gunIcons.js`) and looping SVG/CSS demos of how each gun works (`gunDemos.js`; a

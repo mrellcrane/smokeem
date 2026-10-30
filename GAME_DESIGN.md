@@ -51,8 +51,15 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
   - Scoring: a kill is +1; smoking yourself (your own blast, the fire, falling out) is -1.
     Ties on points share a place. Training dummies (no-bot matches) give no points.
   - Each view shows the clock (red in the last 30 seconds, a beep each second for the last
-    10), everyone's place and points best first (your row highlighted), and a kill feed. Hold
-    Tab (View on a controller) for the full scoreboard with kills and deaths.
+    10) and everyone's place and points best first (your row highlighted) in the bottom-right
+    corner, and a kill feed on the left above the motion tracker. Hold Tab (View on a
+    controller) for the full scoreboard with kills and deaths.
+  - The HUD is laid out and styled like Halo 3's visor (pale cyan lines and text, each corner
+    tilted in a little): grenades top left, the shield bar top center (angled and segmented;
+    health is a thin line under it that only shows once you've lost some), the weapon top right
+    (mag count, a row of round ticks that empties as you fire, the gun's name and the other
+    gun), the motion tracker bottom left, scores bottom right, and a circle on the reticle. The
+    controls strip stays along the bottom (owner call: always visible).
   - Motion tracker (owner request, Halo's): a round radar in the bottom-left corner of each
     view. Enemies within 25 m show as red dots around you (the way you face is up) while they
     move faster than a sneak or for a second after they fire, then fade; standing still or
@@ -999,3 +1006,6 @@ Need answers before the step that uses them gets built.
   adapts: stand under a roof or a catwalk and the exposure opens up over about a second; step
   back out and the world is blown out for a moment, then settles. No extra passes on Low and
   Medium (the grade runs inside the materials); on High the bloom composite does it.
+- 2026-10-30: Halo look, the HUD (last of the three passes): Halo 3's layout and visor styling
+  (see Match flow above). The plan included hiding the controls strip after the start of a
+  match; the owner wants it always visible, so it stays and the bottom corners sit above it.

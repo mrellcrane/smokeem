@@ -6,6 +6,13 @@
   --ember: #ff7a1a;
   --ember-2: #ffb347;
   --cyan: #63f2ff;
+  /* The HUD's visor look (Halo's): pale cyan lines and text over the view. */
+  --visor: #d6f3ff;
+  --visor-dim: rgba(190, 232, 255, 0.62);
+  --visor-line: rgba(170, 225, 255, 0.55);
+  --visor-bg: rgba(40, 110, 150, 0.22);
+  --visor-glow: 0 0 6px rgba(120, 210, 255, 0.55), 0 1px 2px rgba(0, 0, 0, 0.7);
+  --hud-font: Bahnschrift, 'DIN Alternate', 'DIN Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
   --font: 'Trebuchet MS', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --display: 'Arial Black', 'Segoe UI Black', Impact, 'Trebuchet MS', sans-serif;
 }
@@ -314,11 +321,25 @@ kbd {
   top: 50%;
   width: 0;
   height: 0;
-  --tick: rgba(255, 255, 255, 0.9);
+  --tick: rgba(214, 243, 255, 0.92);
 }
 
 .crosshair.enemy {
   --tick: #ff4b3a;
+}
+
+/* Halo's reticle: a circle just outside the ticks, growing with them. */
+.crosshair u {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--tick);
+  border-radius: 50%;
+  opacity: 0.55;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
 }
 
 .crosshair i {
@@ -419,18 +440,26 @@ kbd {
   position: absolute;
   top: calc(14px * var(--hud-scale, 1));
   left: 50%;
-  transform: translateX(-50%);
-  width: calc(300px * var(--hud-scale, 1));
-  max-width: 46%;
+  transform: translateX(-50%) perspective(600px) rotateX(8deg);
+  width: calc(340px * var(--hud-scale, 1));
+  max-width: 48%;
 }
 
+/* The shield: an angled, segmented bar like Halo 3's; health is a thin line under it that only
+   shows once you've lost some. */
 .bar {
   position: relative;
-  height: calc(12px * var(--hud-scale, 1));
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(10, 8, 7, 0.5);
-  border-radius: 3px;
+  height: calc(13px * var(--hud-scale, 1));
+  background: var(--visor-bg);
+  clip-path: polygon(2.5% 0, 97.5% 0, 100% 50%, 97.5% 100%, 2.5% 100%, 0 50%);
   overflow: hidden;
+}
+
+.bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(5% - 2px), rgba(0, 20, 30, 0.45) calc(5% - 2px) 5%);
 }
 
 .bar i {
@@ -440,8 +469,8 @@ kbd {
 }
 
 .bar.shield i {
-  background: linear-gradient(180deg, #a8fbff, #36c9e6);
-  box-shadow: 0 0 8px rgba(99, 242, 255, 0.7);
+  background: linear-gradient(180deg, #e6fbff, #7fdcff 55%, #3fb2e0);
+  box-shadow: 0 0 10px rgba(120, 220, 255, 0.8);
 }
 
 .bar.shield.recharging i {
@@ -449,17 +478,22 @@ kbd {
 }
 
 .bar.shield.out {
-  border-color: #ff4b3a;
   animation: shield-out 0.25s steps(2) infinite;
 }
 
 .bar.health {
-  margin-top: 4px;
-  height: calc(6px * var(--hud-scale, 1));
+  margin: 3px auto 0;
+  width: 70%;
+  height: calc(4px * var(--hud-scale, 1));
+  transition: opacity 0.3s ease;
+}
+
+.bar.health.full {
+  opacity: 0;
 }
 
 .bar.health i {
-  background: linear-gradient(180deg, #ffb347, #ff7a1a);
+  background: linear-gradient(180deg, #f4fbff, #a9d8ee);
 }
 
 .bar.health.low i {
@@ -476,42 +510,80 @@ kbd {
 }
 
 @keyframes shield-out {
+  from {
+    background: rgba(255, 60, 40, 0.55);
+  }
   to {
-    border-color: rgba(255, 255, 255, 0.35);
+    background: var(--visor-bg);
   }
 }
 
+/* The weapon, top right: the mag count, a row of round ticks, the gun's name and the other gun. */
 .ammo {
   position: absolute;
   right: calc(18px * var(--hud-scale, 1));
-  bottom: calc(14px * var(--hud-scale, 1));
-  text-align: right;
-  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.8);
+  top: calc(14px * var(--hud-scale, 1));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(2px * var(--hud-scale, 1));
+  font-family: var(--hud-font);
+  color: var(--visor);
+  text-shadow: var(--visor-glow);
+  transform: perspective(700px) rotateY(-10deg);
+  transform-origin: right center;
 }
 
 .ammo .wname {
   font-size: max(10px, calc(13px * var(--hud-scale, 1)));
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink-dim);
+  color: var(--visor-dim);
 }
 
 .ammo .count {
-  font-family: var(--display);
   line-height: 1;
 }
 
 .ammo .mag {
-  font-size: calc(40px * var(--hud-scale, 1));
+  font-size: calc(36px * var(--hud-scale, 1));
+  font-weight: 600;
 }
 
 .ammo .reserve {
-  font-size: calc(18px * var(--hud-scale, 1));
-  color: var(--ink-dim);
+  font-size: calc(17px * var(--hud-scale, 1));
+  color: var(--visor-dim);
 }
 
 .ammo.low .mag {
   color: #ff5a3a;
+}
+
+.ammo .ticks {
+  --tick-w: calc(5px * var(--hud-scale, 1));
+  position: relative;
+  width: calc(var(--tick-w) * var(--cap));
+  height: calc(9px * var(--hud-scale, 1));
+  background: repeating-linear-gradient(90deg, rgba(170, 225, 255, 0.22) 0 calc(var(--tick-w) - 2px), transparent calc(var(--tick-w) - 2px) var(--tick-w));
+}
+
+.ammo .ticks.big {
+  --tick-w: calc(10px * var(--hud-scale, 1));
+  height: calc(12px * var(--hud-scale, 1));
+}
+
+/* (Filled from the left, so it empties from the right as you fire.) */
+.ammo .ticks b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(90deg, var(--visor) 0 calc(var(--tick-w) - 2px), transparent calc(var(--tick-w) - 2px) var(--tick-w));
+  filter: drop-shadow(0 0 3px rgba(120, 210, 255, 0.7));
+}
+
+.ammo.low .ticks b {
+  background: repeating-linear-gradient(90deg, #ff6a4a 0 calc(var(--tick-w) - 2px), transparent calc(var(--tick-w) - 2px) var(--tick-w));
 }
 
 .ammo .ammo-note {
@@ -677,9 +749,13 @@ kbd {
   left: 50%;
   bottom: 22%;
   transform: translateX(-50%);
-  padding: 6px 14px;
-  border-radius: 4px;
-  background: rgba(10, 8, 7, 0.55);
+  padding: 5px 14px;
+  border: 1px solid var(--visor-line);
+  border-radius: 3px;
+  background: rgba(20, 60, 85, 0.45);
+  font-family: var(--hud-font);
+  color: var(--visor);
+  text-shadow: var(--visor-glow);
   font-size: 15px;
   white-space: nowrap;
   opacity: 0;
@@ -698,7 +774,7 @@ kbd {
   position: absolute;
   white-space: pre;
   left: 10px;
-  top: calc(8px + 30px * var(--hud-scale, 1));
+  top: calc(8px + 64px * var(--hud-scale, 1));
   font: 12px ui-monospace, Menlo, Consolas, monospace;
   color: rgba(255, 255, 255, 0.8);
   text-shadow: 0 1px 1px #000;
@@ -761,16 +837,73 @@ kbd {
 
 /* ---------- ammo extras and missile camera */
 
-.ammo .other,
-.ammo .nades {
+.ammo .other {
   font-size: max(10px, calc(12px * var(--hud-scale, 1)));
-  color: var(--ink-dim);
-  letter-spacing: 0.06em;
+  color: var(--visor-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.ammo .nades {
-  color: var(--ember-2);
-  margin-bottom: 2px;
+/* Grenades, top left like Halo's: the count in a frame and a pip per briquette. */
+.hud-gear {
+  position: absolute;
+  left: calc(16px * var(--hud-scale, 1));
+  top: calc(14px * var(--hud-scale, 1));
+  font-family: var(--hud-font);
+  color: var(--visor);
+  text-shadow: var(--visor-glow);
+  transform: perspective(700px) rotateY(10deg);
+  transform-origin: left center;
+}
+
+.hud-view.split .hud-gear {
+  left: calc(16px + 48px * var(--hud-scale, 1));
+}
+
+.hud-gear .nades {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: calc(6px * var(--hud-scale, 1));
+}
+
+.hud-gear .nades b {
+  grid-row: span 2;
+  min-width: 1.3em;
+  padding: 0 calc(5px * var(--hud-scale, 1));
+  border: 1.5px solid var(--visor-line);
+  border-radius: 3px;
+  background: var(--visor-bg);
+  text-align: center;
+  font-size: calc(22px * var(--hud-scale, 1));
+  line-height: 1.2;
+}
+
+.hud-gear .nades span {
+  display: flex;
+  gap: calc(3px * var(--hud-scale, 1));
+}
+
+.hud-gear .nades i {
+  width: calc(9px * var(--hud-scale, 1));
+  height: calc(9px * var(--hud-scale, 1));
+  border-radius: 50%;
+  background: var(--ember-2);
+  box-shadow: 0 0 4px rgba(255, 160, 60, 0.8);
+}
+
+.hud-gear .nades i.empty {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid var(--visor-line);
+}
+
+.hud-gear .nades em {
+  font-style: normal;
+  font-size: max(9px, calc(11px * var(--hud-scale, 1)));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--visor-dim);
 }
 
 .missile-cam {
@@ -1068,7 +1201,7 @@ kbd {
 .target-name {
   position: absolute;
   left: 50%;
-  top: calc(50% + 34px * var(--hud-scale, 1));
+  top: calc(50% - 52px * var(--hud-scale, 1));
   transform: translateX(-50%);
   font-size: max(11px, calc(13px * var(--hud-scale, 1)));
   font-weight: 700;
@@ -1166,7 +1299,7 @@ kbd {
 }
 
 /* Split-screen views: the controls strip moves bottom-left, between the motion tracker (at
-   the bottom corner) and the ammo counter. */
+   the bottom corner) and the scores, which sit in the bottom-right corner beside it. */
 .hud-view.split .hud-controls {
   left: calc(max(84px, 124px * var(--hud-scale, 1)) + 14px);
   transform: none;
@@ -1179,27 +1312,47 @@ kbd {
   left: 6px;
 }
 
+.hud-view.split .hud-match {
+  bottom: 6px;
+  right: 8px;
+}
+
+.hud-view.split .hud-feed {
+  bottom: calc(max(84px, 124px * var(--hud-scale, 1)) + 14px);
+}
+
 .hud-view.split .ctl-row {
   justify-content: flex-start;
 }
 
 /* ---------- match: clock, place, kill feed, scoreboard, results */
 
+.hud-view {
+  /* How far the bottom corners sit above the controls strip (owner: it stays up); Hud.layout
+     measures it. */
+  --ctl-lift: calc(50px * var(--hud-scale, 1));
+}
+
+/* Clock and everyone's scores, bottom right like Halo's. */
 .hud-match {
   position: absolute;
-  right: 12px;
-  top: 8px;
+  right: calc(14px * var(--hud-scale, 1));
+  bottom: calc(14px * var(--hud-scale, 1) + var(--ctl-lift));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: calc(2px * var(--hud-scale, 1));
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  font-family: var(--hud-font);
+  color: var(--visor);
+  text-shadow: var(--visor-glow);
+  transform: perspective(700px) rotateY(-10deg);
+  transform-origin: right center;
 }
 
 .hud-clock {
-  font-family: var(--display);
-  font-size: calc(24px * var(--hud-scale, 1));
-  letter-spacing: 0.04em;
+  font-size: calc(22px * var(--hud-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
 .hud-clock.hot,
@@ -1223,14 +1376,15 @@ kbd {
   align-items: center;
   gap: 0.4em;
   padding: 0 6px;
-  border-radius: 3px;
-  background: rgba(10, 8, 7, 0.4);
-  color: var(--ink-dim);
+  border-left: 2px solid transparent;
+  background: rgba(40, 110, 150, 0.14);
+  color: var(--visor-dim);
 }
 
 .hud-standings div.me {
-  background: rgba(255, 122, 26, 0.32);
-  color: var(--ink);
+  border-left-color: var(--visor);
+  background: rgba(80, 170, 220, 0.3);
+  color: var(--visor);
   font-weight: 700;
 }
 
@@ -1260,15 +1414,42 @@ kbd {
   text-align: right;
 }
 
-/* The motion tracker (radar.js), bottom left above the controls strip. */
+/* The motion tracker (radar.js), bottom left, tilted into the visor. */
 .hud-radar {
   position: absolute;
-  left: calc(10px * var(--hud-scale, 1));
-  bottom: calc(12px + 48px * var(--hud-scale, 1));
+  left: calc(12px * var(--hud-scale, 1));
+  bottom: calc(14px * var(--hud-scale, 1) + var(--ctl-lift));
   pointer-events: none;
+  transform: perspective(700px) rotateY(12deg);
+  transform-origin: left center;
 }
 
-.hud-feed,
+/* The kill feed, left above the motion tracker like Halo's: plain text on the view. */
+.hud-feed {
+  position: absolute;
+  left: calc(16px * var(--hud-scale, 1));
+  bottom: calc(14px * var(--hud-scale, 1) + max(84px, 124px * var(--hud-scale, 1)) + 10px + var(--ctl-lift));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  font-family: var(--hud-font);
+  font-size: max(10px, calc(14px * var(--hud-scale, 1)));
+  color: var(--visor);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  transform: perspective(700px) rotateY(10deg);
+  transform-origin: left center;
+}
+
+.hud-feed div {
+  white-space: nowrap;
+}
+
+.hud-feed span {
+  color: var(--visor-dim);
+  margin: 0 0.3em;
+}
+
 .ip-feed {
   display: flex;
   flex-direction: column;
@@ -1278,7 +1459,6 @@ kbd {
   font-size: max(10px, calc(13px * var(--hud-scale, 1)));
 }
 
-.hud-feed div,
 .ip-feed div {
   padding: 1px 8px;
   border-radius: 3px;
@@ -1286,7 +1466,6 @@ kbd {
   white-space: nowrap;
 }
 
-.hud-feed span,
 .ip-feed span {
   color: var(--ink-dim);
   margin: 0 0.3em;
