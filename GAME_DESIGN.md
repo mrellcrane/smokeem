@@ -961,3 +961,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Atmosphere for Smokestack: soft sunbeams slant down through every skylight bay to
   the floor along the real sun, with dust drifting in them (Medium and High only; beams fade
   right in front of the camera so walking through one doesn't flash the screen). Two draw calls.
+- 2026-10-30: Ground detail. Mudlark's dirt got rubble piled along the foot of the walls and
+  pebbles across the field (low-poly rocks tinted to the dirt, kept off pickup pads, dummy posts,
+  the mud pit and the Summit; you walk through them) and damp, trodden patches baked into the
+  floor. Smokestack's floor got a hazard-striped keep-clear border round the smoker, dashed lane
+  lines along the belts, drains and tire scuffs. No new draw calls.

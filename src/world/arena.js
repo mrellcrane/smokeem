@@ -56,7 +56,10 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   netBlock(B, M, zones);
   cover(B, M);
   lightPylons(B, M, H);
-  const vents = dressMudlark(B, M, H, WALL_H);
+  const vents = dressMudlark(B, M, H, WALL_H, {
+    keep: [...PICKUP_SPOTS.filter((sp) => sp.pos[1] < 0.5).map((sp) => [sp.pos[0], sp.pos[2], 1.6]), ...DUMMY_POSTS.map((d) => [d.post[0], d.post[2], 1.2])],
+    skip: [[PIT.x0 - 0.3, PIT.z0 - 0.3, PIT.x1 + 0.3, PIT.z1 + 0.3], [-4.6, -4.6, 4.6, 4.6]],
+  });
   pickupPads(B, M, PICKUP_SPOTS);
 
   // Damp ground around the mud pit.
