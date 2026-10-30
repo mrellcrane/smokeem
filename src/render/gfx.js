@@ -23,4 +23,6 @@ export const gfx = {
   portalViews: true,
   // Normal maps on walls and floors (high preset only).
   normalMaps: true,
+  // The facility skyline around outdoor maps, with its smoke plumes (world/skyline.js).
+  skyline: true,
 };

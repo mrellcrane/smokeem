@@ -698,7 +698,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   bot palette that avoids arena colors, chunkier armor (done); (3) world light: baked ground shading
   and glow pools, contact shading on walls and props, a light grade per map (done); (4) shots you
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
-  (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
+  (5) painted sky and skyline (done); (6) textures 2.0 (done); (7) body language: real locomotion, aiming
   separate from legs, jumps and landings (done); (8) pickup beacons (done); (9) explosions, impacts and
   decals (done); (10) arena dressing (done); (11) first-person feel (done); gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
   flinch and death animation (done); (13) animated reloads in first person (done); (14) normal maps on
@@ -951,3 +951,10 @@ Need answers before the step that uses them gets built.
   canvas now also writes a normal map from the same slopes, so seams, rivets, planks and pebbles
   answer the real sun (metal walls got a little more shine to catch it). No draw calls; one more
   shader program; about 0.3 s more texture painting on the first High load (cached after).
+- 2026-10-30: Owner picked the facility skyline for Mudlark (over keeping the desert alone).
+  Past the stands now: hazy arcology towers with lit window bands, six smokestacks with red and
+  white bands and pale smoke plumes, comm towers with dishes, hangars, four flood rigs aimed at
+  the arena, blinking aviation lights, and a monorail on stilts circling the arena with a train
+  going round; the mesas and gas giant stay behind it all. The sky got the sun's glow and a
+  drifting band of clouds. Everything fades into the horizon haze with distance. About 3 draw
+  calls per view (gfx switch `skyline` for the Xbox bench).

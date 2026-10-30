@@ -268,6 +268,13 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   edge vertices so boxes stay watertight, since T-junctions crack into single-pixel holes). Any static geometry needs a `color`
   attribute, so add it through `StaticBuilder`, not as a separate mesh with these materials.
 - Lights, fog and sky colors come from the map's look (`src/world/looks.js`).
+- The sky (`sky.js`): the dome's vertex colors carry the gradient and the sun's glow, a cloud band
+  wraps the horizon (its texture drifts in `sky.update`), and outdoor looks with `sky.skyline` get
+  the facility around the arena (`skyline.js`, gfx switch `skyline`): every structure in one
+  Lambert mesh whose vertex shader blinks the aviation lights and drives the monorail train
+  (`aGlow`, `aBlink`, `aTrain`, `uTime`) and whose fragment fades it into the horizon haze, plus
+  the stacks' smoke as one billboard mesh moved entirely in its vertex shader. About 3 draw
+  calls per view.
 - Pooled systems hide themselves while empty (particles, tracers, beams, grenades, bolts, swarms, pickups): three still issues a draw for a zero-count instanced mesh. Pickups are one instanced mesh per gun type plus one for grenade pairs.
 - The sky dome draws last (`renderOrder` 1, depth test on, no depth write), so the arena's depth hides most of its pixels.
 - Textures are painted once per page load and size (the preset's `textureSize`: 512 on medium
