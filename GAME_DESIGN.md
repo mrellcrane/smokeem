@@ -1009,3 +1009,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Halo look, the HUD (last of the three passes): Halo 3's layout and visor styling
   (see Match flow above). The plan included hiding the controls strip after the start of a
   match; the owner wants it always visible, so it stays and the bottom corners sit above it.
+- 2026-10-30: Owner: the footsteps were annoying and should sound like Halo's. The synthesized
+  clicks are gone; footsteps are now CC0 recordings (stone, sand and metal-boot takes) pitched
+  down and low-passed into soft, heavy thuds with a sub-thump and a faint armor jingle, and your
+  own steps sit lower in the mix than other people's.
+

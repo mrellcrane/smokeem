@@ -18,3 +18,10 @@ and mastered with `tools/build_sounds.py`; the sub-bass thumps and the rocket ro
 | `reloadPistol` | gunreload1, Gun reload sounds |
 | `chimney-1`, `chimney-2` | Mossberg 190 bolt-action shotgun, near (N_30P), The Free Firearm Sound Library |
 | `rotisserie-1` to `rotisserie-3` | PPSh-41, near (P_34P), sliced from one long burst, same library |
+| `step-1` to `step-4`, `stepWood-1` to `stepWood-4` | Stone takes from [Fantozzi's Footsteps (Grass/Sand & Stone)](https://opengameart.org/content/fantozzis-footsteps-grasssand-stone) |
+| `stepDirt-1` to `stepDirt-4`, `stepMud-1` to `stepMud-4` | Sand takes, same pack |
+| `stepMetal-1` to `stepMetal-4` | metal_steps 01, 06, 08, 16, [Metal Footsteps on Concrete](https://opengameart.org/content/metal-footsteps-on-concrete) |
+| (the armor jingle in every footstep) | step_metal takes, [Footsteps (Leather, Cloth, Armor)](https://opengameart.org/content/footsteps-leather-cloth-armor) (CC0 option) |
+
+Footsteps are built with `tools/build_footsteps.py` (pitched down, low-passed, with a synthesized
+sub-thump), separate from `tools/build_sounds.py`.

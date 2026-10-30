@@ -1082,8 +1082,9 @@ export class Player {
     this.game.sfx.play(name, {
       at: _probe,
       source: this,
-      volume: Math.min(1.6, 0.35 + 0.65 * loud) * (this.isBot ? 1 : 0.6) * Math.sqrt(this.size),
-      rate: (0.92 + Math.random() * 0.16) / Math.sqrt(this.size),
+      // (Your own steps sit low in the mix, like Halo's; other people's carry.)
+      volume: Math.min(1.6, 0.35 + 0.65 * loud) * (this.isBot ? 1 : 0.45) * Math.sqrt(this.size),
+      rate: (0.94 + Math.random() * 0.12) / Math.sqrt(this.size),
     });
   }
 

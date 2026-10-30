@@ -159,7 +159,9 @@ Live build: https://mrellcrane.github.io/smokeem/
   fades and muffles with distance from the nearest local player and plays up close when
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
   played for local players (`!player.isBot`). Footsteps (`step`, `stepMetal`, `stepDirt`,
-  `stepWood`, `stepMud`, four synthesized takes each) come from everyone: `Player.tickStride`
+  `stepWood`, `stepMud`, four takes each: CC0 recordings shaped like a Spartan's boots by
+  `tools/build_footsteps.py`, pitched down and low-passed with a sub-thump and an armor jingle;
+  your own sit low in the mix) come from everyone: `Player.tickStride`
   runs a stride clock at the body's own stride length (`strideLength`, `character.js`), and each
   whole step plays the sound for the surface under the feet (a short ray down) unless crouched;
   landings play a louder one. The same clock drives the head bob (`CAMERA.bob*`, the eye dips at
