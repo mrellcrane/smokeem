@@ -18,6 +18,7 @@ import { SIZZLER, GRAPPLE } from '../config.js';
 //   power       a power weapon: used now and then, always worth a swap
 //   hold        no burst gaps (beams, spin-up guns); spin-up guns also keep spinning in range
 //   noSight     fired at someone's last-seen spot while chasing (Swarm Jar)
+//   feet        straight rockets: aim at the feet for the blast, leading by the flight time
 //   lob         aim a ballistic arc at the target's feet (launchers)
 // semiRate: share of a semi-auto gun's full fire rate a bot taps at; lead: how much of a
 // moving target's travel a bot leads lobbed shots by.
@@ -459,6 +460,12 @@ export class BotBrain {
       // No arc reaches them from here: close in, or let chooseWeapon swap to the other gun.
       this.lobFail = !lobOk;
       arc = a ?? 0;
+    } else if (w.bot.feet) {
+      // At their feet (their chest over low cover), led by the rocket's flight time.
+      _t.y -= 0.7;
+      p.eyePosition(_e);
+      if (this.game.lineBlocked(_e, _t)) _t.y += 1.0;
+      if (tg.vel) _t.addScaledVector(tg.vel, (dist / w.launchSpeed) * sk.lead);
     } else {
       // Chest height, or the head for Hard bots with a precision gun.
       _t.y = w.bot.headshots && this.skillName === 'hard' ? tg.headLineY() + 0.12 : _t.y + 0.35;

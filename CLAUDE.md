@@ -138,7 +138,10 @@ Live build: https://mrellcrane.github.io/smokeem/
   degrees, reach, range, slowdown, tracking) over the `AIM` defaults (`assistOf`), cones shrink
   by `player.aimZoom`, and `player.aimTarget` (the red reticle) is set exactly where a shot would
   bend), bolts (`bolts.js`: ballistic projectiles with no physics body,
-  one ray per tick, like the Swarm Jar's jar), bug swarms (`swarms.js`: pure-math seekers,
+  one ray per tick, like the Swarm Jar's jar and Hot Links' rockets: `straight` flies nose
+  first, `trail` leaves smoke and a glow, `explosion` bursts on impact or at the end of its life,
+  and `homing` turns toward the `target` it was fired with; `homingTarget` in `shooting.js`
+  picks a Sizzler near the aim when zoomed), bug swarms (`swarms.js`: pure-math seekers,
   one instanced mesh), area damage (`explosions.js`), pickups, and `dealDamage`, the single
   path all damage goes through (it also applies the Shrink Wrap's size multipliers). The Shrink
   Wrap (`kind: 'size'`, `fireSize` in `shooting.js`, numbers in `SIZE`, `config.js`) calls

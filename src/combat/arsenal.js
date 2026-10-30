@@ -73,6 +73,17 @@ export const WEAPON_SETS = {
     power: 'shrinkWrap',
     loadoutNames: ['Pitmaster', 'Ice Pick'],
   },
+  // Halo's classics as BBQ (owner pick): the scoped hand cannon as the sidearm, twin rocket
+  // tubes on the power pad.
+  cookoff: {
+    name: 'Cookoff',
+    heat: 'Medium',
+    primaries: ['hickory', 'kindling'],
+    sidearm: 'carver',
+    field: 'mesquite',
+    power: 'hotLinks',
+    loadoutNames: ['Pitmaster', 'Hot n Fast'],
+  },
   hogWild: {
     name: 'Hog Wild',
     heat: 'Extra Hot',

@@ -313,6 +313,7 @@ rosters and three judges.
 | Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
 | Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | built |
 | Funhouse | Hot | Hickory, Cold Smoke | Toothpick | Portal Gun | Shrink Wrap | built |
+| Cookoff | Medium | Hickory, Kindling | Carver | Mesquite | Hot Links | built |
 | Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | planned |
 
 Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n Fast**
@@ -341,6 +342,8 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | yes |
 | **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | yes |
 | **Stickybomb Launcher** | wacky | TF2's: sticky bombs that cling to walls, floors and ceilings, set off together with the aim button (see below). | yes |
+| **Carver** | normal | Scoped hand cannon (Halo 1's pistol, as BBQ): three headshots smoke anyone. | yes |
+| **Hot Links** | normal | Twin rocket tubes (Halo's launcher, as BBQ): two straight rockets, huge blast, home on bikes when zoomed. | yes |
 | **Gravity Gun** | wacky | Half-Life 2's: grab and fling loose things, including other people's grenades and stickies (see below). | yes |
 
 **Stickybomb Launcher** (owner pick, 2026-10-29, TF2's). Fire lobs a sticky bomb; up to 6 can
@@ -365,6 +368,11 @@ players (they hang helpless and break free after 1.4 s) and Sizzlers, rider and 
 any of those hurts the first one it flies into (a gun 30, a body 45, a dummy 55, a player 45,
 and the thrown player takes most of that too, a bike 90). Not in yet: catching Smoke Signal
 rockets and Swarm Jars.
+
+**Cookoff** (Medium, owner request 2026-10-30: Halo's rocket launcher and Halo 1's zoom pistol,
+as original BBQ guns): Hickory and Kindling primaries ("Pitmaster" and "Hot n Fast") with the
+Carver as the sidearm, the Mesquite on the field pads and Hot Links on the power pad. Dual
+wielding (also asked for) is next.
 
 **Junkyard** (Hot): Hickory and Stickybomb Launcher primaries ("Pitmaster" and "Sticky Ribs"),
 the Toothpick, the Mesquite on the field pads and the Gravity Gun on the power pad.
@@ -449,6 +457,18 @@ a pickup only (never in a loadout), no ammo. Bots leave it alone.
   while the beam is on them), longer or a new target starts over. 100 damage by 1 s, 1.67 s to smoke. 4 s per cell (80 pulses, 3 spare
   cells), 1.8 s vent. The beam tapers from the gun and turns from orange to white-hot as it
   heats, so its victim sees it coming. Burns a bug swarm out of the air in 0.3 s.
+- **Carver**: 2.4/s semi-auto, 45 damage (67.5 heads), falls to 70% between 40 and 90 m,
+  12 + 36, 1.5 s reload, 0.3 s draw, 2x scope (no gun on screen, a scope reticle instead).
+  Tight when zoomed and standing, blooms if you spam it. Three headshots smoke (0.83 s), five
+  to the body (1.67 s). A long slab barrel with cooling cuts, a meat-probe dial on its side, a
+  wooden grip; a heavy, low pistol crack.
+- **Hot Links**: 2 + 2 rockets, 1.25/s, 3.2 s reload, 0.6 s draw, 2x zoom. Rockets fly dead
+  straight at 40 m/s (no drop), trail smoke and glow, and burst on whatever they hit (or after
+  3 s): 5 m blast, full 220 inside 1.4 m, so a direct hit always smokes; it hurts you too.
+  Zoomed, a rocket fired with a Sizzler within 7 degrees of the aim (90 m, in sight) turns
+  toward it at up to 1.8 rad/s; one rocket nearly takes a bike's whole hull. Two stovepipe tubes
+  with ember bands, a steel clamp with a stripe in your color, a belt of glowing sausage links.
+  Bots aim at the feet, leading by the rocket's flight time.
 - **Swarm Jar**: lobs a jar (18 m/s plus lift, 15 on a direct hit) that smashes on whatever
   it touches and lets out a swarm. 1 + 2 jars, 1.4 s reload, power pad every 60 s. The swarm
   hunts the nearest enemy it can see within 15 m (never its thrower), flying at 80% of
@@ -1176,3 +1196,6 @@ Need answers before the step that uses them gets built.
   instead of one green texture; boulders are rock. Grass tufts sway in the wind (Medium and High).
   The creek's water ripples downstream with sun glints, reflects the valley, foams at the banks,
   and goes from clear shallows to deep green-blue, so the stones in it no longer show through.
+- 2026-10-30: Halo guns, as original BBQ designs (owner request): the Carver (a scoped hand
+  cannon like Halo 1's pistol, three headshots) and Hot Links (twin straight-flying rockets,
+  zoomed ones home on bikes), in a new Medium set, Cookoff. Dual wielding is the next step.
