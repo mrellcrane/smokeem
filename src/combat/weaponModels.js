@@ -404,6 +404,24 @@ export function jarGeometry() {
   );
 }
 
+// A Hot Links rocket, nose toward -z: a fat sausage link with tied-off ends, little steel fins
+// and a glowing exhaust ring at the tail.
+export function rocketGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0], [0.11, 0.11, 0.36], 0x8a3a22, { shape: 'cyl', seg: 12 }],
+      [[0, 0, -0.2], [0.07, 0.07, 0.05], 0x6e2c1a, { shape: 'cyl', seg: 10, taper: 0.5 }],
+      [[0, 0, 0.19], [0.08, 0.08, 0.03], METAL, { shape: 'cyl', seg: 10 }],
+      [[0, 0, 0.215], [0.06, 0.06, 0.02], GLOW, { shape: 'cyl', seg: 10, finish: 'glow' }],
+      [[0, 0.06, 0.15], [0.006, 0.05, 0.07], METAL_LIGHT, { bevel: 0 }],
+      [[0, -0.06, 0.15], [0.006, 0.05, 0.07], METAL_LIGHT, { bevel: 0 }],
+      [[0.06, 0, 0.15], [0.05, 0.006, 0.07], METAL_LIGHT, { bevel: 0 }],
+      [[-0.06, 0, 0.15], [0.05, 0.006, 0.07], METAL_LIGHT, { bevel: 0 }],
+    ],
+    0x8a3a22,
+  );
+}
+
 // One bug: a small dark body with orange-tinted wings (big enough to read across a fight).
 export function bugGeometry() {
   return partsGeometry(

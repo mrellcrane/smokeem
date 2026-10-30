@@ -71,6 +71,32 @@ export function aimBasis(p, f, r, u) {
   u.crossVectors(r, f);
 }
 
+// A homing rocket's target: zoomed in, the Sizzler nearest the aim within HOMING_CONE and
+// HOMING_RANGE, in sight (not the one we're on). Null for none.
+const HOMING_CONE = 7 * DEG;
+const HOMING_RANGE = 90;
+const _hv = new THREE.Vector3();
+const _hp = new THREE.Vector3();
+function homingTarget(game, p, eye, fwd) {
+  if (!game.vehicles || p.aimZoom < 1.3) return null;
+  let best = null;
+  let bestA = HOMING_CONE;
+  for (const b of game.vehicles.bikes) {
+    if (!b.alive || b === p.vehicle) continue;
+    b.centerPosition(_hv).sub(eye);
+    const dist = _hv.length();
+    if (dist > HOMING_RANGE) continue;
+    const a = Math.acos(Math.max(-1, Math.min(1, _hv.dot(fwd) / dist)));
+    if (a >= bestA) continue;
+    // (Short of the bike itself, whose own colliders would block the line.)
+    _hp.copy(eye).addScaledVector(_hv, (dist - 1.2) / dist);
+    if (game.lineBlocked(eye, _hp)) continue;
+    best = b;
+    bestA = a;
+  }
+  return best;
+}
+
 export function updateShooting(game, p, dt, pressed) {
   const inp = p.input;
   p.meleeT = Math.max(0, p.meleeT - dt);
@@ -265,10 +291,10 @@ function fire(game, p, alt = false) {
     _c.divideScalar(reach);
     const block = game.castShot(_o, _c, reach, p.collider);
     if (block.hit && !block.entity) _muzzle.copy(_o).addScaledVector(_c, Math.max(0, block.distance - 0.05));
-    _d.copy(_f).multiplyScalar(d.launchSpeed).addScaledVector(p.vel, 0.5);
+    _d.copy(_f).multiplyScalar(d.launchSpeed).addScaledVector(p.vel, d.launchCarry ?? 0.5);
     _d.y += d.launchUp ?? 0;
-    game.bolts.fire(p, _muzzle, _d, d.projectile, d);
-    game.sfx.play('clink', { at: p.center, source: p, delay: 0.04 });
+    game.bolts.fire(p, _muzzle, _d, d.projectile, d, d.projectile.homing ? homingTarget(game, p, _o, _f) : null);
+    if (d.projectile.look === 'jar') game.sfx.play('clink', { at: p.center, source: p, delay: 0.04 });
     return;
   }
 
