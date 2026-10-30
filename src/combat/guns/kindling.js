@@ -1,4 +1,4 @@
-import { GLOVE, GLOW, METAL, METAL_LIGHT, ORANGE } from '../weaponModels.js';
+import { BORE, GLOVE, GLOW, METAL, METAL_LIGHT, ORANGE, RUBBER } from '../weaponModels.js';
 
 // Kindling: SMG. The fastest close-range kill of the loadout guns, useless past about 25 m.
 export default {
@@ -37,17 +37,35 @@ export default {
     reloadRate: 1.1,
     bot: { min: 0, max: 22, pref: 8, mobile: true },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
   parts: [
-    [[0, 0.02, -0.08], [0.07, 0.09, 0.26], METAL],
-    [[0, -0.06, -0.14], [0.08, 0.08, 0.08], ORANGE],
-    [[0, 0.03, -0.29], [0.05, 0.05, 0.16], METAL_LIGHT],
-    [[0.026, 0.03, -0.25], [0.003, 0.012, 0.014], GLOW],
-    [[0.026, 0.03, -0.29], [0.003, 0.012, 0.014], GLOW],
-    [[0.026, 0.03, -0.33], [0.003, 0.012, 0.014], GLOW],
-    [[0, 0.035, 0.12], [0.012, 0.012, 0.2], METAL],
-    [[0, -0.025, 0.12], [0.012, 0.012, 0.2], METAL],
-    [[0, -0.07, 0.0], [0.04, 0.09, 0.045], null],
+    // Receiver with its rail and sights.
+    [[0, 0.02, -0.08], [0.068, 0.085, 0.26], METAL],
+    [[0, 0.067, -0.08], [0.04, 0.012, 0.2], METAL_LIGHT],
+    [[0, 0.082, 0.02], [0.026, 0.02, 0.02], METAL],
+    [[0, 0.08, -0.19], [0.006, 0.02, 0.006], METAL],
+    [[-0.0345, 0.03, -0.08], [0.002, 0.03, 0.08], BORE, { bevel: 0 }],
+    // The drum magazine and its neck.
+    [[0, -0.08, -0.14], [0.062, 0.12, 0.12], ORANGE, { shape: 'cyl', axis: 'x', seg: 18 }],
+    [[0, -0.08, -0.14], [0.068, 0.04, 0.04], METAL, { shape: 'cyl', axis: 'x' }],
+    [[0, -0.025, -0.14], [0.04, 0.03, 0.04], METAL],
+    // The vented barrel shroud, its glowing vents and the muzzle.
+    [[0, 0.03, -0.29], [0.052, 0.052, 0.16], METAL_LIGHT, { shape: 'cyl', seg: 14 }],
+    [[0.026, 0.03, -0.25], [0.004, 0.012, 0.016], GLOW, { bevel: 0 }],
+    [[0.026, 0.03, -0.29], [0.004, 0.012, 0.016], GLOW, { bevel: 0 }],
+    [[0.026, 0.03, -0.33], [0.004, 0.012, 0.016], GLOW, { bevel: 0 }],
+    [[-0.026, 0.03, -0.25], [0.004, 0.012, 0.016], GLOW, { bevel: 0 }],
+    [[-0.026, 0.03, -0.29], [0.004, 0.012, 0.016], GLOW, { bevel: 0 }],
+    [[-0.026, 0.03, -0.33], [0.004, 0.012, 0.016], GLOW, { bevel: 0 }],
+    [[0, 0.03, -0.375], [0.032, 0.032, 0.03], METAL, { shape: 'cyl', bore: 0.6 }],
+    // Wire stock and its pad, the grip in the owner's color.
+    [[0, 0.035, 0.12], [0.012, 0.012, 0.2], METAL, { shape: 'cyl' }],
+    [[0, -0.025, 0.12], [0.012, 0.012, 0.2], METAL, { shape: 'cyl' }],
+    [[0, 0.005, 0.225], [0.05, 0.09, 0.014], RUBBER],
+    [[0, -0.07, 0.0], [0.04, 0.09, 0.045], null, { rot: [-0.25, 0, 0] }],
+    // Trigger guard and trigger.
+    [[0, -0.05, -0.065], [0.014, 0.006, 0.07], METAL, { bevel: 0 }],
+    [[0, -0.035, -0.1], [0.014, 0.03, 0.006], METAL, { bevel: 0 }],
+    [[0, -0.034, -0.05], [0.007, 0.026, 0.008], METAL_LIGHT, { rot: [0.25, 0, 0] }],
   ],
   // Gloves and forearms: right hand on the grip, left hand on the drum.
   hands: [

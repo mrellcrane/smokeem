@@ -1,4 +1,4 @@
-import { GLOVE, GLOW, METAL, METAL_LIGHT, ORANGE, WOOD_DARK } from '../weaponModels.js';
+import { GLOVE, GLOW, METAL, METAL_LIGHT, ORANGE, RUBBER, WOOD_DARK } from '../weaponModels.js';
 
 // Rotisserie: spin-up rotary gun, the power weapon. Highest sustained damage in the game, paid
 // for with a windup everyone hears and a slow walk while the barrels turn.
@@ -46,24 +46,37 @@ export default {
     bot: { min: 0, max: 45, pref: 15, power: true, noAdvance: true, hold: true },
   },
   parts: [
-    [[0, 0.03, -0.38], [0.012, 0.012, 0.6], METAL],
-    [[0, 0.03, -0.02], [0.16, 0.16, 0.22], METAL],
-    [[0, 0.135, -0.02], [0.03, 0.04, 0.16], WOOD_DARK],
-    [[0.095, 0.0, 0.0], [0.04, 0.09, 0.14], ORANGE],
-    [[0, 0.03, -0.66], [0.13, 0.13, 0.012], GLOW],
-    [[0, -0.07, 0.05], [0.045, 0.1, 0.05], WOOD_DARK],
-    [[0, -0.01, 0.13], [0.07, 0.07, 0.1], null],
+    // The axle and the clamps the barrels turn in.
+    [[0, 0.03, -0.38], [0.02, 0.02, 0.6], METAL, { shape: 'cyl' }],
+    [[0, 0.03, -0.4], [0.136, 0.136, 0.02], METAL, { shape: 'cyl', seg: 14 }],
+    [[0, 0.03, -0.625], [0.136, 0.136, 0.02], METAL, { shape: 'cyl', seg: 14 }],
+    // The motor housing, its front plate and tapered back, a glow strip on each side.
+    [[0, 0.03, -0.02], [0.16, 0.16, 0.22], METAL, { shape: 'cyl', seg: 12 }],
+    [[0, 0.03, -0.14], [0.15, 0.15, 0.03], METAL_LIGHT, { shape: 'cyl', seg: 12 }],
+    [[0, 0.03, 0.1], [0.13, 0.13, 0.04], METAL_LIGHT, { shape: 'cyl', seg: 12, taper: 0.75, rot: [Math.PI, 0, 0] }],
+    [[-0.08, 0.03, -0.02], [0.006, 0.03, 0.14], GLOW, { bevel: 0 }],
+    [[0.08, 0.06, -0.02], [0.006, 0.03, 0.14], GLOW, { bevel: 0 }],
+    [[0, -0.05, -0.09], [0.07, 0.06, 0.1], METAL],
+    // The carry handle on top, the ammo box and its feed on the right.
+    [[0, 0.12, 0.04], [0.022, 0.034, 0.022], METAL],
+    [[0, 0.12, -0.08], [0.022, 0.034, 0.022], METAL],
+    [[0, 0.145, -0.02], [0.032, 0.032, 0.15], RUBBER, { shape: 'cyl' }],
+    [[0.1, 0.0, 0.0], [0.045, 0.1, 0.14], ORANGE],
+    [[0.082, 0.04, -0.06], [0.02, 0.03, 0.05], METAL],
+    // Grip and a pad in the owner's color.
+    [[0, -0.07, 0.05], [0.045, 0.1, 0.05], WOOD_DARK, { rot: [-0.2, 0, 0] }],
+    [[0, -0.01, 0.14], [0.07, 0.07, 0.08], null],
   ],
   // The barrel cluster spins around this point in first person.
   spin: {
     center: [0, 0.03, -0.38],
     parts: [
-      [[0.045, 0.03, -0.38], [0.025, 0.025, 0.55], METAL_LIGHT],
-      [[0.0225, 0.069, -0.38], [0.025, 0.025, 0.55], METAL_LIGHT],
-      [[-0.0225, 0.069, -0.38], [0.025, 0.025, 0.55], METAL_LIGHT],
-      [[-0.045, 0.03, -0.38], [0.025, 0.025, 0.55], METAL_LIGHT],
-      [[-0.0225, -0.009, -0.38], [0.025, 0.025, 0.55], METAL_LIGHT],
-      [[0.0225, -0.009, -0.38], [0.025, 0.025, 0.55], METAL_LIGHT],
+      [[0.045, 0.03, -0.38], [0.026, 0.026, 0.55], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.5 }],
+      [[0.0225, 0.069, -0.38], [0.026, 0.026, 0.55], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.5 }],
+      [[-0.0225, 0.069, -0.38], [0.026, 0.026, 0.55], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.5 }],
+      [[-0.045, 0.03, -0.38], [0.026, 0.026, 0.55], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.5 }],
+      [[-0.0225, -0.009, -0.38], [0.026, 0.026, 0.55], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.5 }],
+      [[0.0225, -0.009, -0.38], [0.026, 0.026, 0.55], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.5 }],
     ],
   },
   hands: [

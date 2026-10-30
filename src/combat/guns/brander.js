@@ -1,4 +1,4 @@
-import { GLOVE, GLOW, METAL, ORANGE, WOOD } from '../weaponModels.js';
+import { GLOVE, GLOW, METAL, METAL_LIGHT, ORANGE, RUBBER, WOOD } from '../weaponModels.js';
 
 // Brander: heat beam. Short-range and exact, and it gets hotter the longer you hold it on
 // someone. The beam glows orange and turns white-hot as it ramps, pointing straight back at you.
@@ -52,18 +52,31 @@ export default {
     reloadSound: 'vent',
     bot: { min: 0, max: 20, pref: 9, hold: true },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
   parts: [
-    [[0, 0.03, -0.27], [0.035, 0.035, 0.5], METAL],
+    // The emitter tube with cooling fins and orange coils, its flared head and glowing prongs.
+    [[0, 0.03, -0.27], [0.034, 0.034, 0.5], METAL, { shape: 'cyl' }],
+    [[0, 0.03, -0.25], [0.06, 0.06, 0.008], METAL_LIGHT, { shape: 'cyl', bevel: 0 }],
+    [[0, 0.03, -0.28], [0.06, 0.06, 0.008], METAL_LIGHT, { shape: 'cyl', bevel: 0 }],
+    [[0, 0.03, -0.31], [0.06, 0.06, 0.008], METAL_LIGHT, { shape: 'cyl', bevel: 0 }],
+    [[0, 0.03, -0.34], [0.06, 0.06, 0.008], METAL_LIGHT, { shape: 'cyl', bevel: 0 }],
+    [[0, 0.03, -0.2], [0.05, 0.05, 0.03], ORANGE, { shape: 'cyl' }],
+    [[0, 0.03, -0.42], [0.05, 0.05, 0.03], ORANGE, { shape: 'cyl' }],
+    [[0, 0.03, -0.5], [0.034, 0.034, 0.04], METAL_LIGHT, { shape: 'cyl', taper: 1.6 }],
     [[-0.028, 0.03, -0.53], [0.014, 0.07, 0.014], GLOW],
     [[0.028, 0.03, -0.53], [0.014, 0.07, 0.014], GLOW],
     [[0, 0.03, -0.53], [0.07, 0.014, 0.014], GLOW],
-    [[0, 0.03, -0.2], [0.05, 0.05, 0.03], ORANGE],
-    [[0, 0.03, -0.36], [0.05, 0.05, 0.03], ORANGE],
-    [[0, -0.03, -0.14], [0.065, 0.065, 0.17], METAL],
+    // The fuel tank under it with a gauge and hose, the body, the grip.
+    [[0, -0.03, -0.14], [0.066, 0.066, 0.17], METAL, { shape: 'cyl', seg: 14 }],
+    [[-0.034, -0.03, -0.1], [0.008, 0.026, 0.026], GLOW, { shape: 'cyl', axis: 'x' }],
+    [[0, -0.02, -0.03], [0.016, 0.016, 0.08], RUBBER, { shape: 'cyl' }],
+    [[0, 0.004, -0.14], [0.02, 0.03, 0.1], METAL_LIGHT],
     [[0, 0.025, 0.06], [0.065, 0.075, 0.15], METAL],
-    [[0, -0.07, 0.0], [0.04, 0.1, 0.045], WOOD],
-    [[0, -0.025, 0.04], [0.05, 0.03, 0.07], null],
+    [[0, -0.07, 0.0], [0.04, 0.1, 0.045], WOOD, { rot: [-0.25, 0, 0] }],
+    [[0, -0.025, 0.05], [0.05, 0.03, 0.07], null],
+    // Trigger guard and trigger.
+    [[0, -0.05, -0.065], [0.014, 0.006, 0.07], METAL, { bevel: 0 }],
+    [[0, -0.035, -0.1], [0.014, 0.03, 0.006], METAL, { bevel: 0 }],
+    [[0, -0.034, -0.05], [0.007, 0.026, 0.008], METAL_LIGHT, { rot: [0.25, 0, 0] }],
   ],
   // Gloves and forearms: right hand on the grip, left hand under the power cell.
   hands: [
