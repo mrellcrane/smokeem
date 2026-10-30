@@ -727,7 +727,24 @@ bikes).
 - **The hills**: one on each flank (northwest and southeast), with a field gun on top and boulders
   for cover, plus low rises and scattered crates, drums and barriers.
 
-The title screen has a Map choice: Mudlark, Smokestack, Creek or Random (a different map each match,
+### Map 4: Cook-Off Yard (name is a proposal)
+
+Owner ask (2026-10-30): a map that plays like Halo 3's The Pit, as an original layout (not a
+copy). A barbecue competition's grounds, 64 m x 48 m inside 7 m walls, with the crowd in stands
+on the long walls. Built for precision fights: its default set is Cookoff (the Carver for the
+long lines, Hot Links on the roof). The layout is the same turned half a turn about the middle.
+
+- **Judging towers** (northwest and southeast corners): a deck at 6 m over a solid core, open
+  underneath at the front, a waist-high parapet with a gap to drop through, a field gun, and a
+  ramp up along the end wall. Each looks down the whole yard and onto the shed's roof.
+- **The smoker shed** (middle): long and narrow, open at both ends, one door in each long wall,
+  windows to shoot through, two cabinet smokers and a prep table inside (grenades in the middle).
+  Its flat roof holds the power pad, open to both towers; a ramp along each long wall climbs to it.
+- **Loading docks** (west and east walls, 1.6 m): a ramp up, crates, a field gun at the far end.
+- **The open yard**: a food truck on each side (its serving window toward the shed), log piles,
+  crates, barriers and drums, and a fire pit by each end of the shed.
+
+The title screen has a Map choice: Mudlark, Smokestack, Creek, Cook-Off or Random (a different map each match,
 never the same one twice in a row). Guns on "Map default" use each map's own set.
 
 ## Controls
@@ -1277,3 +1294,7 @@ Need answers before the step that uses them gets built.
   Roll and the Big Hog, one of each per side on Smokehouse Creek. See Vehicles: the solo rides.
   The pig stands in for the "animal mount" idea; the drum's rider is hidden and well sheltered,
   so it has no guns.
+- 2026-10-30: Owner asked for copies of Halo 3's The Pit and Guardian. We build originals that play
+  the same way instead (owner: "go ahead with both"): Cook-Off Yard first (towers in opposite
+  corners, a central shed with the power on its roof), then a tall vertical map round one giant
+  central structure.

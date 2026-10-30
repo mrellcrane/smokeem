@@ -1,7 +1,8 @@
 import { buildArena } from './arena.js';
 import { buildFactory } from './factory.js';
 import { buildValley, VALLEY_LINKS } from './valley.js';
-import { MUDLARK_LOOK, FACTORY_LOOK, VALLEY_LOOK } from './looks.js';
+import { buildYard } from './yard.js';
+import { MUDLARK_LOOK, FACTORY_LOOK, VALLEY_LOOK, YARD_LOOK } from './looks.js';
 import { MUDLARK_LINKS, FACTORY_LINKS } from '../ai/mapLinks.js';
 
 // The maps: how to build each one, its look, the bots' extra moves on it (mapLinks.js) and its
@@ -32,6 +33,15 @@ export const MAPS = {
     // (A mid-range rifle for an open valley, and the Smoke Signal for the bikes, as Valhalla has
     // its rockets: Competition Cut's SMG dragged fights out here.)
     defaultSet: 'backyard',
+  },
+  yard: {
+    name: 'Cook-Off Yard',
+    blurb: "a barbecue contest's grounds: judging towers in two corners, a smoker shed in the middle with the power gun on its roof.",
+    build: buildYard,
+    look: YARD_LOOK,
+    links: [],
+    // (Precision guns for the towers' long lines, rockets for the roof.)
+    defaultSet: 'cookoff',
   },
 };
 
