@@ -78,7 +78,21 @@ export class Oysters {
     const cap = 16;
     this.material = new THREE.MeshLambertMaterial({ vertexColors: true });
     this.material.name = 'oysters';
-    this.sacks = new THREE.InstancedMesh(sackGeometry(), this.material, cap);
+    // Each sack's owner (aOwner) and the player whose view is drawing (uHide; Game.render sets
+    // it): your own sack hides in your own view like your body does, and in a death replay
+    // the killer's (we're looking out of their eyes).
+    this.uniforms = { uHide: { value: -1 } };
+    this.material.onBeforeCompile = (shader) => {
+      shader.uniforms.uHide = this.uniforms.uHide;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aOwner;\nuniform float uHide;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tif (abs(aOwner - uHide) < 0.5) transformed = vec3(0.0);');
+    };
+    this.material.customProgramCacheKey = () => 'oysters';
+    const geom = sackGeometry();
+    this.owners = new THREE.InstancedBufferAttribute(new Float32Array(cap).fill(-1), 1);
+    geom.setAttribute('aOwner', this.owners);
+    this.sacks = new THREE.InstancedMesh(geom, this.material, cap);
     const m = this.sacks;
     m.castShadow = true;
     m.receiveShadow = true;
@@ -231,6 +245,7 @@ export class Oysters {
       s.mid.copy(_a).addScaledVector(_d, -NECK * r * sag);
       _m.compose(s.mid, _q, _s);
       this.sacks.setMatrixAt(n, _m);
+      this.owners.array[n] = p.id;
       s.r = r;
       n++;
     }
@@ -238,6 +253,7 @@ export class Oysters {
     m.count = n;
     m.visible = n > 0;
     m.instanceMatrix.needsUpdate = true;
+    this.owners.needsUpdate = true;
   }
 
   // The nearest sack a ray hits within maxDist (not the shooter's own), or null. Writes the hit

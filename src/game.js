@@ -740,6 +740,7 @@ export class Game {
       const replaying = this.replay?.showing(p) >= 0 && this.replay.begin(p, p.camera);
       // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
       this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
+      if (this.oysters) this.oysters.uniforms.uHide.value = replaying ? this.replay.killerOf(p).id : p.guiding ? -1 : p.id;
       r.setViewport(rect.x, rect.y, rect.w, rect.h);
       r.setScissor(rect.x, rect.y, rect.w, rect.h);
       r.clear(true, true, false);
