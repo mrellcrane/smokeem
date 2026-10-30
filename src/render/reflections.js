@@ -15,7 +15,14 @@ const SIZE = 128;
 
 // at: where the cube is seen from; hide: objects to leave out of it (bodies).
 export function captureReflections(renderer, scene, at, hide = []) {
-  const target = new THREE.WebGLCubeRenderTarget(SIZE, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+  // (Stored as sRGB, so the darks keep their precision in 8 bits; sampling decodes it back to
+  // linear. Rendering into a target compiles a linear-output copy of each material's program,
+  // once, inside the loading screen.)
+  const target = new THREE.WebGLCubeRenderTarget(SIZE, {
+    generateMipmaps: true,
+    minFilter: THREE.LinearMipmapLinearFilter,
+    colorSpace: THREE.SRGBColorSpace,
+  });
   const camera = new THREE.CubeCamera(0.5, 600, target);
   camera.position.copy(at);
   scene.add(camera);
