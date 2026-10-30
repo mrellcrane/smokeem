@@ -1032,4 +1032,8 @@ Need answers before the step that uses them gets built.
   Halo's. The helmet and hands stay put, and the hitbox is unchanged.
 - 2026-10-30: Owner asked for up to 8 players with bots in solo play (already there: 0 to 7 bots
   on the title screen) and for bots that can use the vehicles (part of the motorcycle work).
+- 2026-10-30: Sun lens flare and god rays on Mudlark: look toward the sun and a glare with a
+  string of colored rings and hexagons runs through the view (Medium and High), fading when a
+  wall passes in front; on High the sun's light also streams in rays past whatever stands in
+  front of it. About one draw call and one small pass.
 

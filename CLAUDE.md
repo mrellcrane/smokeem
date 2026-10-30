@@ -290,6 +290,13 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   (`aGlow`, `aBlink`, `aTrain`, `uTime`) and whose fragment fades it into the horizon haze, plus
   the stacks' smoke as one billboard mesh moved entirely in its vertex shader. About 3 draw
   calls per view.
+- Sun lens flare (`render/flare.js`, outdoor looks with `flare`, Medium and High: `preset.flare`,
+  gfx switch `flare`): one additive screen-space mesh (a glare and ghosts along the line from
+  the sun through the middle), placed per view by `flare.setView` (it updates the camera's
+  matrix first) and faded in and out per player by a level-only ray toward the sun
+  (`game._sunRay`: not bodies, not the invisible blockers). God rays (looks with `godRays`, High
+  only, gfx switch `godRays`): one quarter-size pass in the bloom chain smears the bright part
+  toward each view's sun before the up passes, added in the composite.
 - Indoor sunbeams (`shafts.js`, Smokestack): an open slanted prism per skylight bay, from the
   opening down to the floor along the sun, drawn additively and faded toward the floor, at
   grazing angles and right at the camera; dust motes as one points mesh drifting down the beams

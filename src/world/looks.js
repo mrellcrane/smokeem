@@ -10,6 +10,9 @@ export const MUDLARK_LOOK = {
   // The fog color is the horizon color, so far walls fade into the sky.
   // skyline: the facility around the arena (skyline.js).
   sky: { zenith: 0x2a5aa0, mid: 0x86b4dc, horizon: 0xcad7d9, below: 0xa58d78, skyline: true },
+  // The sun's lens flare and god rays (render/flare.js, render/bloom.js).
+  flare: true,
+  godRays: true,
   // The first-person gun and hands have their own lights in their own scene.
   vm: { hemi: 2.4, sun: 2.4 },
   // The color grade (render/grade.js): saturation, contrast, white balance, a blue lift in the shadows,
