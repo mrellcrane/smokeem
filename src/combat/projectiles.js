@@ -24,7 +24,12 @@ const BRIQUETTE = {
   fuse: GRENADE.fuse,
   contact: 0,
   ownerGrace: 0,
-  damping: 0.8,
+  // Next to no drag in the air (so a higher throw goes further, as in Halo); heavy drag from the
+  // first bounce on, so it settles instead of rolling away.
+  damping: 0.05,
+  landDamping: 1.2,
+  // In the air when the fuse runs out: it goes off this long after it lands instead.
+  landFuse: 0.35,
   restitution: 0.35,
   ember: false,
   explosion: GRENADE.explosion,
@@ -277,6 +282,8 @@ export class Grenades {
       armed: !kind.sticky,
       // Held by a gravity gun (src/combat/gravity.js).
       heldBy: null,
+      // Bounced off something yet.
+      landed: false,
     });
   }
 
@@ -300,9 +307,18 @@ export class Grenades {
       g.fuse -= dt;
       if (g.kind.sticky) this.tickSticky(g, bounced || (g.age > 0.1 && _v.lengthSq() < 0.25));
       if (g.gone) continue;
+      // First touch (a bounce, or coming to rest): ground drag from now on, and a fuse that ran
+      // out in the air goes off shortly.
+      if (!g.landed && (bounced || (g.age > 0.2 && _v.lengthSq() < 0.25))) {
+        g.landed = true;
+        if (g.kind.landDamping) g.body.setLinearDamping(g.kind.landDamping);
+        if (g.kind.landFuse && g.fuse <= 0) g.fuse = g.kind.landFuse;
+      }
       g.vel.copy(_v);
       if (g.kind.ember && (this.game.tickCount & 1) === 0) this.game.fx.ember(g.pos);
-      if (g.fuse <= 0 || g.pos.y < -20 || this.touching(g)) this.detonate(g);
+      // A long lob whose fuse runs out in the air waits to land (up to 5 s in all).
+      const aloft = g.kind.landFuse && !g.landed && g.age < 5;
+      if ((g.fuse <= 0 && !aloft) || g.pos.y < -20 || this.touching(g)) this.detonate(g);
     }
   }
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { InputState } from '../input/inputState.js';
 import { DEG, clamp } from '../util/math.js';
-import { WEAPONS } from '../combat/weapons.js';
+import { WEAPONS, GRENADE } from '../combat/weapons.js';
 
 // A bot is a regular Player whose InputState is written by this brain instead of a controller,
 // so it moves, climbs, shoots and dies by exactly the same rules as people.
@@ -44,6 +44,9 @@ export const BOT_COLORS = [
 const SIGHT_RANGE = 75;
 // Gravity on launched projectiles (Rapier world gravity).
 const LOB_GRAVITY = 16;
+// A thrown Briquette, in lobArc's terms (its lift is along the view's up, near enough straight
+// up for the arcs bots throw).
+const GRENADE_LOB = { launchSpeed: GRENADE.throwSpeed, launchUp: GRENADE.throwUp, projectile: { damping: 0.05, fuse: 5 } };
 const HEAR_RANGE = 7;
 const MEMORY = 6;
 const PERCEIVE_EVERY = 0.15;
@@ -367,9 +370,9 @@ export class BotBrain {
     let arc = 0;
     let lobOk = true;
     if (this.throwT > 0) {
-      // Winding up a grenade: its arc is tuned for the chest, whatever gun is in hand.
-      _t.y += 0.35;
-      arc = 0.16 + dist * 0.008;
+      // Winding up a grenade: lob it to land at their feet, whatever gun is in hand.
+      _t.y -= 0.6;
+      arc = this.lobArc(_t, GRENADE_LOB) ?? 0.16 + dist * 0.008;
     } else if (w.bot.lob) {
       // At their feet (or their chest if low cover hides the feet), leading a moving target by
       // the flight time, minus the half of our own velocity the launch adds.
