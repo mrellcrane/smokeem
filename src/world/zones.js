@@ -14,6 +14,19 @@ export class Zones {
     this.ropes = [];
     this.bars = [];
     this.belts = [];
+    this.launches = [];
+  }
+
+  // A launch pad (Halo's man cannon): feet standing on it are thrown at vel ([vx, vy, vz], m/s).
+  addLaunch(min, max, vel) {
+    this.launches.push({ min, max, vel });
+  }
+
+  launchAt(feet) {
+    for (const l of this.launches) {
+      if (feet.x > l.min[0] && feet.x < l.max[0] && feet.y > l.min[1] && feet.y < l.max[1] && feet.z > l.min[2] && feet.z < l.max[2]) return l;
+    }
+    return null;
   }
 
   // A conveyor belt: feet standing in the box (just over the belt's top) ride along at vel

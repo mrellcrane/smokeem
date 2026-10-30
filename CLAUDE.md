@@ -184,7 +184,7 @@ Live build: https://mrellcrane.github.io/smokeem/
   - Maps: `maps.js` registers each one (name, title-screen blurb, build function, look, bot
     links, default weapon set); `settings.map` picks one ('random' never repeats the last), and
     `Game.create({ map })` sets `game.mapId` / `game.map`. `arena.js` is Mudlark Gauntlet,
-    `factory.js` Smokestack Works; shared pieces (crates, barriers, drums, pickup pads, the
+    `factory.js` Smokestack Works, `valley.js` Smokehouse Creek; shared pieces (crates, barriers, drums, pickup pads, the
     grandstands) are in `parts.js`; set dressing (Mudlark's sponsor boards, TV cameras, wall-top
     drum smokers and cable runs; Smokestack's hanging sausages, gauges, warning boards and corner
     pallets; on the floors, Mudlark's rocks and pebbles and stains, Smokestack's keep-clear border,
@@ -199,8 +199,16 @@ Live build: https://mrellcrane.github.io/smokeem/
     at 16.2 m. Its conveyor belts are zones (`zones.addBelt`, `beltAt`): `Player.tickMove` adds
     the belt's velocity while grounded on one; the belt texture scrolls in `arena.update` (the
     south line's boxes are turned around so the same scroll runs the other way).
+  - Smokehouse Creek is open terrain: `heightAt(x, z)` shapes the ground (plateaus, the creek,
+    hills, the rim slopes) and is used to place everything on it; the ground is one 1 m grid mesh
+    (vertex colors from slope and wetness, `materials.grass`) with a matching trimesh collider.
+    The creek is a mud zone under a transparent `materials.water` plane. Launch pads are zones
+    (`zones.addLaunch`, `launchAt`): `Player.tickMove` sets the velocity once while grounded on
+    one and leaves the jump unsteered until landing (`launched`); bots take them as `launch`
+    links (`VALLEY_LINKS`). A map bigger than the default 58 m square sets `nav: { halfX, halfZ,
+    top }` for the nav sampling.
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
-  (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
+  (walk / drop / jump / doublejump / firejump edges, plus map links, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
   `InputState` each tick. Besides fighting, chasing and roaming it flings props with the Gravity
   Gun at range (`fling`, `FLING_BAND`), walks into anyone's linked portal when it's a big shortcut

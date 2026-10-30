@@ -396,6 +396,41 @@ function ground(S) {
   return toTexture(c);
 }
 
+// Smokehouse Creek's meadow (one 4 m tile): green-brown grass with darker clumps, bare dirt
+// patches, and short blade strokes raised a little, lit from the sun's side.
+function grass(S) {
+  const k = S / 256;
+  const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
+  const rand = mulberry32(71);
+  ctx.fillStyle = '#5d7438';
+  ctx.fillRect(0, 0, S, S);
+  blobs(ctx, S, S, rand, 60, 10 * k, 38 * k, ['#4f6630', '#6b8442', '#58703a'], 0.4);
+  // Bare dirt showing through here and there.
+  blobs(ctx, S, S, rand, 10, 6 * k, 18 * k, ['#6e5a3c', '#7a6644'], 0.45);
+  // Blades: short strokes leaning every which way, lighter tips.
+  for (let i = 0; i < 1400 * k * k; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const len = (2 + rand() * 4) * k;
+    const a = -Math.PI / 2 + (rand() - 0.5) * 1.4;
+    const tone = ['#3f5626', '#7c9450', '#66803c', '#8aa058', '#4a6230'][Math.floor(rand() * 5)];
+    const level = 130 + Math.floor(rand() * 40);
+    wrapped(ctx, S, S, x, y, (cc, px, py) =>
+      both(cc, hctx, tone, level, (q) => {
+        q.lineWidth = 0.9 * k;
+        q.strokeStyle = q.fillStyle;
+        q.beginPath();
+        q.moveTo(px, py);
+        q.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len);
+        q.stroke();
+      }),
+    );
+  }
+  relief(ctx, hctx, S, GROUND_LIGHT, 0.22, { grain: 16, rand });
+  return toTexture(c);
+}
+
 // Metal wall panels, 4 across and 2 up per tile (1 m x 2 m at the 4 m tile): each its own tint,
 // with seams, worn bright edges, rivets, grime low down, and two rust streaks under rivets.
 // (No stenciled numbers: anything that distinctive shows the 4 m repeat along a wall.)
@@ -1231,6 +1266,7 @@ function painters(S) {
     crate: [`crate@${S}`, () => crate(S)],
     mud: ['mud', mud],
     slab: [`slab@${S}`, () => slab(S)],
+    grass: [`grass@${S}`, () => grass(S)],
     belt: ['belt', belt],
     net: ['net', net],
     rope: ['rope', rope],

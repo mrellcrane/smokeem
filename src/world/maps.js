@@ -1,6 +1,7 @@
 import { buildArena } from './arena.js';
 import { buildFactory } from './factory.js';
-import { MUDLARK_LOOK, FACTORY_LOOK } from './looks.js';
+import { buildValley, VALLEY_LINKS } from './valley.js';
+import { MUDLARK_LOOK, FACTORY_LOOK, VALLEY_LOOK } from './looks.js';
 import { MUDLARK_LINKS, FACTORY_LINKS } from '../ai/mapLinks.js';
 
 // The maps: how to build each one, its look, the bots' extra moves on it (mapLinks.js) and its
@@ -21,6 +22,14 @@ export const MAPS = {
     look: FACTORY_LOOK,
     links: FACTORY_LINKS,
     defaultSet: 'junkyard',
+  },
+  valley: {
+    name: 'Smokehouse Creek',
+    blurb: 'two rival smokehouses facing off across a creek valley: hills, bridges and launch pads.',
+    build: buildValley,
+    look: VALLEY_LOOK,
+    links: VALLEY_LINKS,
+    defaultSet: 'competitionCut',
   },
 };
 

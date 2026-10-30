@@ -158,6 +158,10 @@ export class Player {
     this.stride = this.prevStride = 0;
     this.bobAmt = 0;
     this.bobStride = 0;
+    // Since a launch pad threw us (s): don't throw again on the way up; and whether we're still
+    // flying its arc.
+    this.launchT = 0;
+    this.launched = false;
     this._fovH = this._fovA = this._fovZ = NaN;
     this.deathRoll = 0;
     this.lastLookX = 0;
@@ -458,6 +462,8 @@ export class Player {
     this.slideTilt = 0;
     this.stride = this.prevStride = this.bobStride = 0;
     this.bobAmt = 0;
+    this.launchT = 0;
+    this.launched = false;
     this.aimZoom = 1;
     this.sprintLock = 0;
     this.input.clear();
@@ -785,6 +791,8 @@ export class Player {
       // Pushing against the way you're moving turns you around faster.
       const reverse = wishLen > 0.01 && v.x * wx + v.z * wz < 0 ? MOVE.reverseAccelMul : 1;
       approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel * reverse : MOVE.groundDecel) * k * dt);
+    } else if (this.launched) {
+      // A launch pad's throw carries you the whole way: no steering or drag until you land.
     } else if (wishLen > 0.01) {
       // Keep momentum from sprint jumps; steer toward the stick (less right after a wall kick).
       const cur = Math.hypot(v.x, v.z);
@@ -828,6 +836,18 @@ export class Player {
       if (this.tryGrabBars() || this.tryGrabNet() || this.tryGrabRope()) return;
     }
 
+    // A launch pad throws you (once per landing).
+    const pad = this.grounded && this.launchT <= 0 ? this.game.zones.launchAt(this.feet) : null;
+    if (pad) {
+      v.set(pad.vel[0], pad.vel[1], pad.vel[2]);
+      this.grounded = false;
+      this.coyote = 0;
+      this.launchT = 0.5;
+      this.launched = true;
+      if (this.sliding) this.endSlide();
+      this.game.sfx.play('launch', { at: this.feet, source: this, volume: 0.6, rate: 1.4 });
+    }
+    if (this.launchT > 0) this.launchT -= dt;
     const wasGrounded = this.grounded;
     const fallSpeed = v.y;
     // Standing on a conveyor belt carries you along.
@@ -840,6 +860,7 @@ export class Player {
 
     if (this.grounded) {
       if (!wasGrounded) this.land(fallSpeed);
+      if (this.launchT <= 0) this.launched = false;
       this.coyote = MOVE.coyoteTime;
       this.airJumpsLeft = MOVE.airJumps;
       this.kicksLeft = MOVE.wallKicksPerAir;
