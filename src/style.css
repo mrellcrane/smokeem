@@ -556,6 +556,46 @@ kbd {
   text-shadow: 0 3px 6px rgba(0, 0, 0, 0.9);
 }
 
+/* Portal Gun: a blue oval left of the crosshair and an orange one right, filled while that
+   portal is open. */
+.portal-ind {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.portal-ind u {
+  position: absolute;
+  top: calc(-11px * var(--hud-scale, 1));
+  width: calc(9px * var(--hud-scale, 1));
+  height: calc(22px * var(--hud-scale, 1));
+  border: 2px solid;
+  border-radius: 50%;
+  box-sizing: border-box;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+.portal-ind .pb {
+  left: calc(-24px * var(--hud-scale, 1));
+  border-color: #2e8bff;
+}
+
+.portal-ind .po {
+  left: calc(15px * var(--hud-scale, 1));
+  border-color: #ff7a12;
+}
+
+.portal-ind.blue .pb {
+  background: #2e8bff;
+}
+
+.portal-ind.orange .po {
+  background: #ff7a12;
+}
+
 /* Shrink Wrap: how long you stay shrunk or supersized. */
 .size-status {
   display: none;

@@ -145,6 +145,29 @@ const SOUNDS = {
       const wob = 0.7 + 0.3 * Math.sin(t * 2 * Math.PI * 22);
       return 0.22 * saw * wob * Math.min(1, t / 0.01) * Math.min(1, (0.5 - t) / 0.12);
     }),
+  // Portal Gun: the two shots (a bright zip, pitched for each color), a portal opening, a shot
+  // that found no room, and going through.
+  portalShotA: (ctx) =>
+    synth(ctx, 0.28, (t, s, rate) => {
+      s.phase += (600 + 1400 * t) / rate;
+      return 0.3 * Math.sin(s.phase * Math.PI * 2) * Math.exp(-t * 11) + 0.08 * noise() * Math.exp(-t * 30);
+    }),
+  portalShotB: (ctx) =>
+    synth(ctx, 0.28, (t, s, rate) => {
+      s.phase += (420 + 900 * t) / rate;
+      return 0.3 * Math.sin(s.phase * Math.PI * 2) * Math.exp(-t * 11) + 0.08 * noise() * Math.exp(-t * 30);
+    }),
+  portalOpen: (ctx) =>
+    synth(ctx, 0.5, (t, s, rate) => {
+      s.phase += (90 + 60 * Math.sin(t * 9)) / rate;
+      return 0.35 * Math.sin(s.phase * Math.PI * 2) * Math.min(1, t / 0.03) * Math.exp(-t * 6) + 0.06 * noise() * Math.exp(-t * 10);
+    }),
+  portalFizzle: (ctx) => synth(ctx, 0.25, (t) => (0.3 * noise() * (Math.sin(t * 380) > 0.2 ? 1 : 0.2) + 0.15 * Math.sin(t * 2 * Math.PI * (800 - 2400 * t))) * Math.exp(-t * 12)),
+  portalEnter: (ctx) =>
+    synth(ctx, 0.4, (t, s) => {
+      s.prev = (s.prev ?? 0) + (noise() - (s.prev ?? 0)) * (0.05 + 0.5 * t);
+      return 0.45 * s.prev * Math.sin((Math.PI * t) / 0.4);
+    }),
   squish: (ctx) =>
     synth(
       ctx,

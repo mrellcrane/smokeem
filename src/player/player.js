@@ -91,6 +91,8 @@ export class Player {
     this.sizeJump = 1;
     this.sizeShown = 1;
     this.makeShapes();
+    // Portal Gun: no going back through a portal before this time (combat/portals.js).
+    this.portalT = 0;
     this.ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
     this.collision = new RAPIER.CharacterCollision();
     this.desired = { x: 0, y: 0, z: 0 };
@@ -583,6 +585,7 @@ export class Player {
     // (The corpse carries on with how we were moving.)
     this.deathVel = (this.deathVel ?? new THREE.Vector3()).copy(this.vel);
     this.game.pickups?.dropFrom(this);
+    this.game.portals?.close(this);
     this.guiding = null;
     this.lungeT = this.knockT = 0;
     this.mode = 'dead';
@@ -798,6 +801,8 @@ export class Player {
     const fallSpeed = v.y;
     // Standing on a conveyor belt carries you along.
     const belt = wasGrounded ? this.game.zones.beltAt(this.feet) : null;
+    // Walking, falling or jumping into a portal puts you out of the other one.
+    this.game.portals?.movePlayer(this, (v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
     this.moveBy((v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
     if (fallSpeed < -2) this.stomp();
     this.clipVelocity();

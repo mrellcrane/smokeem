@@ -176,6 +176,19 @@ const DEMOS = {
       flyer('M24 20 L 136 22', '#c08850', 0.85, { cls: 'dm-jar', head: 9, trail: 'rgba(99,242,255,0.35)' }) +
       blast(138, 22, 10, '#63f2ff', 1.25),
   },
+  // A blue portal on the floor ahead, an orange one on the wall by the target: a shot into the
+  // blue comes out of the orange and hits.
+  portalGun: {
+    still: 1.3,
+    draw: () =>
+      target(140, [1.35]) +
+      `<ellipse cx="66" cy="34" rx="10" ry="3" fill="#0d1a2e" stroke="#2e8bff" stroke-width="2"/>` +
+      `<ellipse cx="112" cy="20" rx="3" ry="9" fill="#2e1606" stroke="#ff7a12" stroke-width="2"/>` +
+      shot(66, 34, '#2e8bff', 0.2, 2.4) +
+      shot(112, 18, '#ff7a12', 0.6, 2.4) +
+      `<line class="dm-shot" x1="10" y1="20" x2="66" y2="33" pathLength="100" stroke="#ffd27a" stroke-width="2" style="${at(1.0)}"/>` +
+      `<line class="dm-shot" x1="112" y1="20" x2="140" y2="20" pathLength="100" stroke="#ffd27a" stroke-width="2" style="${at(1.0 + ARRIVE)}"/>`,
+  },
   // Shrink ray, then the grow ray: back to normal, supersized, and a third zap pops them.
   shrinkWrap: {
     still: 0.8,

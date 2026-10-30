@@ -62,6 +62,7 @@ export class Hud {
       <div class="hud-match"><div class="hud-clock"></div><div class="hud-standings"></div><div class="hud-feed"></div></div>
       <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
       <div class="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="portal-ind"><u class="pb"></u><u class="po"></u></div>
       <div class="target-name"></div>
       <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
       <div class="kill-msg"></div>
@@ -97,6 +98,7 @@ export class Hud {
       health: q('.health'),
       healthFill: q('.health i'),
       cross: q('.crosshair'),
+      portalInd: q('.portal-ind'),
       scope: q('.scope'),
       tag: q('.hud-tag'),
       clock: q('.hud-clock'),
@@ -229,7 +231,7 @@ export class Hud {
     this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
     const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
     this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
-    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : '';
+    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : '';
     this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
     const o = player.slots[1 - player.slot];
     this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
@@ -291,6 +293,15 @@ export class Hud {
     this.set('killcam', kc, (x) => {
       e.killcam.textContent = x;
       this.el.classList.toggle('killcam-on', !!x);
+    });
+
+    // Portal Gun: which of our portals are open (Portal's crosshair ovals).
+    const pr = w.def.kind === 'portal' && alive ? game.portals?.pairs.get(player) : null;
+    const pk = w.def.kind === 'portal' && alive ? `${pr?.[0] ? 1 : 0}${pr?.[1] ? 1 : 0}` : '';
+    this.set('portalInd', pk, (x) => {
+      e.portalInd.style.display = x ? 'block' : 'none';
+      e.portalInd.classList.toggle('blue', x[0] === '1');
+      e.portalInd.classList.toggle('orange', x[1] === '1');
     });
 
     // Shrink Wrap: what size we are and for how long.

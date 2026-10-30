@@ -18,4 +18,7 @@ export const gfx = {
   decals: true,
   // The game-show stands: crowd and big screen (world/show.js).
   show: true,
+  // A low-frame-rate picture of the other side in each portal (combat/portals.js; preset's
+  // portalViews, off on low).
+  portalViews: true,
 };

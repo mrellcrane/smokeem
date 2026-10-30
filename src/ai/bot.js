@@ -67,7 +67,7 @@ function wrap(a) {
 // band widths), negative outside the band, and worst of all when it's empty. The sidearm is a
 // fallback, so it scores lower.
 function bandFit(w, dist) {
-  if (w.empty) return -100;
+  if (w.empty || w.def.bot.skip) return -100;
   // Needs a reload first: only better than nothing.
   if (w.mag === 0) return -50;
   const b = w.def.bot;
@@ -194,7 +194,7 @@ export class BotBrain {
     // the gun in hand, so first draw the one worth least; hold still for that unless fighting.
     const prompt = p.pickupPrompt;
     this.swapping = false;
-    if (prompt && (prompt === this.goalItem || (prompt.def.bot.power && !p.slots.some((w) => w?.def.bot.power)))) {
+    if (prompt && !prompt.def.bot.skip && (prompt === this.goalItem || (prompt.def.bot.power && !p.slots.some((w) => w?.def.bot.power)))) {
       const give = keepValue(p.slots[0]) <= keepValue(p.slots[1]) ? 0 : 1;
       if (keepValue(p.slots[give]) <= gunValue(prompt.def)) {
         if (p.switchT <= 0 && give === p.slot) {
@@ -596,7 +596,7 @@ export class BotBrain {
       return best;
     };
     // Go for the power weapon, or now and then a gun we don't have.
-    const lacks = (i) => i.type === 'weapon' && !p.slots.some((w) => w?.def === i.def);
+    const lacks = (i) => i.type === 'weapon' && !i.def.bot.skip && !p.slots.some((w) => w?.def === i.def);
     const r = Math.random();
     const it = r < 0.35 ? pick((i) => lacks(i) && i.def.bot.power) : r < 0.5 ? pick(lacks) : null;
     if (it) {
