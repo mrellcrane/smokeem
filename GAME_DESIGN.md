@@ -1023,4 +1023,8 @@ Need answers before the step that uses them gets built.
   streaks and cracks; metal panels get soot, streaks and scraped paint; factory floors ground-in
   dirt. On top, every level surface gets grime patches and streaks laid by world position, so
   the dirt doesn't repeat with the textures (two texture lookups, no draw calls).
+- 2026-10-30: Chunky guns (owner pick: Halo proportions, keep the BBQ parts): every gun is 20%
+  thicker about its bore line with its lengths kept, the gunmetal is darker, and each gun's main
+  body has an ember-orange glowing strip down each side. Wood grips, shells, smoker parts and the
+  orange accents stay. First person, bodies, pickups and the loadout pictures all match.
 
