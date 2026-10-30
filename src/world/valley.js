@@ -173,6 +173,8 @@ function smokehouse(B, M, s) {
   const team = s < 0 ? M.glowOrange : M.glowCyan;
   const front = s < 0 ? x1 : x0;
   const back = s < 0 ? x0 : x1;
+  // (s points from the front toward the back: front + s * d is inside, front - s * d out in
+  // front; back - s * d is inside from the back.)
   const fx = (a, b) => [Math.min(a, b), Math.max(a, b)];
   const T = 0.4;
   const H = ROOF - y0;
@@ -187,7 +189,7 @@ function smokehouse(B, M, s) {
   B.boxMinMax(M.metal, [fa, yF, 2], [fb, ROOF, z1]);
   B.boxMinMax(M.metal, [fa, yF + 2.9, -2], [fb, ROOF, 2]);
   // Side walls, each with a door (1.6 m) near the front.
-  const dx = front - s * 3.4;
+  const dx = front + s * 3.4;
   for (const z of [z0, z1]) {
     const [za, zb] = fx(z, z - Math.sign(z) * T);
     const [da, db] = fx(dx - 0.8, dx + 0.8);
@@ -200,30 +202,30 @@ function smokehouse(B, M, s) {
   const P = ROOF + 0.3;
   B.boxMinMax(M.metalDark, [x0, P, z0], [x1, P + 0.9, z0 + 0.3]);
   B.boxMinMax(M.metalDark, [x0, P, z1 - 0.3], [x1, P + 0.9, z1]);
-  const [ra, rb] = fx(front, front - s * 0.3);
+  const [ra, rb] = fx(front, front + s * 0.3);
   B.boxMinMax(M.metalDark, [ra, P, z0], [rb, P + 0.9, z1 - 3]);
-  const [ba, bb] = fx(back, back + s * 0.3);
+  const [ba, bb] = fx(back, back - s * 0.3);
   B.boxMinMax(M.metalDark, [ba, P, z0], [bb, P + 0.9, z1]);
   // Team color strips along the parapet's top and over the front door.
   B.boxMinMax(team, [x0, P + 0.9, z0], [x1, P + 0.96, z0 + 0.3], { collide: false, castShadow: false });
   B.boxMinMax(team, [x0, P + 0.9, z1 - 0.3], [x1, P + 0.96, z1], { collide: false, castShadow: false });
-  const [ga, gb] = fx(front + s * T, front + s * (T + 0.04));
+  const [ga, gb] = fx(front, front - s * 0.04);
   B.boxMinMax(team, [ga, yF + 3.0, -1.8], [gb, yF + 3.2, 1.8], { collide: false, castShadow: false, halo: [s < 0 ? 1 : -1, 0, 0] });
-  // The ramp up the south side, outside, from the front corner to the roof's gap.
-  const rx0 = front + s * 0.6;
-  const rx1 = front - s * (BASE_HX * 2 - 3.5);
-  B.ramp(M.metalDark, [rx0, yF, z1 + 1.4], [rx1 + s * 0.2, P, z1 + 1.4], 2.2);
-  B.boxMinMax(M.metalDark, [Math.min(rx1, rx1 - s * 2.6), P - 0.3, z1 - 3], [Math.max(rx1, rx1 - s * 2.6), P, z1 + 2.5]);
+  // The ramp up the south side, outside, from near the back up to a landing in front of the
+  // roof's gap (the front parapet stops short of the south corner).
+  const rx0 = front + s * (BASE_HX * 2 - 3.5);
+  B.ramp(M.metalDark, [rx0, yF, z1 + 1.4], [front - s * 0.2, P, z1 + 1.4], 2.2);
+  B.boxMinMax(M.metalDark, [Math.min(front, front - s * 2.6), P - 0.3, z1 - 3], [Math.max(front, front - s * 2.6), P, z1 + 2.5]);
   // Porch roof over the front door, on two posts.
-  const [pa, pb] = fx(front + s * T, front + s * 3.2);
+  const [pa, pb] = fx(front, front - s * 3.2);
   B.boxMinMax(M.paint, [pa, ROOF - 0.9, -3.5], [pb, ROOF - 0.6, 3.5]);
-  for (const z of [-3.2, 3.2]) B.cylinder(M.steel, [front + s * 2.9, yF, z], 0.14, ROOF - 0.9 - yF, { segments: 8 });
+  for (const z of [-3.2, 3.2]) B.cylinder(M.steel, [front - s * 2.9, yF, z], 0.14, ROOF - 0.9 - yF, { segments: 8 });
   // Inside: the smoker against the back wall, and a crate to stand behind.
-  const sx = back + s * 1.6;
+  const sx = back - s * 1.6;
   B.boxMinMax(M.metalDark, [sx - 1.1, yF, -1.6], [sx + 1.1, yF + 1.6, 1.6]);
-  B.boxMinMax(M.ember, [Math.min(sx + s * 1.1, sx + s * 1.13), yF + 0.5, -0.9], [Math.max(sx + s * 1.1, sx + s * 1.13), yF + 1.1, 0.9], { collide: false, castShadow: false, halo: [s, 0, 0] });
+  B.boxMinMax(M.ember, [Math.min(sx - s * 1.1, sx - s * 1.13), yF + 0.5, -0.9], [Math.max(sx - s * 1.1, sx - s * 1.13), yF + 1.1, 0.9], { collide: false, castShadow: false, halo: [-s, 0, 0] });
   // The smokestack, out the back of the roof.
-  const stX = back + s * 1.4;
+  const stX = back - s * 1.4;
   B.cylinder(M.metal, [stX, P, -3.5], 0.85, 7, { segments: 12 });
   B.cylinder(team, [stX, P + 6.6, -3.5], 0.88, 0.25, { segments: 12, collide: false, castShadow: false });
   return [

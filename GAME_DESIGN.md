@@ -1111,3 +1111,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: The Sizzler got stuck on hills and in the creek (owner report). It now floats its
   collision ball over the ground and rides on a ground probe, so slopes up to about 38 degrees,
   the creek's banks and terrain creases don't catch it; it gets air off crests at speed.
+- 2026-10-30: Fixed Smokehouse Creek's smokehouses, which had several pieces mirrored the wrong way:
+  the roof ramp now climbs the south side from near the back to a landing at the front corner and
+  the roof's gap (it used to rise out toward the creek to a platform in mid air), the side doors
+  are near the front inside the walls (the walls used to stick out past the front), and the
+  smoker, the porch and the smokestack are where they belong (inside, in front, on the roof).
