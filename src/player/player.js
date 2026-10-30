@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BODY, MOVE, CAMERA, AIM, CORPSE } from '../config.js';
+import { BODY, MOVE, CAMERA, AIM, CORPSE, SIZE } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
@@ -41,6 +41,7 @@ const HAND_ABOVE_TOP = BODY.handReach - BODY.standHeight;
 const _c = new THREE.Vector3();
 const _c2 = new THREE.Vector3();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
+const _down = new THREE.Vector3(0, -1, 0);
 // While flying a missile the body gets no movement input.
 // How long after spawning a loadout change still swaps your guns on the spot (s).
 const LOADOUT_GRACE = 3;
@@ -80,9 +81,16 @@ export class Player {
     this.cc.enableAutostep(0.45, 0.2, false);
     this.cc.enableSnapToGround(0.35);
     this.cc.setApplyImpulsesToDynamicBodies(true);
-    // Slightly thinner test shapes so touching a wall doesn't count as overlapping it.
-    this.standShape = new RAPIER.Capsule(STAND_HH, BODY.radius - 0.03);
-    this.crouchShape = new RAPIER.Capsule(CROUCH_HH, BODY.radius - 0.03);
+    // Shrink Wrap: our size (1 normal; the collider, shapes, camera and body scale with it), how
+    // long it lasts, who changed it, what it does to our speed and jumps, and the body's drawn
+    // scale (it morphs over SIZE.morph).
+    this.size = 1;
+    this.sizeT = 0;
+    this.sizeBy = null;
+    this.sizeSpeed = 1;
+    this.sizeJump = 1;
+    this.sizeShown = 1;
+    this.makeShapes();
     this.ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
     this.collision = new RAPIER.CharacterCollision();
     this.desired = { x: 0, y: 0, z: 0 };
@@ -126,8 +134,6 @@ export class Player {
     this.kicksLeft = MOVE.wallKicksPerAir;
     this.kickWall = { on: false, handle: -1, nx: 0, nz: 0, d: 0 };
     // Our capsule grown by the kick reach (to find walls), and the nearest wall found.
-    this.reachStand = new RAPIER.Capsule(STAND_HH, BODY.radius + MOVE.wallKickReach);
-    this.reachCrouch = new RAPIER.Capsule(CROUCH_HH, BODY.radius + MOVE.wallKickReach);
     const v0 = { x: 0, y: 0, z: 0 };
     this.contact = new RAPIER.ShapeContact(0, { ...v0 }, { ...v0 }, { ...v0 }, { ...v0 });
     // into: whether the stick (kickWish) pushes into any wall in reach.
@@ -292,7 +298,7 @@ export class Player {
   distanceToBody(p) {
     const hh = this.halfHeight;
     const y = clamp(p.y, this.center.y - hh, this.center.y + hh);
-    return Math.hypot(p.x - this.center.x, p.y - y, p.z - this.center.z) - BODY.radius;
+    return Math.hypot(p.x - this.center.x, p.y - y, p.z - this.center.z) - this.radius;
   }
 
   // Put a weapon in the empty slot (or replace the held one). Returns the slot used.
@@ -327,35 +333,90 @@ export class Player {
   }
 
   headLineY() {
-    return this.topY() - 0.32;
+    return this.topY() - 0.32 * this.size;
   }
 
   // The eye's height above the capsule center.
   eyeOffset() {
-    return this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND;
+    return (this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND) * this.size;
   }
 
   eyePosition(out) {
-    return out.set(this.center.x, this.center.y + (this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND), this.center.z);
+    return out.set(this.center.x, this.center.y + this.eyeOffset(), this.center.z);
+  }
+
+  get radius() {
+    return BODY.radius * this.size;
   }
 
   get halfHeight() {
-    return this.crouched ? CROUCH_HH : STAND_HH;
+    return (this.crouched ? CROUCH_HH : STAND_HH) * this.size;
   }
 
   get height() {
-    return this.crouched ? BODY.crouchHeight : BODY.standHeight;
+    return (this.crouched ? BODY.crouchHeight : BODY.standHeight) * this.size;
   }
 
   feetY() {
-    return this.center.y - this.halfHeight - BODY.radius;
+    return this.center.y - this.halfHeight - this.radius;
   }
 
   topY() {
-    return this.center.y + this.halfHeight + BODY.radius;
+    return this.center.y + this.halfHeight + this.radius;
+  }
+
+  // The overlap and wall-reach test shapes for our size. Slightly thinner test shapes so
+  // touching a wall doesn't count as overlapping it.
+  makeShapes() {
+    const { RAPIER } = this;
+    const k = this.size;
+    const r = BODY.radius * k;
+    this.standShape = new RAPIER.Capsule(STAND_HH * k, r - 0.03 * k);
+    this.crouchShape = new RAPIER.Capsule(CROUCH_HH * k, r - 0.03 * k);
+    this.reachStand = new RAPIER.Capsule(STAND_HH * k, r + MOVE.wallKickReach);
+    this.reachCrouch = new RAPIER.Capsule(CROUCH_HH * k, r + MOVE.wallKickReach);
+  }
+
+  // Shrink Wrap: change size (SIZE.small, 1 or SIZE.big) with the feet staying put. Growing
+  // needs room: returns false (and changes nothing) when the bigger body wouldn't fit.
+  setSize(size, by = null) {
+    this.sizeT = size === 1 ? 0 : SIZE.time;
+    this.sizeBy = size === 1 ? null : by;
+    if (size === this.size) return true;
+    const feet = this.feetY();
+    const hh = (this.crouched ? CROUCH_HH : STAND_HH) * size;
+    const r = BODY.radius * size;
+    const y = feet + hh + r + 0.02;
+    if (size > this.size && this.alive) {
+      const old = this.size;
+      this.size = size;
+      this.makeShapes();
+      const fits = !this.overlaps(this.crouched ? this.crouchShape : this.standShape, this.center.x, y, this.center.z);
+      if (!fits) {
+        this.size = old;
+        this.makeShapes();
+        this.sizeT = old === 1 ? 0 : SIZE.time;
+        return false;
+      }
+    } else {
+      this.size = size;
+      this.makeShapes();
+    }
+    this.collider.setHalfHeight(hh);
+    this.collider.setRadius(r);
+    const dy = y - this.center.y;
+    this.center.y += dy;
+    this.prevCenter.y += dy;
+    this.body.setTranslation(this.center, true);
+    this.sizeSpeed = size < 1 ? SIZE.smallSpeed : size > 1 ? SIZE.bigSpeed : 1;
+    this.sizeJump = size < 1 ? SIZE.smallJump : 1;
+    return true;
   }
 
   spawn(point) {
+    if (this.size !== 1) this.setSize(1);
+    this.sizeShown = 1;
+    this.model.group.scale.setScalar(1);
     if (this.crouched) {
       this.collider.setHalfHeight(STAND_HH);
       this.crouched = false;
@@ -449,7 +510,9 @@ export class Player {
     const zones = this.game.zones;
     this.feet.set(this.center.x, this.feetY(), this.center.z);
     this.inMud = zones.inMud(this.feet);
-    this.inFire = zones.inFire(this.feet, this.height, BODY.radius);
+    this.inFire = zones.inFire(this.feet, this.height, this.radius);
+    // Shrink Wrap wears off.
+    if (this.sizeT > 0 && (this.sizeT -= dt) <= 0) this.setSize(1);
 
     // Flying a Smoke Signal: the body stands there, defenseless.
     const realInput = this.input;
@@ -671,7 +734,7 @@ export class Player {
       this.startSlide(k);
     }
     // (burdenSpeed: Rocky Mountain Oysters' drag.)
-    let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k * this.burdenSpeed;
+    let speed = (this.crouched ? MOVE.crouchSpeed : this.sprinting ? MOVE.sprintSpeed : MOVE.walkSpeed) * k * this.burdenSpeed * this.sizeSpeed;
     // Turning Rotisserie barrels slow you down.
     if (this.weapon.spin > 0) speed *= this.weapon.def.spinMoveMul ?? 1;
     if (this.inMud) speed *= MOVE.mudSpeedMul;
@@ -736,6 +799,7 @@ export class Player {
     // Standing on a conveyor belt carries you along.
     const belt = wasGrounded ? this.game.zones.beltAt(this.feet) : null;
     this.moveBy((v.x + (belt ? belt.vx : 0)) * dt, v.y * dt, (v.z + (belt ? belt.vz : 0)) * dt);
+    if (fallSpeed < -2) this.stomp();
     this.clipVelocity();
 
     if (this.grounded) {
@@ -760,7 +824,7 @@ export class Player {
   }
 
   groundJump() {
-    this.vel.y = MOVE.jumpSpeed * (this.inMud ? MOVE.mudJumpMul : 1) * this.burdenJump;
+    this.vel.y = MOVE.jumpSpeed * (this.inMud ? MOVE.mudJumpMul : 1) * this.burdenJump * this.sizeJump;
     this.grounded = false;
     this.coyote = 0;
     this.jumpBuffer = 0;
@@ -931,7 +995,7 @@ export class Player {
 
   doubleJump(wx, wz, wishLen, speed) {
     const v = this.vel;
-    v.y = MOVE.doubleJumpSpeed * this.burdenJump;
+    v.y = MOVE.doubleJumpSpeed * this.burdenJump * this.sizeJump;
     this.airJumpsLeft--;
     this.pose.airJumps++;
     this.jumpBuffer = 0;
@@ -940,6 +1004,19 @@ export class Player {
       const k = MOVE.doubleJumpRedirect;
       v.x += (wx * cur - v.x) * k;
       v.z += (wz * cur - v.z) * k;
+    }
+  }
+
+  // Shrink Wrap: coming down on a shrunk player smokes them.
+  stomp() {
+    const feet = this.feetY();
+    for (const o of this.game.players) {
+      if (o === this || !o.alive || o.size >= 1) continue;
+      const dy = feet - o.topY();
+      if (dy < -SIZE.stompReach || dy > SIZE.stompReach) continue;
+      if (Math.hypot(o.center.x - this.center.x, o.center.z - this.center.z) > o.radius + this.radius * 0.9) continue;
+      this.game.sfx.play('squish', { at: o.center, source: this });
+      dealDamage(this.game, o, 9999, { attacker: this, cause: 'stomp', point: o.center, dir: _down });
     }
   }
 
@@ -996,16 +1073,18 @@ export class Player {
   updateCrouch(want) {
     if (want && !this.crouched) {
       // On the ground the feet stay put; in the air the legs tuck up (crouch-jump).
-      this.shiftCenter(this.grounded ? -CROUCH_SHIFT : CROUCH_SHIFT);
-      this.collider.setHalfHeight(CROUCH_HH);
+      const shift = CROUCH_SHIFT * this.size;
+      this.shiftCenter(this.grounded ? -shift : shift);
+      this.collider.setHalfHeight(CROUCH_HH * this.size);
       this.crouched = true;
     } else if (!want && this.crouched) {
       const c = this.center;
-      const options = this.grounded ? [CROUCH_SHIFT] : [-CROUCH_SHIFT, CROUCH_SHIFT];
+      const shift = CROUCH_SHIFT * this.size;
+      const options = this.grounded ? [shift] : [-shift, shift];
       for (const dy of options) {
         if (!this.overlaps(this.standShape, c.x, c.y + dy, c.z)) {
           this.shiftCenter(dy);
-          this.collider.setHalfHeight(STAND_HH);
+          this.collider.setHalfHeight(STAND_HH * this.size);
           this.crouched = false;
           break;
         }
@@ -1065,7 +1144,7 @@ export class Player {
       const ledgeY = probeTop - hit.timeOfImpact;
       // Nothing between us and the ledge at ledge height.
       if (this.castFrom(c.x, ledgeY + 0.3, c.z, dx, 0, dz, dist)) return false;
-      const ty = ledgeY + hh + BODY.radius + 0.05;
+      const ty = ledgeY + hh + this.radius + 0.05;
       if (this.overlaps(this.crouched ? this.crouchShape : this.standShape, px, ty, pz)) continue;
       this.startMantle(px, ty, pz, ledgeY - feetY, dx, dz);
       return true;
@@ -1199,7 +1278,7 @@ export class Player {
     } else if (toward < -0.3) {
       return false;
     }
-    if (this.feetY() > rope.y1 - 0.35 - BODY.handReach + 0.3) return false;
+    if (this.feetY() > rope.y1 - 0.35 - BODY.handReach * this.size + 0.3) return false;
     this.rope = rope;
     this.enterClimb('rope');
     return true;
@@ -1217,7 +1296,7 @@ export class Player {
       return;
     }
     const feetY = this.feetY();
-    const maxFeet = rope.y1 - 0.35 - BODY.handReach;
+    const maxFeet = rope.y1 - 0.35 - BODY.handReach * this.size;
     if (inp.moveY > 0.3 && feetY > maxFeet - 0.35 && this.tryMantle(true, this.fwd.x, this.fwd.z)) return;
 
     let dy = inp.moveY * MOVE.ropeClimbSpeed * settings.moveSpeed * dt;
@@ -1232,7 +1311,7 @@ export class Player {
 
   tryGrabBars() {
     if (this.grounded) return false;
-    _c.set(this.center.x, this.topY() + HAND_ABOVE_TOP, this.center.z);
+    _c.set(this.center.x, this.topY() + HAND_ABOVE_TOP * this.size, this.center.z);
     const bars = this.game.zones.findBars(_c);
     if (!bars) return false;
     this.bars = bars;
@@ -1252,7 +1331,7 @@ export class Player {
       this.leaveClimb(0, 0, 0, 0.5);
       return;
     }
-    const handY = this.topY() + HAND_ABOVE_TOP;
+    const handY = this.topY() + HAND_ABOVE_TOP * this.size;
     const dy = (bars.y - handY) * Math.min(1, 15 * dt);
     const s = MOVE.hangSpeed * settings.moveSpeed;
     this.moveBy(wx * s * dt, dy, wz * s * dt);
@@ -1268,7 +1347,7 @@ export class Player {
     _c.lerpVectors(this.prevCenter, this.center, alpha);
     const dead = this.mode === 'dead';
     // Death cam: sink to the ground and tip over.
-    const target = dead ? 0.35 - this.halfHeight - BODY.radius : this.crouched ? EYE_OFF_CROUCH : EYE_OFF_STAND;
+    const target = dead ? 0.35 - this.halfHeight - this.radius : this.eyeOffset();
     this.eyeOff += (target - this.eyeOff) * damp(dead ? 4 : 14, dt);
     this.deathRoll += ((dead ? 0.5 : 0) - this.deathRoll) * damp(dead ? 3 : 20, dt);
     this.landDip += (0 - this.landDip) * damp(9, dt);
@@ -1305,10 +1384,16 @@ export class Player {
     } else if (this.model.group.visible) {
       const w = this.weapon;
       this.model.setWeapon(w.def.id);
+      // Shrink Wrap: the body morphs to our size (scaled about the feet).
+      if (this.sizeShown !== this.size) {
+        this.sizeShown += (this.size - this.sizeShown) * damp(4 / SIZE.morph, dt);
+        if (Math.abs(this.size - this.sizeShown) < 0.005) this.sizeShown = this.size;
+        this.model.group.scale.setScalar(this.sizeShown);
+      }
       _c.lerpVectors(this.prevCenter, this.center, alpha);
       const s = this.pose;
       s.x = _c.x;
-      s.y = _c.y - this.halfHeight - BODY.radius;
+      s.y = _c.y - this.halfHeight - this.radius;
       s.z = _c.z;
       s.yaw = this.yaw;
       s.pitch = this.pitch;

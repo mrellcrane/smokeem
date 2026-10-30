@@ -6,7 +6,7 @@ import { GRENADE, MELEE, SWITCH_TIME, BLOOM_DELAY } from './weapons.js';
 import { SWARM } from './swarms.js';
 import { GUNS } from './guns/index.js';
 import { gfx } from '../render/gfx.js';
-import { AIM } from '../config.js';
+import { AIM, SIZE } from '../config.js';
 import { assists, assistTarget, magnetize } from './aimAssist.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
@@ -114,10 +114,14 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.grenade && !busy && p.throwT <= 0 && p.grenades > 0) throwGrenade(game, p);
   if (pressed.reload && w.canReload()) startReload(game, p);
   // Guns whose aim button acts: the Stickybomb Launcher sets off your stickies, the Gravity Gun
-  // grabs or drops.
+  // grabs or drops, the Shrink Wrap fires its grow ray.
   if (pressed.aim && !busy) {
     if (d.detonateOnAim) game.grenades.detonateStickies(p);
     else if (d.kind === 'gravity') game.gravity?.toggle(p);
+    else if (d.kind === 'size' && w.cooldown <= 0 && w.mag > 0 && p.meleeT < MELEE.cooldown - 0.25) {
+      fire(game, p, true);
+      w.cooldown += 1 / d.fireRate;
+    }
   }
 
   // Holding the trigger repeats every gun at its own rate (semi-autos too, so nobody has to
@@ -206,7 +210,8 @@ export function cancelReload(game, w) {
   w.reloadSfx = null;
 }
 
-function fire(game, p) {
+// grow: the Shrink Wrap's grow ray (its aim button) instead of its shrink ray.
+function fire(game, p, grow = false) {
   const w = p.weapon;
   const d = w.def;
   w.mag--;
@@ -219,6 +224,7 @@ function fire(game, p) {
   p.viewmodel?.fired();
   if (d.kind === 'beam') return fireBeam(game, p);
   if (d.kind === 'gravity') return game.gravity?.fire(p);
+  if (d.kind === 'size') return fireSize(game, p, grow);
   // Fast guns can play their sound every so often instead of on every round.
   if (!d.soundEvery || game.time - w.lastSoundT >= d.soundEvery) {
     game.sfx.play(d.sound, { rate: (d.soundRate ?? 1) * (0.97 + Math.random() * 0.06), at: p.center, source: p });
@@ -323,6 +329,51 @@ function fire(game, p) {
     if (res) p.onHitConfirmed(res, acc.head);
   }
   pelletHits.clear();
+}
+
+// Shrink Wrap: one ray that shrinks (or grows) whoever it hits. Shrinking someone big or growing
+// someone small puts them back to normal; growing someone already big pops them.
+function fireSize(game, p, grow) {
+  const w = p.weapon;
+  const d = w.def;
+  game.sfx.play(grow ? 'growZap' : 'shrinkZap', { rate: 0.97 + Math.random() * 0.06, at: p.center, source: p });
+  game.noise(p, 30);
+  aimBasis(p, _f, _r, _u);
+  p.eyePosition(_o);
+  muzzleFlash(game, p, _f);
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u, d.range, d.magnetism ?? 1);
+  const spread = currentSpread(p) * DEG;
+  w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
+  const rr = Math.tan(spread) * Math.sqrt(Math.random());
+  const a = Math.random() * Math.PI * 2;
+  _d.copy(_f).addScaledVector(_r, Math.cos(a) * rr).addScaledVector(_u, Math.sin(a) * rr).normalize();
+  const hit = game.castShot(_o, _d, d.range, p.collider);
+  _end.copy(_o).addScaledVector(_d, hit.hit ? hit.distance : d.range);
+  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.14);
+  p.worldMuzzle(_m3);
+  const color = grow ? d.growColor : d.tracerColor;
+  game.fx.tracer(_muzzle, _end, color, d.tracerWidth, { a3: _m3, owner: p.id, linger: d.tracerLife });
+  game.replay?.shot(p, _muzzle, _end, color, d.tracerWidth, d.tracerLife);
+  if (!hit.hit) return;
+  const t = hit.entity;
+  if (!t) {
+    game.fx.impactWorld(hit.point, hit.normal, game.trimFace(hit.point, hit.normal, hit.surface));
+    return;
+  }
+  game.fx.impactBody(hit.point, hit.normal, false);
+  // Only players change size (training dummies just flinch).
+  if (!t.setSize || !t.alive) return;
+  if (grow && t.size > 1) {
+    game.fx.shieldPop(t.centerPosition(_c));
+    const res = dealDamage(game, t, 9999, { attacker: p, weapon: d, cause: 'pop', point: hit.point, dir: _f });
+    if (res) p.onHitConfirmed(res, false);
+    return;
+  }
+  const next = grow ? (t.size < 1 ? 1 : SIZE.big) : t.size > 1 ? 1 : SIZE.small;
+  if (t.setSize(next, p)) {
+    game.sfx.play(grow ? 'growZap' : 'shrinkZap', { at: t.center, rate: grow ? 0.8 : 1.25, volume: 0.7 });
+    p.onHitConfirmed({ killed: false }, false);
+  }
 }
 
 function throwGrenade(game, p) {

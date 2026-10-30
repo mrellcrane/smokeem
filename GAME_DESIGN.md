@@ -286,6 +286,7 @@ rosters and three judges.
 | Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | planned |
 | Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
 | Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | built |
+| Funhouse | Hot | Hickory, Cold Smoke | Toothpick | Mesquite (Portal Gun later) | Shrink Wrap | built |
 | Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | planned |
 
 Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n Fast**
@@ -311,7 +312,7 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Swarm Jar** | wacky | Jar of homing bugs that chase the nearest enemy. | yes |
 | **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
-| **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | planned, after maps |
+| **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | yes |
 | **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | planned, rules need sign-off |
 | **Stickybomb Launcher** | wacky | TF2's: sticky bombs that cling to walls, floors and ceilings, set off together with the aim button (see below). | yes |
 | **Gravity Gun** | wacky | Half-Life 2's: grab and fling loose things, including other people's grenades and stickies (see below). | yes |
@@ -337,13 +338,20 @@ catching Smoke Signal rockets and Swarm Jars.
 **Junkyard** (Hot): Hickory and Stickybomb Launcher primaries ("Pitmaster" and "Sticky Ribs"),
 the Toothpick, the Mesquite on the field pads and the Gravity Gun on the power pad.
 
-**Shrink Wrap** (owner request, 2026-10-29: one gun for both, built after the new maps). A power
-gun for a wacky set, never in a loadout. Its hitbox change is the point: a shrunk player really
-is harder to hit.
-- Fire shrinks for 6 s: 40% size, slower, shots do half damage, the view drops to ankle height,
-  and anyone who lands on you smokes you with a stomp.
-- The aim button grows for 6 s (the gun has no scope): 160% size, slower, takes 1.5x damage, and
-  a second grow while still big pops you.
+**Shrink Wrap** (owner request, 2026-10-29: one gun for both; built). A 1950s ray gun, the power
+gun in the Funhouse set, never in a loadout. Its hitbox change is the point: a shrunk player
+really is harder to hit (the collider, head line and camera all scale).
+- Fire shrinks for 6 s: 40% size, 80% speed, 75% jumps, your shots (and blasts) do half damage,
+  the view drops to ankle height, and anyone who comes down on you smokes you with a stomp
+  ("stomped" in the feed).
+- The aim button grows for 6 s (the gun has no scope): 160% size, 85% speed, takes 1.5x damage,
+  and a second grow while still big pops you ("Shrink Wrap (popped)"). Growing needs room: a
+  grow under a low ceiling fizzles.
+- Shrinking someone big or growing someone small puts them back to normal; another shrink on
+  someone small restarts their 6 s. The ray does no damage of its own and has 8 zaps (either
+  way), no reserve. Cyan for shrink, pink for grow; the body morphs over a quarter second.
+- Your view shows SHRUNK or SUPERSIZED with the seconds left. Bots pick it up like any power gun
+  and only shrink.
 
 **Portal Gun** (owner request, 2026-10-29: "a portal gun like from the game Portal", as close to
 the source as we can get). Proposed, to be signed off:
@@ -858,3 +866,11 @@ Need answers before the step that uses them gets built.
   views: 111 a frame on both). While building it, the bots' nav graph stopped making "drop"
   edges straight down through a walkway's own floor (it only checked the step off, not the
   fall), which helps Mudlark's catwalk too.
+- 2026-10-30: Shrink Wrap built as specced, in a new Hot set, Funhouse (Hickory and Cold Smoke
+  primaries, Toothpick, Mesquite on the field pads as a stand-in for the Portal Gun, the Shrink
+  Wrap on the power pad). Decided while building: 8 zaps a pickup, no reserve; shrinking someone
+  big or growing someone small puts them back to normal; a shrunk player's blasts are halved
+  too, not just bullets.
+- 2026-10-30: Rocky Mountain Oysters fix (owner report: sacks floating around unattached). Your
+  own sack now hides in your own view like your body does, and the killcam replays the sacks
+  with the bodies instead of drawing them where people are now.

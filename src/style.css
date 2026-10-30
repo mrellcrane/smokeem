@@ -555,6 +555,27 @@ kbd {
   text-shadow: 0 3px 6px rgba(0, 0, 0, 0.9);
 }
 
+/* Shrink Wrap: how long you stay shrunk or supersized. */
+.size-status {
+  display: none;
+  position: absolute;
+  top: calc(48px * var(--hud-scale, 1));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 12px;
+  border-radius: 4px;
+  background: rgba(10, 8, 7, 0.55);
+  font-family: var(--display);
+  letter-spacing: 0.12em;
+  font-size: max(12px, calc(17px * var(--hud-scale, 1)));
+  color: #63f2ff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.size-status.big {
+  color: #ff5ad8;
+}
+
 /* The death replay (render/replay.js): a banner, and the death card out of the way. */
 .killcam {
   display: none;
@@ -1666,6 +1687,13 @@ body.in-match .fps {
   animation-name: dm-down;
 }
 
+/* Shrink Wrap: shrunk, back to normal, supersized, popped (the cycle's shots in gunDemos.js). */
+.demo .dm-sizes {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation-name: dm-sizes;
+}
+
 .demo .dm-blast {
   fill: none;
   stroke-width: 2;
@@ -1781,6 +1809,15 @@ body.in-match .fps {
   0%, 33% { opacity: 1; }
   37%, 92% { opacity: 0; }
   98%, 100% { opacity: 1; }
+}
+
+@keyframes dm-sizes {
+  0%, 17% { transform: scale(1); opacity: 1; }
+  19%, 52% { transform: scale(0.4); opacity: 1; }
+  54%, 69% { transform: scale(1); opacity: 1; }
+  71%, 83% { transform: scale(1.6); opacity: 1; }
+  84%, 97% { transform: scale(1.6); opacity: 0; }
+  99%, 100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes dm-blast {

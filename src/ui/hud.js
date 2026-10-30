@@ -79,6 +79,7 @@ export class Hud {
         <div class="mc-reticle"></div>
       </div>
       <div class="killcam"><b>KILLCAM</b><span></span></div>
+      <div class="size-status"></div>
       <div class="death"><h3>SMOKED</h3><p class="cause"></p><p class="timer"></p><p class="loadout"></p></div>
       <div class="hud-hint"></div>
       <div class="hud-controls">${controlsHtml(inputKind, { missile })}</div>
@@ -122,6 +123,7 @@ export class Hud {
       loadout: q('.death .loadout'),
       hint: q('.hud-hint'),
       killcam: q('.killcam span'),
+      size: q('.size-status'),
       debug: q('.hud-debug'),
     };
     this.radar = new Radar(this.el);
@@ -227,7 +229,7 @@ export class Hud {
     this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
     const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
     this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
-    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : '';
+    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : '';
     this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
     const o = player.slots[1 - player.slot];
     this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
@@ -289,6 +291,14 @@ export class Hud {
     this.set('killcam', kc, (x) => {
       e.killcam.textContent = x;
       this.el.classList.toggle('killcam-on', !!x);
+    });
+
+    // Shrink Wrap: what size we are and for how long.
+    const st = alive && player.size !== 1 ? `${player.size < 1 ? 'SHRUNK' : 'SUPERSIZED'} ${Math.ceil(player.sizeT)}` : '';
+    this.set('size', st, (x) => {
+      e.size.textContent = x;
+      e.size.style.display = x ? 'block' : 'none';
+      e.size.classList.toggle('big', player.size > 1);
     });
 
     // Death screen.
