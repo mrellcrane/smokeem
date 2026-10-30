@@ -34,6 +34,8 @@ export const PORTAL_COLORS = [0x2e8bff, 0xff7a12];
 // Surfaces a portal won't stick to (materials.js).
 const NO_SURFACE = new Set(['mud', 'cloth']);
 const MAX = 32;
+// A wall portal settles onto floor this far (m) under its bottom edge.
+const SETTLE_REACH = 2.5;
 // The pictures' atlas: CELLS x CELLS cells of CW x CH texels (the oval's shape).
 const CELLS = 4;
 const CW = 160;
@@ -58,6 +60,7 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _d = new THREE.Vector3();
+const _keep = new THREE.Vector3();
 const _u = new THREE.Vector3();
 const _r = new THREE.Vector3();
 const _m = new THREE.Matrix4();
@@ -209,6 +212,9 @@ export class Portals {
     for (const [dx, dy] of NUDGES) {
       _b.copy(hit.point).addScaledVector(_r, dx * PORTAL.hw).addScaledVector(_u, dy * PORTAL.hh);
       if (!this.fits(_b, n, _u, _r, mine[which])) continue;
+      // A wall portal with floor not far under it settles down onto the floor, like a doorway,
+      // so you can walk into it wherever you aimed on the wall.
+      if (Math.abs(n.y) < 0.3) this.settle(_b, n, _u, _r, mine[which]);
       let portal = mine[which];
       if (!portal) {
         if (this.list.length >= MAX) return false;
@@ -228,6 +234,25 @@ export class Portals {
       return true;
     }
     return false;
+  }
+
+  // Move a wall portal at c (in place) down to sit just above the floor in front of it, if
+  // there's floor within reach under its bottom and it still fits there.
+  settle(c, n, u, r, replacing) {
+    const game = this.game;
+    const ray = this.ray;
+    _p.copy(c).addScaledVector(u, -PORTAL.hh).addScaledVector(n, 0.35);
+    ray.origin.x = _p.x;
+    ray.origin.y = _p.y;
+    ray.origin.z = _p.z;
+    ray.dir.x = 0;
+    ray.dir.y = -1;
+    ray.dir.z = 0;
+    const h = game.physics.world.castRayAndGetNormal(ray, SETTLE_REACH, true, game.shotFilter, undefined, undefined, undefined, game.notBody);
+    if (!h || h.normal.y < 0.7 || h.timeOfImpact < 0.05) return;
+    _keep.copy(c);
+    c.y -= h.timeOfImpact - 0.03;
+    if (!this.fits(c, n, u, r, replacing)) c.copy(_keep);
   }
 
   // Whether an oval at c (frame n, u, r) lies on one flat stretch of level with nothing standing
@@ -355,7 +380,17 @@ export class Portals {
     if (!this.list.length || p.portalT > this.game.time) return false;
     const len = Math.hypot(dx, dy, dz);
     let c = null;
-    if (len > 1e-4) c = this.cross(p.center, _r.set(dx / len, dy / len, dz / len), len + p.radius);
+    // Any part of the body going in counts: rays along the move from the middle, low and high.
+    if (len > 1e-4) {
+      _r.set(dx / len, dy / len, dz / len);
+      const k = p.halfHeight + p.radius * 0.5;
+      for (const off of [0, -k, k]) {
+        _u.copy(p.center);
+        _u.y += off;
+        c = this.cross(_u, _r, len + p.radius);
+        if (c) break;
+      }
+    }
     if (!c && p.grounded && dy <= 0) {
       c = this.cross(p.center, DOWN, p.halfHeight + p.radius + 0.12);
       if (c && c.portal.n.y < 0.7) c = null;
