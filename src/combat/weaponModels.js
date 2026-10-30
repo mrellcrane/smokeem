@@ -234,7 +234,7 @@ export function partShape(size, opts = {}, detail = 'hi') {
     const [dx, dy, len] = axis === 'z' ? size : axis === 'x' ? [size[2], size[1], size[0]] : [size[0], size[2], size[1]];
     const r = Math.max(dx, dy) / 2;
     const seg = hi ? (opts.seg ?? Math.max(8, Math.min(24, Math.round((r * Math.PI * 2) / 0.012)))) : r > 0.03 ? 8 : r > 0.012 ? 6 : 4;
-    const b = hi ? (opts.bevel ?? Math.min(0.004, Math.min(dx, dy) * 0.12)) : 0;
+    const b = hi ? (opts.bevel ?? Math.min(0.006, Math.min(dx, dy) * 0.14)) : 0;
     cylinder(soup, dx / 2, dy / 2, len / 2, b, seg, opts.taper, hi ? opts.bore : 0);
     // Turn the cylinder's z onto its axis.
     if (axis !== 'z') {
@@ -243,7 +243,7 @@ export function partShape(size, opts = {}, detail = 'hi') {
     }
   } else {
     const min = Math.min(size[0], size[1], size[2]);
-    const b = hi ? (opts.bevel ?? (min < 0.012 ? 0 : Math.min(0.006, min * 0.16))) : 0;
+    const b = hi ? (opts.bevel ?? (min < 0.012 ? 0 : Math.min(0.01, min * 0.18))) : 0;
     chamferBox(soup, size[0] / 2, size[1] / 2, size[2] / 2, b, opts.taper);
   }
   if (opts.rot) {

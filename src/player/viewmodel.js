@@ -75,12 +75,46 @@ const VM_COLOR = /* glsl */ `
   float tone = 1.0 + (grit - 0.5) * mix(0.1, 0.06, isPaint) + isWood * (grain * 0.09 + (vmNoise(vGun * vec3(30.0, 30.0, 3.0)) - 0.5) * 0.2);
   diffuseColor.rgb *= tone;
 `;
+// Manufactured detail, all from the gun-space position (meters): fine panel seams around metal
+// and painted parts every few centimeters, a top-lit falloff so each gun reads as a solid, and
+// worn patches where the paint thins. And the surface itself is dented a little (the normal is
+// nudged by noise) so the sun's highlight breaks up instead of lighting a whole flat face white.
+const VM_DETAIL = /* glsl */ `
+  float detailed = isMetal + isPaint;
+  // Seams: around the gun every 7.5 cm along it, and along its sides every 3.5 cm of height
+  // (not on top and bottom faces), each a pixel or so wide at any distance.
+  float zs = abs(fract(vGun.z * 13.3 + 0.37) - 0.5) / max(fwidth(vGun.z * 13.3), 1e-4);
+  float ys = abs(fract(vGun.y * 28.6 + 0.21) - 0.5) / max(fwidth(vGun.y * 28.6), 1e-4);
+  float side = 1.0 - abs(normalize(vNormal).y);
+  float seam = (1.0 - smoothstep(0.8, 2.0, zs)) * 0.75 + (1.0 - smoothstep(0.8, 2.0, ys)) * 0.45 * side;
+  // A lighter lip just past each seam, so it reads as a recessed panel line.
+  float lip = (1.0 - smoothstep(2.0, 3.2, zs)) * smoothstep(1.6, 2.2, zs);
+  diffuseColor.rgb *= (1.0 - seam * detailed * 0.65) * (1.0 + lip * detailed * 0.18);
+  // Top-lit falloff (the bottom of the gun in its own shade).
+  diffuseColor.rgb *= mix(0.8, 1.06, smoothstep(-0.09, 0.07, vGun.y));
+  // Worn patches on paint: lighter, toward bare metal.
+  float wear = smoothstep(0.62, 0.8, vmNoise(vGun * 34.0) * 0.7 + vmNoise(vGun * 140.0) * 0.3) * isPaint;
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.44, 0.47), wear * 0.45);
+`;
+const VM_DENT = /* glsl */ `
+  #include <normal_fragment_maps>
+  {
+    // A broad sway across each face (so a highlight is a gradient, not a white slab) and a fine
+    // dent on top.
+    vec3 q = vGun * 9.0;
+    vec3 d = vec3(vmNoise(q), vmNoise(q + 17.3), vmNoise(q + 31.7)) - 0.5;
+    vec3 q2 = vGun * 120.0;
+    vec3 d2 = vec3(vmNoise(q2), vmNoise(q2 + 7.7), vmNoise(q2 + 13.1)) - 0.5;
+    normal = normalize(normal + (d * 0.16 + d2 * 0.035) * (isMetal + isPaint * 0.7 + isWood * 0.4));
+  }
+`;
 const VM_LIGHTS = /* glsl */ `
   BlinnPhongMaterial material;
   material.diffuseColor = diffuseColor.rgb;
   material.specularColor = mix(vec3(0.05), mix(vec3(1.0), diffuseColor.rgb * 2.2 + 0.25, 0.4), isMetal) * (1.0 + isPaint * 4.0 + isWood * 1.5) * (1.0 - isGlow);
   material.specularShininess = mix(mix(12.0, 24.0, isWood), mix(50.0, 70.0, isMetal), isPaint + isMetal);
-  material.specularStrength = 0.6 + grit * 0.6;
+  // (Tighter on metal so the highlight is a glint, and a little less on worn paint.)
+  material.specularStrength = (0.45 + grit * 0.5) * (1.0 - wear * 0.5);
 `;
 const VM_ENV = /* glsl */ `
   #include <envmap_fragment>
@@ -112,11 +146,12 @@ export function viewmodelMaterial() {
       '#include <begin_vertex>\n  transformed += uGroupOff[int(aGroup + 0.5)];\n  vFinish = aFinish;\n  vGun = position;',
     );
     shader.fragmentShader = VM_FRAGMENT_HEAD + shader.fragmentShader
-      .replace('#include <color_fragment>', VM_COLOR)
+      .replace('#include <color_fragment>', VM_COLOR + VM_DETAIL)
+      .replace('#include <normal_fragment_maps>', VM_DENT)
       .replace('#include <lights_phong_fragment>', VM_LIGHTS)
       .replace('#include <envmap_fragment>', VM_ENV);
   };
-  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v4';
+  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v5';
   return sharedMaterial;
 }
 

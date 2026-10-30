@@ -400,6 +400,10 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   whose shine follows each vertex's finish (`aFinish`: matte, wood, paint, metal, glow), a
   sky-and-ground reflection on metal and paint (`viewmodelUniforms`, the world's up set per view
   in `Game.render`), wood grain and grit from the gun-space position, and self-lit glow parts.
+  On metal and paint it also draws manufactured detail from the gun-space position (`VM_DETAIL`:
+  pixel-wide panel seams with a light lip, a top-lit falloff, worn patches on paint) and nudges
+  the normal with noise (`VM_DENT`: a broad sway and fine dents), so the sun's highlight is a
+  gradient and a glint instead of a flat face turning white.
   Chamfers are painted lighter, so edges catch the light.
 - First-person gloves are built from each gun's `hands` boxes (`player/gloves.js`: a fist on
   the grip with the index on the trigger, a support hand that cradles, grips or holds a handle,
