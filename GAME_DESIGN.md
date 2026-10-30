@@ -512,6 +512,33 @@ as combat terrain.
 - **Net block** (northeast): a 5 m block with a vertical cargo net on its face.
 - Crates, barriers and low walls scattered for cover.
 
+### Map 2: Smokestack Works (name is a proposal)
+
+Owner pick (2026-10-30): an indoor factory. A smokehouse plant turned game-show arena: a 60 m x
+44 m hall under a trussed roof with three open skylight bands (the sun comes through in bright
+stripes; the rest is warm bounce light, a smoky haze and pools under hanging lamps). The crowd
+sits in stands above the two long walls, and a four-sided jumbotron hangs over the middle.
+Tight, multi-level, built for close fights: its default set is Junkyard (stickies, the Gravity
+Gun and plenty of crates and barrels to throw).
+
+- **The Smoker** (center): a giant black smoker, 5 m tall, with glowing firebox doors east and
+  west and burning grates in front of them (the fire jump). Its deck has the power pad, smoke
+  stacks at the corners for cover and railings, open north and south where the bridges arrive.
+  Skilled players can get up from the crate stack just southwest of it. The finale's podium
+  stands on it.
+- **Catwalks**: along both long walls at 5 m, stairs at one end and a ladder at the other (climbed
+  like a rope), with a bridge from each to the smoker's deck.
+- **Conveyor belts**: two lines across the hall, running east on the north side and west on the
+  south side (2 m/s). Standing on one carries you along. Each ends in a smoke hood.
+- **Pallet racks** (west): three rows of orange racks full of crates, with aisles between them and
+  a field pad in the middle aisle. Their tops (3.6 m) take a double jump and a mantle.
+- **Grease vat** (east): a sunken vat that works like the mud (slow, weak jumps), with a hook rail
+  across it (monkey bars) between two loading docks.
+- Presses, crates and drums for cover; pipes and high windows on the end walls.
+
+The title screen has a Map choice: Mudlark, Smokestack or Random (a different map each match,
+never the same one twice in a row). Guns on "Map default" use each map's own set.
+
 ## Controls
 
 ### Keyboard and mouse (any seat)
@@ -572,6 +599,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 
 ## Settings
 
+- Map: Mudlark, Smokestack or Random (title screen).
 - Graphics quality: Low / Medium / High (resolution cap, shadows, anti-aliasing).
 - Movement speed for everyone, players and bots (default 70%).
 - Mouse sensitivity (saved to `localStorage`).
@@ -640,9 +668,9 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   decals (done); (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
   high only; (15) a shadowless low tier only if the Xbox bench needs it.
-- **More maps** (owner wants this): Map 2 and beyond. Each map needs its own layout, bot
-  links (`src/ai/mapLinks.js`), pickup pads and a default weapon set, plus a map choice on
-  the title screen.
+- **More maps** (owner wants this): Map 2, Smokestack Works, and the map choice are done.
+  Each new map needs its own layout, bot links (`src/ai/mapLinks.js`), pickup pads and a
+  default weapon set, registered in `src/world/maps.js`.
 - Abilities, the motorcycle, team modes.
 
 ### Phase 3: Online
@@ -823,3 +851,10 @@ Need answers before the step that uses them gets built.
   warmed up at load), it takes over the screen from the split views: one full-screen camera, no
   HUDs. Everyone not on the podium is hidden. Confetti is one instanced mesh of 600 pieces moved
   on the CPU, which is fine with gameplay over.
+- 2026-10-30: Map 2 is an indoor factory (owner's pick): Smokestack Works (see Maps). Its
+  default set is Junkyard. New mechanic: conveyor belts carry whoever stands on them. The roof
+  is looks only (an invisible ceiling stops rockets and blasts), so the floor bake and the bots'
+  map don't see it. The hall costs about the same draw calls as Mudlark (headless bench, 3
+  views: 111 a frame on both). While building it, the bots' nav graph stopped making "drop"
+  edges straight down through a walkway's own floor (it only checked the step off, not the
+  fall), which helps Mudlark's catwalk too.

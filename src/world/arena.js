@@ -3,7 +3,8 @@ import { StaticBuilder } from './staticBuilder.js';
 import { Zones } from './zones.js';
 import { createFire } from './fire.js';
 import { bakeArena } from './bake.js';
-import { PICKUP_SPOTS } from '../combat/pickups.js';
+import { crate, barrier, drum, pickupPads, grandstands, STAND_TIERS, TIER_DEPTH } from './parts.js';
+import { DUMMY_POSTS } from './dummies.js';
 import { gfx } from '../render/gfx.js';
 
 // Map 1: Mudlark Gauntlet. A small obstacle-race arena inside tall metal walls.
@@ -14,6 +15,18 @@ export const ARENA_HALF = 30;
 const WALL_H = 7;
 
 const PIT = { x0: 10, x1: 22, z0: -6, z1: 6, floor: -0.8, mudY: -0.25 };
+
+// Pickup spawners (combat/pickups.js). Weapon pads say which kind of pad they are; the match's
+// weapon set decides the gun: its power gun on the power pad, its field gun on the rest.
+const PICKUP_SPOTS = [
+  { type: 'weapon', pad: 'power', pos: [-1.5, 6.0, -1.5], respawn: 60 },
+  { type: 'weapon', pad: 'field', pos: [0, 0, 2.6], respawn: 30 },
+  { type: 'weapon', pad: 'field', pos: [-18, 0, 25], respawn: 30 },
+  { type: 'grenades', count: 2, pos: [6, 5.5, 28.5], respawn: 20 },
+  { type: 'grenades', count: 2, pos: [24.5, 5.0, -23.2], respawn: 20 },
+  { type: 'grenades', count: 2, pos: [8.5, 2.4, -1.2], respawn: 20 },
+  { type: 'grenades', count: 2, pos: [-25, 0, -19.5], respawn: 20 },
+];
 
 export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeSize = 512 }) {
   const B = new StaticBuilder(RAPIER, world);
@@ -32,7 +45,8 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   B.boxMinMax(M.ground, [-450, -2.6, -450], [450, -2.0, 450], { castShadow: false, collide: false });
 
   perimeter(B, M, H);
-  const stands = gfx.show ? grandstands(B, M, H) : [];
+  const stands = gfx.show ? grandstands(B, M, { hx: H, wallH: WALL_H }) : [];
+  if (gfx.show) bigScreenFrame(B, M);
   summit(B, M, zones);
   climbingWalls(B, M);
   mudPitAndBars(B, M, zones);
@@ -41,7 +55,7 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
   netBlock(B, M, zones);
   cover(B, M);
   lightPylons(B, M, H);
-  pickupPads(B, M);
+  pickupPads(B, M, PICKUP_SPOTS);
 
   // Damp ground around the mud pit.
   B.stain([PIT.x0, PIT.z0], [PIT.x1, PIT.z1], 1.5, 0.12);
@@ -77,10 +91,19 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     meshes,
     bake,
     zones,
-    // Crowd rows on the grandstands (world/show.js).
+    // The map's bounds for the info panel's map and the sun's shadow (a square of this half
+    // size, up to this height).
+    half: H,
+    shadowTop: 12.5,
+    // Crowd rows on the grandstands and the big screen (world/show.js): one face over the
+    // north stands.
     stands,
-    standsZ: -(H + 1 + STAND_TIERS * TIER_DEPTH) + 0.3,
+    screen: { w: 18, h: 9, faces: [{ pos: [0, 16.5, SCREEN_Z + 0.02], yaw: 0 }] },
+    // Where the finale's podium stands (world/finale.js): the Summit deck.
+    podium: { x: 0, y: 6, z: 0 },
     spawnPoints,
+    pickupSpots: PICKUP_SPOTS,
+    dummyPosts: DUMMY_POSTS,
     halos: B.halos,
     surfaces: B.surfaces,
     blockers: B.blockers,
@@ -101,6 +124,15 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
       }
     },
   };
+}
+
+// The big screen's frame and legs, on top of the north stands.
+const SCREEN_Z = -(ARENA_HALF + 1 + STAND_TIERS * TIER_DEPTH) + 0.3;
+function bigScreenFrame(B, M) {
+  const deco = { collide: false, castShadow: false };
+  const z = SCREEN_Z;
+  B.boxMinMax(M.metalDark, [-9.4, 11.6, z - 0.6], [9.4, 21.4, z], deco);
+  for (const x of [-7, 7]) B.boxMinMax(M.metalDark, [x - 0.4, WALL_H - 4, z - 0.5], [x + 0.4, 11.6, z + 0.1], deco);
 }
 
 function perimeter(B, M, H) {
@@ -134,47 +166,6 @@ function perimeter(B, M, H) {
     B.boxMinMax(M.metalDark, [-H, 0, p - 0.6], [-H + 0.6, WALL_H + 0.3, p + 0.6]);
     B.boxMinMax(M.metalDark, [H - 0.6, 0, p - 0.6], [H, WALL_H + 0.3, p + 0.6]);
   }
-}
-
-// Game-show grandstands behind all four walls (looks only: no collision, no shadows; the
-// crowd standing on them is world/show.js). Returns where each crowd row stands: { a, b, y, n }
-// with a and b the row's ends and n its inward facing (x, z).
-export const STAND_TIERS = 5;
-const TIER_DEPTH = 1.6;
-const TIER_RISE = 1.1;
-function grandstands(B, M, H) {
-  const T = 1;
-  const deco = { collide: false, castShadow: false };
-  const rows = [];
-  const L = H - 4;
-  for (const [ax, sign] of [['z', -1], ['z', 1], ['x', -1], ['x', 1]]) {
-    for (let i = 0; i < STAND_TIERS; i++) {
-      const near = H + T + i * TIER_DEPTH;
-      const far = near + TIER_DEPTH;
-      const top = WALL_H - 0.6 + i * TIER_RISE;
-      const lo = WALL_H - 4;
-      const box = (m, a0, a1, y0, y1, d0, d1) => {
-        if (ax === 'z') B.boxMinMax(m, [a0, y0, Math.min(sign * d0, sign * d1)], [a1, y1, Math.max(sign * d0, sign * d1)], deco);
-        else B.boxMinMax(m, [Math.min(sign * d0, sign * d1), y0, a0], [Math.max(sign * d0, sign * d1), y1, a1], deco);
-      };
-      box(M.concrete, -L, L, lo, top, near, far);
-      // A dark bench lip along each step.
-      box(M.metalDark, -L, L, top - 0.35, top + 0.05, near - 0.02, near + 0.25);
-      const d = near + TIER_DEPTH * 0.55;
-      const a = ax === 'z' ? [-L + 1, top, sign * d] : [sign * d, top, -L + 1];
-      const b = ax === 'z' ? [L - 1, top, sign * d] : [sign * d, top, L - 1];
-      rows.push({ a, b, n: ax === 'z' ? [0, -sign] : [-sign, 0] });
-    }
-    // An orange glow strip along the front of the stands, over the wall.
-    const y = WALL_H + 0.05;
-    if (ax === 'z') B.boxMinMax(M.glowOrange, [-L, y, Math.min(sign * (H + T), sign * (H + T + 0.1))], [L, y + 0.12, Math.max(sign * (H + T), sign * (H + T + 0.1))], { collide: false, castShadow: false, bakeLight: false });
-    else B.boxMinMax(M.glowOrange, [Math.min(sign * (H + T), sign * (H + T + 0.1)), y, -L], [Math.max(sign * (H + T), sign * (H + T + 0.1)), y + 0.12, L], { collide: false, castShadow: false, bakeLight: false });
-  }
-  // The big screen's frame and legs, on top of the north stands.
-  const z = -(H + T + STAND_TIERS * TIER_DEPTH) + 0.3;
-  B.boxMinMax(M.metalDark, [-9.4, 11.6, z - 0.6], [9.4, 21.4, z], deco);
-  for (const x of [-7, 7]) B.boxMinMax(M.metalDark, [x - 0.4, WALL_H - 4, z - 0.5], [x + 0.4, 11.6, z + 0.1], deco);
-  return rows;
 }
 
 // The Summit: a 6 m deck on legs in the middle, cargo nets north and south.
@@ -384,20 +375,6 @@ function netBlock(B, M, zones) {
   cargoNet(B, M, zones, [21, 0, -21.85], [21, top, -21.85], 5, [0, 0, 1]);
 }
 
-function crate(B, M, x, y, z, s, rotY = 0) {
-  B.box(M.crate, [x, y + s / 2, z], [s, s, s], { uv: 'fit', rotY });
-}
-
-function barrier(B, M, x, z, rotY) {
-  B.box(M.concrete, [x, 0.5, z], [3, 1.0, 0.6], { rotY });
-  B.box(M.hazard, [x, 0.85, z], [3.02, 0.12, 0.62], { rotY, collide: false });
-}
-
-function drum(B, M, x, z) {
-  B.cylinder(M.metalDark, [x, 0, z], 0.45, 1.1, { segments: 12 });
-  B.cylinder(M.glowOrange, [x, 0.75, z], 0.46, 0.1, { segments: 12, collide: false, castShadow: false });
-}
-
 function cover(B, M) {
   // Northwest crate stack.
   crate(B, M, -22, 0, -22, 1.5);
@@ -442,16 +419,5 @@ function lightPylons(B, M, H) {
       B.box(M.metalDark, [x, 12.2, z], [1.6, 0.5, 0.8], { collide: false });
       B.box(M.glowCyan, [x, 11.93, z], [1.4, 0.05, 0.6], { collide: false, castShadow: false, halo: [0, -1, 0] });
     }
-  }
-}
-
-// A pad with a glowing rim under every pickup spawner. Orange for the power pad, cyan for
-// other guns, ember for grenades.
-function pickupPads(B, M) {
-  for (const spot of PICKUP_SPOTS) {
-    const [x, y, z] = spot.pos;
-    const glow = spot.type === 'grenades' ? M.ember : spot.pad === 'power' ? M.glowOrange : M.glowCyan;
-    B.cylinder(glow, [x, y, z], 0.62, 0.04, { segments: 16, collide: false, castShadow: false });
-    B.cylinder(M.metalDark, [x, y + 0.01, z], 0.55, 0.07, { segments: 16, collide: false });
   }
 }

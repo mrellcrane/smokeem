@@ -9,10 +9,9 @@ import { warmUp } from './render/warmup.js';
 import { gfx } from './render/gfx.js';
 import { createTextures, applyAnisotropy } from './world/textures.js';
 import { createMaterials } from './world/materials.js';
-import { buildArena, ARENA_HALF } from './world/arena.js';
+import { MAPS, DEFAULT_MAP } from './world/maps.js';
 import { createSky } from './world/sky.js';
-import { MUDLARK_LOOK } from './world/looks.js';
-import { Dummy, DUMMY_POSTS } from './world/dummies.js';
+import { Dummy } from './world/dummies.js';
 import { Effects } from './fx/effects.js';
 import { Beacons } from './world/beacons.js';
 import { renderGunIcons } from './ui/gunIcons.js';
@@ -28,7 +27,6 @@ import { Bolts } from './combat/bolts.js';
 import { Swarms } from './combat/swarms.js';
 import { Pickups } from './combat/pickups.js';
 import { NavGraph } from './ai/navgraph.js';
-import { MUDLARK_LINKS } from './ai/mapLinks.js';
 import { BotBrain, BOT_NAMES, BOT_COLORS } from './ai/bot.js';
 import { Player } from './player/player.js';
 import { disposeCharacterMaterial } from './player/character.js';
@@ -74,13 +72,17 @@ export class Game {
     practiceTargets = true,
     timeLimit = 5,
     mode = 'ffa',
-    weaponSet = DEFAULT_SET,
+    map = DEFAULT_MAP,
+    weaponSet = null,
     onProgress = () => {},
   }) {
     onProgress('Lighting the smoker', 0.05);
     await initRapier();
     const game = new Game(stage, hudRoot, fps, sfx);
-    const id = WEAPON_SETS[weaponSet] ? weaponSet : DEFAULT_SET;
+    game.mapId = MAPS[map] ? map : DEFAULT_MAP;
+    game.map = MAPS[game.mapId];
+    // No set given (or an unknown one): the map's own.
+    const id = WEAPON_SETS[weaponSet] ? weaponSet : game.map.defaultSet ?? DEFAULT_SET;
     const set = WEAPON_SETS[id];
     const loadouts = setLoadouts(set);
     const guns = setGuns(set);
@@ -161,11 +163,11 @@ export class Game {
     onProgress('Building the course', 0.4);
     await nextFrame();
     const scene = (this.scene = new THREE.Scene());
-    const look = (this.look = MUDLARK_LOOK);
+    const look = (this.look = this.map.look);
     scene.fog = new THREE.Fog(look.sky.horizon, look.fog.near, look.fog.far);
     this.setupLights(preset);
     scene.add(createSky(this.textures, this.materials, look));
-    this.arena = buildArena({
+    this.arena = this.map.build({
       scene,
       RAPIER,
       world: this.physics.world,
@@ -173,6 +175,8 @@ export class Game {
       textures: this.textures,
       bakeSize: preset.bakeSize,
     });
+    // One shadow map for the whole map, fitted to it.
+    fitShadowCamera(this.sun, this.arena.shadowHalf ?? this.arena.half + 1, this.arena.shadowTop);
     this.bake = this.arena.bake;
     this.zones = this.arena.zones;
     this.fx = new Effects(scene, this.textures, { decals: gfx.decals ? preset.decals : 0, fxScale: preset.fxScale });
@@ -196,7 +200,7 @@ export class Game {
 
     onProgress('Teaching the bots the course', 0.55);
     await nextFrame();
-    this.nav = new NavGraph(this, MUDLARK_LINKS);
+    this.nav = new NavGraph(this, this.map.links);
     // The Gravity Gun's set brings loose props to throw (after the nav graph, which ignores them).
     if (this.arsenal.guns.includes('gravityGun')) {
       this.gravity = new Gravity(this, WEAPONS.gravityGun);
@@ -204,7 +208,7 @@ export class Game {
     }
 
     if (practiceTargets) {
-      for (const def of DUMMY_POSTS) this.dummies.push(new Dummy(this, def));
+      for (const def of this.arena.dummyPosts) this.dummies.push(new Dummy(this, def));
     }
 
     playerDefs.forEach((def, i) => {
@@ -267,7 +271,6 @@ export class Game {
     sun.target.position.set(0, 0, 0);
     sun.castShadow = true;
     const c = sun.shadow.camera;
-    fitShadowCamera(sun, ARENA_HALF + 1, 12.5);
     c.near = 10;
     c.far = 170;
     // Player bodies live on their own layers (hidden from their own camera) but still cast shadows.

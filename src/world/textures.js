@@ -523,6 +523,67 @@ function crate(S) {
   return toTexture(c, { repeat: false });
 }
 
+// Factory floor slab (one 4 m tile): smooth troweled concrete with saw-cut joints on the tile
+// edges and one across the middle, oil drips, tire scuffs and a few hairline cracks.
+function slab(S) {
+  const k = S / 256;
+  const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
+  const rand = mulberry32(61);
+  ctx.fillStyle = '#8e8a82';
+  ctx.fillRect(0, 0, S, S);
+  blobs(ctx, S, S, rand, 50, 10 * k, 40 * k, ['#837f77', '#99958d', '#7c786f'], 0.3);
+  blobs(ctx, S, S, rand, 300 * k * k, 0.4 * k, 1.1 * k, ['#77736b', '#a6a29a'], 0.5);
+  // Oil: a few dark drips, soft-edged.
+  blobs(ctx, S, S, rand, 7, 4 * k, 16 * k, ['#3f3a33', '#4a443b'], 0.35);
+  blobs(ctx, S, S, rand, 16, 1.5 * k, 4 * k, ['#3a352f'], 0.45);
+  // Tire scuffs: long faint dark arcs.
+  ctx.strokeStyle = '#5d5952';
+  for (let i = 0; i < 4; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const r = (40 + rand() * 80) * k;
+    const a = rand() * Math.PI * 2;
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = (5 + rand() * 4) * k;
+    wrapped(ctx, S, S, x, y, (cc, px, py) => {
+      cc.beginPath();
+      cc.arc(px, py, r, a, a + 0.6 + rand() * 0.5);
+      cc.stroke();
+    });
+  }
+  ctx.globalAlpha = 1;
+  // Saw-cut joints: tile edges and across the middle (2 m slabs).
+  both(ctx, hctx, '#5a5650', 60, (cc) => {
+    cc.fillRect(0, 0, S, 1.6 * k);
+    cc.fillRect(0, 0, 1.6 * k, S);
+    cc.fillRect(0, S / 2, S, 1.2 * k);
+    cc.fillRect(S / 2, 0, 1.2 * k, S);
+  });
+  for (let i = 0; i < 2; i++) crack(ctx, hctx, S, rand, 8 + Math.floor(rand() * 10), '#625e57');
+  relief(ctx, hctx, S, GROUND_LIGHT, 0.2, { grain: 12, rand });
+  return toTexture(c);
+}
+
+// Conveyor belt rubber (one 1 m tile): dark, with raised cross ribs every 12.5 cm (they run
+// across the belt, along the texture's v) and wear down the middle.
+function belt() {
+  const S = 128;
+  const [c, ctx] = canvas(S, S);
+  const [, hctx] = heightCanvas(S);
+  const rand = mulberry32(71);
+  ctx.fillStyle = '#26282a';
+  ctx.fillRect(0, 0, S, S);
+  blobs(ctx, S, S, rand, 40, 3, 10, ['#1d1f21', '#303336'], 0.4);
+  for (let i = 0; i < 8; i++) both(ctx, hctx, '#383b3e', 190, (cc) => cc.fillRect(i * 16, 0, 5, S));
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = '#4a4d50';
+  ctx.fillRect(0, S * 0.3, S, S * 0.4);
+  ctx.globalAlpha = 1;
+  relief(ctx, hctx, S, [-1, 0], 0.5, { grain: 10, rand });
+  return toTexture(c);
+}
+
 function mud() {
   const S = 256;
   const [c, ctx] = canvas(S, S);
@@ -998,6 +1059,8 @@ function painters(S) {
     concrete: [`concrete@${S}`, () => concrete(S)],
     crate: [`crate@${S}`, () => crate(S)],
     mud: ['mud', mud],
+    slab: [`slab@${S}`, () => slab(S)],
+    belt: ['belt', belt],
     net: ['net', net],
     rope: ['rope', rope],
     flame: ['flame', flame],

@@ -74,7 +74,7 @@ export const WEAPON_SETS = {
   },
 };
 
-// Mudlark Gauntlet's default (maps name their own default set).
+// The fallback set (each map names its own default in world/maps.js).
 export const DEFAULT_SET = 'backyard';
 
 // Every gun type a set uses.

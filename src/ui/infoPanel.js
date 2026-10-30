@@ -1,4 +1,3 @@
-import { ARENA_HALF } from '../world/arena.js';
 import { clockText, ordinal } from '../match.js';
 import { feedRow, visibleFeed } from './hud.js';
 
@@ -17,7 +16,7 @@ export class InfoPanel {
     this.el = document.createElement('div');
     this.el.className = 'info-panel';
     this.el.innerHTML = `
-      <div class="ip-head"><b>Mudlark Gauntlet</b><span class="ip-mode">${game.mode === 'oysters' ? 'Rocky Mountain Oysters' : 'Free-for-all'}</span><span class="ip-clock"></span></div>
+      <div class="ip-head"><b>${game.map.name}</b><span class="ip-mode">${game.mode === 'oysters' ? 'Rocky Mountain Oysters' : 'Free-for-all'}</span><span class="ip-clock"></span></div>
       <div class="ip-body">
         <canvas class="ip-map"></canvas>
         <div class="ip-side">
@@ -72,12 +71,13 @@ export class InfoPanel {
     ctx.clearRect(0, 0, W, W);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(this.background, 0, 0, W, W);
-    const k = W / (ARENA_HALF * 2);
+    const half = this.game.arena.half;
+    const k = W / (half * 2);
     const r = Math.max(5, W * 0.035);
     for (const p of this.game.humans) {
       if (!p.alive) continue;
-      const x = (p.center.x + ARENA_HALF) * k;
-      const y = (p.center.z + ARENA_HALF) * k;
+      const x = (p.center.x + half) * k;
+      const y = (p.center.z + half) * k;
       // Arrow pointing the way the player faces (forward is -z at yaw 0).
       ctx.save();
       ctx.translate(x, y);
@@ -133,14 +133,15 @@ export class InfoPanel {
 function buildMapImage(game) {
   const { world } = game.physics;
   const ray = new game.physics.RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
-  const n = Math.round((ARENA_HALF * 2) / MAP_RES);
+  const half = game.arena.half;
+  const n = Math.round((half * 2) / MAP_RES);
   const heights = new Float32Array(n * n);
   const top = 14;
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
-      ray.origin.x = -ARENA_HALF + (i + 0.5) * MAP_RES;
+      ray.origin.x = -half + (i + 0.5) * MAP_RES;
       ray.origin.y = top;
-      ray.origin.z = -ARENA_HALF + (j + 0.5) * MAP_RES;
+      ray.origin.z = -half + (j + 0.5) * MAP_RES;
       const hit = world.castRay(ray, top + 3, true, game.shotFilter, undefined, undefined, undefined, game.notBody);
       heights[j * n + i] = hit ? top - hit.timeOfImpact : -3;
     }
@@ -153,9 +154,9 @@ function buildMapImage(game) {
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
       const h = heights[j * n + i];
-      feet.x = -ARENA_HALF + (i + 0.5) * MAP_RES;
+      feet.x = -half + (i + 0.5) * MAP_RES;
       feet.y = h;
-      feet.z = -ARENA_HALF + (j + 0.5) * MAP_RES;
+      feet.z = -half + (j + 0.5) * MAP_RES;
       let r;
       let g;
       let b;

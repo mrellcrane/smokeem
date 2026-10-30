@@ -30,3 +30,11 @@ export const MUDLARK_LINKS = [
   // `mid` gives the bars' centerline so bots line up under them.
   { type: 'bars', a: [9, 2.4, 0], b: [23, 2.4, 0], mid: [16, 2.4, 0], twoWay: true },
 ];
+
+// Smokestack Works: the ladders at the catwalks' far ends (climbed like ropes) and the hook rail
+// over the grease vat. Stairs, bridges and belts are plain walking.
+export const FACTORY_LINKS = [
+  { type: 'rope', a: [28, 0, -16.6], b: [28, 5, -20.2], mid: [28, 0, -18.1] },
+  { type: 'rope', a: [-28, 0, 16.6], b: [-28, 5, 20.2], mid: [-28, 0, 18.1] },
+  { type: 'bars', a: [14, 2.4, 0], b: [28, 2.4, 0], mid: [21, 2.4, 0], twoWay: true },
+];

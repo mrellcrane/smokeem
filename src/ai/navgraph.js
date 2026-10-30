@@ -149,8 +149,10 @@ export class NavGraph {
       return this.sweepClear(a.x, a.y, a.z, b.x, b.y, b.z) ? 'walk' : null;
     }
     if (dy < 0) {
-      // Step off horizontally at our height, then fall.
-      return dy > -7 && this.sweepClear(a.x, a.y, a.z, b.x, a.y, b.z) ? 'drop' : null;
+      // Step off horizontally at our height, then fall (with nothing, like the deck we're on,
+      // in the way).
+      if (dy <= -7 || !this.sweepClear(a.x, a.y, a.z, b.x, a.y, b.z)) return null;
+      return this.sweepClear(b.x, a.y, b.z, b.x, b.y, b.z, 0.05) ? 'drop' : null;
     }
     if (dy <= 5.0) {
       // Room to rise straight up, then room to move over onto the ledge.

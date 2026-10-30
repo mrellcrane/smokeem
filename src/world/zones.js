@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Gameplay volumes that aren't solid: mud, fire, cargo nets, ropes, monkey bars.
+// Gameplay volumes that aren't solid: mud, fire, cargo nets, ropes, monkey bars, conveyor belts.
 // Plain math instead of physics sensors so the player controller and (later) bots can query
 // them cheaply and predictably.
 
@@ -13,6 +13,26 @@ export class Zones {
     this.nets = [];
     this.ropes = [];
     this.bars = [];
+    this.belts = [];
+  }
+
+  // A conveyor belt: feet standing in the box (just over the belt's top) ride along at vel
+  // ([vx, vz], m/s).
+  addBelt(min, max, vel) {
+    this.belts.push({ min, max, vx: vel[0], vz: vel[1] });
+  }
+
+  beltAt(feet) {
+    for (const b of this.belts) {
+      if (
+        feet.x > b.min[0] && feet.x < b.max[0] &&
+        feet.y > b.min[1] && feet.y < b.max[1] &&
+        feet.z > b.min[2] && feet.z < b.max[2]
+      ) {
+        return b;
+      }
+    }
+    return null;
   }
 
   // surface: the height of the mud's top (a visual quad with no collider), for shots.

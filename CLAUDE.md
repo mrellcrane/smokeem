@@ -25,8 +25,8 @@ Then open the localhost URL it prints.
   real-time checks.
 - Add `?bench` to run a scripted split-screen match that reports frame time, render time,
   draw calls (shadow pass and per view) and load time (`src/render/bench.js`, only loaded
-  for that URL). Options: `q=low|medium|high`, `views=1..4` (default 3), `secs`, `set`, and
-  `off=name,...` to turn graphics switches in `src/render/gfx.js` off for a before/after.
+  for that URL). Options: `q=low|medium|high`, `views=1..4` (default 3), `secs`, `set`,
+  `map=mudlark|factory`, and `off=name,...` to turn graphics switches in `src/render/gfx.js` off for a before/after.
   Run it on the Xbox from the Pages URL for real numbers; headless only checks draw counts.
 - To test controllers headless, override `navigator.getGamepads` in `page.addInitScript`
   with fake pad objects (`connected`, `mapping: 'standard'`, `axes`, `buttons[i].pressed` /
@@ -146,14 +146,28 @@ Live build: https://mrellcrane.github.io/smokeem/
   fades and muffles with distance from the nearest local player and plays up close when
   `source` is a local player. Personal sounds (hit confirms, hurt, shields, pickups) are only
   played for local players (`!player.isBot`).
-- `src/world/`: procedural textures, materials, arena layout, sky, fire, trigger zones,
-  training dummies, per-map looks (`looks.js`), the game show (`show.js`: the crowd on the
+- `src/world/`: procedural textures, materials, sky, fire, trigger zones, training dummies,
+  per-map looks (`looks.js`), the maps, the game show (`show.js`: the crowd on the
   arena's grandstands as one instanced mesh moved in its vertex shader by a hype uniform, and
   the big screen's canvas texture; `finale.js`: the end-of-match podium, confetti and orbit
   camera, which `Game.render` draws instead of the views once `endMatch` makes one), the baked
   arena light (`bake.js`) and the
   pickup beacons (`beacons.js`: pad light columns, respawn rings and strip halos in one mesh,
   fed by `Pickups.pads` each frame).
+  - Maps: `maps.js` registers each one (name, title-screen blurb, build function, look, bot
+    links, default weapon set); `settings.map` picks one ('random' never repeats the last), and
+    `Game.create({ map })` sets `game.mapId` / `game.map`. `arena.js` is Mudlark Gauntlet,
+    `factory.js` Smokestack Works; shared pieces (crates, barriers, drums, pickup pads, the
+    grandstands) are in `parts.js`. A build function returns the arena object everything else
+    reads: `half` (the info panel map's half size), `shadowHalf` / `shadowTop` (the sun's
+    shadow box), `stands` and `screen` (show.js: crowd rows, big-screen faces), `podium`
+    (finale.js), `spawnPoints`, `pickupSpots`, `dummyPosts`, `zones`, `bake`, `update`, and
+    StaticBuilder's `halos`, `surfaces`, `blockers` and `trims`.
+  - Smokestack Works is indoors: its roof and trusses are looks only (no colliders, so the bake
+    and the nav sampling, which casts down from 14 m, don't see them), with an invisible ceiling
+    at 16.2 m. Its conveyor belts are zones (`zones.addBelt`, `beltAt`): `Player.tickMove` adds
+    the belt's velocity while grounded on one; the belt texture scrolls in `arena.update` (the
+    south line's boxes are turned around so the same scroll runs the other way).
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
   (walk / drop / jump / doublejump / firejump edges, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
