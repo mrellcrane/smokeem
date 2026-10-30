@@ -1036,4 +1036,7 @@ Need answers before the step that uses them gets built.
   string of colored rings and hexagons runs through the view (Medium and High), fading when a
   wall passes in front; on High the sun's light also streams in rays past whatever stands in
   front of it. About one draw call and one small pass.
+- 2026-10-30: Glowing projectiles: briquettes glow like hot coals, Chimney coals deeper orange,
+  sticky bombs red (pulsing once armed), and the Smoke Signal's motor bright, each leaving a short
+  light trail while it flies, like Halo's plasma grenades. Sparks only, no new draw calls.
 

@@ -32,6 +32,9 @@ const BRIQUETTE = {
   landFuse: 0.35,
   restitution: 0.35,
   ember: false,
+  // The glow and light trail it leaves (effects.js glow): a hot briquette.
+  glow: 0xff7a2a,
+  glowSize: 0.3,
   explosion: GRENADE.explosion,
 };
 // Missiles ignore their shooter for this long so they don't pop on launch.
@@ -171,8 +174,9 @@ export class Missiles {
       if (e.distanceToBody(m.pos) < PROXIMITY) return this.finish(m, true);
     }
 
-    // Exhaust trail.
+    // Exhaust trail, and the motor's glow with its light trail.
     _v.copy(m.pos).addScaledVector(m.dir, -0.35);
+    game.fx.glow(_v, 0xffc070, 0.55, true);
     game.fx.smoke.spawn(_v.x, _v.y, _v.z, 0, 0.3, 0, 0xbab2aa, 0.22, 0.9, { grow: 3.5, drag: 2, alpha: 0.6, rotVel: 1 });
     if (Math.random() < 0.6) {
       game.fx.sparks.spawn(_v.x, _v.y, _v.z, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, 0xffa040, 0.12, 0.15, { drag: 4 });
@@ -327,6 +331,11 @@ export class Grenades {
       // Portals: into one, out of the other.
       if (!g.stuck && !g.heldBy && this.game.portals?.carryBody(g.body, g.pos, g.vel, 0.1, dt)) g.prev.copy(g.pos);
       if (g.kind.ember && (this.game.tickCount & 1) === 0) this.game.fx.ember(g.pos);
+      // Glowing, with a light trail while it flies; an armed sticky pulses where it sits.
+      if (g.kind.glow && !g.heldBy) {
+        const pulse = g.kind.sticky && g.armed ? 0.75 + 0.35 * Math.sin(g.age * 9) : 1;
+        this.game.fx.glow(g.pos, g.kind.glow, g.kind.glowSize * pulse, _v.lengthSq() > 4);
+      }
       // A long lob whose fuse runs out in the air waits to land (up to 5 s in all).
       const aloft = g.kind.landFuse && !g.landed && g.age < 5;
       if ((g.fuse <= 0 && !aloft) || g.pos.y < -20 || this.touching(g)) this.detonate(g);

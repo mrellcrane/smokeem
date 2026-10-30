@@ -152,6 +152,10 @@ Live build: https://mrellcrane.github.io/smokeem/
     third-person gun) in everyone else's.
   - Both read per-view uniforms (`viewUniforms.js`: viewer id and view height), set by
     `fx.setView` before each view renders. New effect shaders should use them the same way.
+  - Glowing projectiles (`fx.glow`): thrown and launched things with a `glow` color in their
+    projectile block (briquettes, Chimney coals, sticky bombs; the missile's motor) get a soft
+    glow every tick and, while flying, a shrinking dot left behind (a light trail). An armed
+    sticky pulses.
   - Combat cues: third-person muzzle flashes (`fx.muzzleFlash`, at most one per shooter per
     50 ms), the shield-break pop (from `dealDamage`) and the death puff tinted with the
     victim's armor color.
