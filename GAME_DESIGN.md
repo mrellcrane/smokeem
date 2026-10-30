@@ -1119,3 +1119,7 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Dynamic resolution (feel research, Halo 3 gave up pixels for a steady frame rate):
   when frames run long, the render scale steps down instead of the frame rate dropping, and
   creeps back up when there's room. On by default; the FPS counter shows it.
+- 2026-10-30: Sound variety (feel research: Halo's soundtags carry many takes and never let you
+  hear a loop). Guns, blasts and footsteps get two extra takes per recording made in the browser
+  (pitch, tone and attack variants; nothing more to download), the same take never plays twice
+  in a row, and close sounds get a little stereo width while far ones stay plain points.
