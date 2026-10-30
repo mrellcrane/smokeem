@@ -9,7 +9,8 @@ import { JOINTS, HANDS, BONES } from './bodyMesh.js';
 // Bond's pocket square) besides the rim light every body has.
 //
 // A character comes out in the same form as the decoded Spartan (character.js base()), plus its
-// palette: region index -> { color, glow } (color null: the player's color).
+// palette: region index -> { color, glow, shine } (color null: the player's color; shine 0 to 1,
+// how glossy, default a little).
 
 export const CHARACTERS = {
   spartan: { name: 'Spartan' },
@@ -190,11 +191,11 @@ function crash() {
     chest: { color: 0xf08a12 },
     glove: { color: 0x5a1416 },
     jeans: { color: 0x2442b4 },
-    shoe: { color: 0x6a1418 },
-    white: { color: 0xf4f2f4, glow: 0.1 },
+    shoe: { color: 0x6a1418, shine: 0.3 },
+    white: { color: 0xf4f2f4, glow: 0.1, shine: 0.5 },
     lip: { color: 0xc89aa8 },
-    nose: { color: 0x1c1c3c },
-    pupil: { color: 0x111111 },
+    nose: { color: 0x1c1c3c, shine: 0.85 },
+    pupil: { color: 0x111111, shine: 0.9 },
     brow: { color: 0x3a1c0e },
     earIn: { color: 0x2a1006 },
     tuft: { color: 0xb2161a },
@@ -257,14 +258,14 @@ function link() {
     tunic: { color: 0x2f8d3a },
     tunicDark: { color: 0x226a2a },
     cream: { color: 0xece0c2 },
-    leather: { color: 0x7a4a26 },
-    boot: { color: 0x5a3a1e },
-    buckle: { color: 0xc9a64a },
-    shield: { color: 0x2a4fa8 },
-    rim: { color: 0xc4c8ce },
+    leather: { color: 0x7a4a26, shine: 0.25 },
+    boot: { color: 0x5a3a1e, shine: 0.25 },
+    buckle: { color: 0xc9a64a, shine: 0.85 },
+    shield: { color: 0x2a4fa8, shine: 0.5 },
+    rim: { color: 0xc4c8ce, shine: 0.85 },
     red: { color: 0xb02a2a },
-    hilt: { color: 0x4a3fa8 },
-    eye: { color: 0x2a5ea8 },
+    hilt: { color: 0x4a3fa8, shine: 0.55 },
+    eye: { color: 0x2a5ea8, shine: 0.8 },
     team: { color: null, glow: 0.9 },
   });
   frame(k, { neck: 'skin', upper: 'cream', lower: 'leather', hand: 'leather', cuff: 'team', thigh: 'cream', knee: 'boot', shin: 'boot', foot: 'boot' }, { neck: 0.045, upper: 0.052, lower: 0.046, fist: 0.055, thigh: 0.072, shin: 0.058, foot: 0.11 });
@@ -305,12 +306,12 @@ function link() {
 function bond() {
   const k = new Kit({
     skin: { color: 0xeab894 },
-    hair: { color: 0x2e2118 },
-    jacket: { color: 0x17191d },
+    hair: { color: 0x2e2118, shine: 0.45 },
+    jacket: { color: 0x17191d, shine: 0.18 },
     shirt: { color: 0xf2f2ef },
-    tie: { color: 0x0a0a0c },
+    tie: { color: 0x0a0a0c, shine: 0.45 },
     trousers: { color: 0x1b1d22 },
-    shoe: { color: 0x0b0b0c },
+    shoe: { color: 0x0b0b0c, shine: 0.85 },
     dark: { color: 0x241a14 },
     team: { color: null, glow: 0.9 },
   });
