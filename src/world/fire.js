@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../util/rng.js';
+import { DISPLAY_ADD } from '../render/displayOut.js';
 
 // Flames as crossed quads merged into one mesh, animated in the vertex shader.
 // One draw call for every burner in the arena.
@@ -33,6 +34,7 @@ const fragmentShader = /* glsl */ `
     vec4 tex = texture2D(uMap, vUv);
     float a = tex.a * vFade;
     gl_FragColor = vec4(tex.rgb * a * uIntensity, a);
+    ${DISPLAY_ADD}
   }
 `;
 

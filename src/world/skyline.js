@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../util/rng.js';
+import { DISPLAY_OUT } from '../render/displayOut.js';
 
 // The facility around an outdoor arena, seen over the stands: arcology towers with lit window
 // bands, smokestacks puffing, comm towers and hangars, floodlight rigs aimed at the arena, and a
@@ -260,6 +261,7 @@ const PLUME_FRAGMENT = /* glsl */ `
     float r = dot(d, d) * 4.0;
     float a = (1.0 - smoothstep(0.2, 1.0, r)) * vAlpha;
     gl_FragColor = vec4(mix(uColor, uFogColor, vFog), a);
+    ${DISPLAY_OUT}
   }
 `;
 

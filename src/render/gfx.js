@@ -29,4 +29,6 @@ export const gfx = {
   shafts: true,
   // Armor, visors and guns reflect the arena (a cube map captured at load, render/reflections.js).
   reflections: true,
+  // Bloom (high preset only).
+  bloom: true,
 };

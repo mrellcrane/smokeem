@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { viewUniforms } from './viewUniforms.js';
+import { DISPLAY_OUT, DISPLAY_ADD } from '../render/displayOut.js';
 
 // Pooled particles drawn as one instanced mesh (one draw call per system).
 // Instanced quads instead of GL points: point sprites are emulated on Edge/ANGLE and capped
@@ -84,8 +85,10 @@ const fragmentShader = /* glsl */ `
     if (a < 0.003) discard;
   #ifdef ADDITIVE
     gl_FragColor = vec4(vColor.rgb * t.rgb * a, a);
+    ${DISPLAY_ADD}
   #else
     gl_FragColor = vec4(vColor.rgb * t.rgb, a);
+    ${DISPLAY_OUT}
   #endif
   }
 `;
