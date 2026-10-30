@@ -20,8 +20,9 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 // Detail 'hi' (first person, pickups, pictures) has chamfers and round cylinders; 'lo' (the
 // third-person guns baked into every body) is plain boxes and six-sided cylinders.
 
-export const METAL = 0x464c53;
-export const METAL_LIGHT = 0x666e77;
+// (Dark gunmetal, Halo's.)
+export const METAL = 0x353a40;
+export const METAL_LIGHT = 0x535a62;
 export const WOOD = 0x8a5a33;
 export const WOOD_DARK = 0x6e4526;
 export const GLOW = 0xffa040;

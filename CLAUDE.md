@@ -90,7 +90,10 @@ Live build: https://mrellcrane.github.io/smokeem/
   hands: the first is the trigger hand, the fourth the support hand),
   weapon sets and loadouts (`arsenal.js`: a match builds only its set's guns), weapon state
   (`weapons.js`), the shared shape kit and colors (`weaponModels.js`: a part is
-  `[center, size, color, options]`, a chamfered box or a round cylinder with taper, turn, bore and
+  `[center, size, color, options]` (the registry fattens every gun's cross-section by `CHUNK`
+  about its bore line at load, moving hands, muzzle, spin parts and screen with it, and adds an
+  ember strip down each side of its main body: write guns at their natural proportions), a
+  chamfered box or a round cylinder with taper, turn, bore and
   finish options; `'hi'` detail for first person, pickups and pictures, `'lo'` for the guns baked
   into bodies, which skip parts `showsAtLow` rejects), the per-tick weapon
   controller (`shooting.js`: trigger, spin-up, pellets, missile and launcher shots, grenades,
