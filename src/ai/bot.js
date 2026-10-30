@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { InputState } from '../input/inputState.js';
 import { DEG, clamp } from '../util/math.js';
 import { WEAPONS, GRENADE } from '../combat/weapons.js';
-import { SIZZLER } from '../config.js';
+import { SIZZLER, GRAPPLE } from '../config.js';
 
 // A bot is a regular Player whose InputState is written by this brain instead of a controller,
 // so it moves, climbs, shoots and dies by exactly the same rules as people.
@@ -58,6 +58,14 @@ const BIKE_CHANCE = { easy: 0.3, normal: 0.5, hard: 0.65 };
 const BIKE_REACH = 40;
 const RIDE_FOR = [30, 70];
 const DRIVE = (e) => e.type === 'walk' || e.type === 'drop';
+// The grapple: how likely a bot on a path takes it up to a ledge ahead or zips down a long
+// straight stretch (per skill, each check), how often it looks, how many steps ahead, how much
+// higher a ledge must be, and how far a zip must reach.
+const GRAPPLE_CHANCE = { easy: 0, normal: 0.45, hard: 0.8 };
+const GRAPPLE_CHECK = 0.6;
+const GRAPPLE_AHEAD = 10;
+const GRAPPLE_RISE = 2.2;
+const GRAPPLE_ZIP = 14;
 const MEMORY = 6;
 const PERCEIVE_EVERY = 0.15;
 
@@ -157,6 +165,12 @@ export class BotBrain {
     this.portalCheckT = 0;
     // Crouching over someone we just smoked in Rocky Mountain Oysters (SAUCED).
     this.sauceT = 0;
+    // The grapple: the ledge we're turning to hook (null for none), the path step it reaches,
+    // until when we try, and when to look for one next.
+    this.hookAim = null;
+    this.hookStep = 0;
+    this.hookUntil = 0;
+    this.hookCheckT = 0;
     // Sizzlers: the one we're walking to, how long we've ridden and mean to, letting the guns
     // cool, getting unstuck (backing up), and no bike for a while after getting off one.
     if (this.goalBike?.claim === this) this.goalBike.claim = null;
@@ -1013,6 +1027,57 @@ export class BotBrain {
     this.stepJumped = false;
   }
 
+  // A shortcut up: a ledge a few steps ahead on the path, well above us and in sight, gets the
+  // grapple (aimed at its edge) and the path skips ahead to it. True while turning to fire.
+  grappleUp(dt) {
+    const p = this.player;
+    const s = this.state;
+    const t = this.game.time;
+    if (this.hookAim) {
+      if (p.hook.state !== 'off' || p.hook.cooldown > 0 || p.mode !== 'move' || t > this.hookUntil) {
+        this.hookAim = null;
+        return false;
+      }
+      p.eyePosition(_e);
+      const dx = this.hookAim.x - _e.x;
+      const dz = this.hookAim.z - _e.z;
+      this.turnToward(Math.atan2(-dx, -dz), Math.atan2(this.hookAim.y - _e.y, Math.hypot(dx, dz)), this.skill.turnRate, dt);
+      if (this.aimError(this.hookAim) < 0.035) {
+        s.press('grapple');
+        this.step = this.hookStep;
+        this.hookAim = null;
+        this.bestDist = Infinity;
+        this.stepJumped = true;
+      }
+      return true;
+    }
+    this.hookCheckT -= dt;
+    if (this.hookCheckT > 0 || p.hook.state !== 'off' || p.hook.cooldown > 0 || p.mode !== 'move' || !p.grounded) return false;
+    this.hookCheckT = GRAPPLE_CHECK;
+    if (Math.random() > GRAPPLE_CHANCE[this.skillName]) return false;
+    const feet = p.feetY();
+    p.eyePosition(_e);
+    for (let i = Math.min(this.path.length - 1, this.step + GRAPPLE_AHEAD); i >= this.step; i--) {
+      const n = this.path[i].node;
+      const hd = Math.hypot(n.x - _e.x, n.z - _e.z);
+      const rise = n.y - feet;
+      if (!(rise >= GRAPPLE_RISE && hd >= 3) && !(hd >= GRAPPLE_ZIP && rise > -1)) continue;
+      if (hd > GRAPPLE.range * 0.8) continue;
+      // Just under the floor there: from below that's the ledge's edge, from above the floor.
+      _t.set(n.x, n.y - 0.1, n.z);
+      _d.subVectors(_t, _e);
+      const dist = _d.length();
+      _d.multiplyScalar(1 / dist);
+      const r = this.game.castShot(_e, _d, dist + 1.5, p.collider);
+      if (!r.hit || r.entity || r.surface === 'mud' || r.distance < dist - 2.2 || r.point.y < n.y - 1.2) continue;
+      this.hookAim = (this._hookAim ??= new THREE.Vector3()).copy(r.point);
+      this.hookStep = i;
+      this.hookUntil = t + 1;
+      return true;
+    }
+    return false;
+  }
+
   // Walk the current path. Returns false when there's nothing left to follow.
   // aiming: the bot is looking at a target, so walk-type steps move relative to its facing
   // instead of turning toward the waypoint. Climbs still need to face the obstacle.
@@ -1028,6 +1093,16 @@ export class BotBrain {
     const dz = n.z - c.z;
     const hd = Math.hypot(dx, dz);
     const dy = n.y - p.feetY();
+
+    // On the grapple's line: face along it and push on, so a mantle catches the ledge.
+    if (p.hook.busy) {
+      this.faceToward(p.hook.pos.x, p.hook.pos.z, dt);
+      s.moveY = 1;
+      this.bestDist = Infinity;
+      this.stuckT = 0;
+      return true;
+    }
+    if (!aiming && this.grappleUp(dt)) return true;
 
     const arrive = type === 'walk' || type === 'drop' || type === 'firejump' ? 0.8 : 1.15;
     if (hd < arrive && Math.abs(dy) < 1.2 && p.mode === 'move') {

@@ -15,7 +15,7 @@ const KEY_ACTIONS = {
   KeyR: 'reload',
   KeyE: 'interact',
   KeyG: 'grenade',
-  KeyQ: 'melee',
+  KeyQ: 'grapple',
   KeyF: 'melee',
   KeyX: 'switchWeapon',
   Digit1: 'slot1',

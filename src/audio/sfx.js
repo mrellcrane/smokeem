@@ -201,6 +201,22 @@ const SOUNDS = {
       const env = Math.min(1, t / 0.03) * Math.pow(1 - t / 0.9, 1.4);
       return env * (1.1 * s.prev + crunch);
     }),
+  // The grapple firing: a pneumatic thump with the line whistling out.
+  hookFire: (ctx) =>
+    synth(ctx, 0.32, (t, s, rate) => {
+      const f = 1700 * Math.exp(-t * 7) + 380;
+      s.phase += (f * Math.PI * 2) / rate;
+      s.prev += (noise() - s.prev) * 0.5;
+      return 0.8 * Math.sin(t * 95 * Math.PI * 2) * Math.exp(-t * 45) + 0.35 * s.prev * Math.exp(-t * 18) + 0.16 * Math.sin(s.phase) * Math.exp(-t * 9);
+    }),
+  // The hook biting: a metal clank, then the reel ratcheting in.
+  hookHit: (ctx) =>
+    synth(ctx, 0.55, (t) => {
+      const clank = 0.5 * click(t, 0, 1850, 38) + 0.35 * click(t, 0, 2730, 52) + 0.5 * click(t, 0, 140, 30);
+      const rate = 26 + 50 * t;
+      const ratchet = t > 0.05 ? 0.3 * Math.max(0, Math.sin(t * rate * Math.PI * 2)) ** 12 * Math.exp(-(t - 0.05) * 4) * noise() : 0;
+      return clank + ratchet;
+    }),
   // A boot hitting a wall: a dropping thump with a little knock on top.
   wallKick: (ctx) =>
     synth(ctx, 0.25, (t, s, rate) => {
@@ -247,6 +263,8 @@ const MIX = {
   swat: { volume: 0.6, ref: 8, voices: 4 },
   pump: { volume: 0.6, ref: 6, voices: 4 },
   launch: { volume: 0.7, ref: 20, wet: 0.35, voices: 4 },
+  hookFire: { volume: 0.6, ref: 10, voices: 6 },
+  hookHit: { volume: 0.6, ref: 12, wet: 0.2, voices: 6 },
   boom: { volume: 0.95, ref: 28, wet: 0.5, voices: 6 },
   reload: { volume: 0.5, ref: 5, voices: 4 },
   shell: { volume: 0.8, ref: 5, voices: 4 },

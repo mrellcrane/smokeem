@@ -11,8 +11,8 @@ import { SIZZLER } from '../config.js';
 // DOM is only touched when a value actually changes.
 
 const KEY_LABELS = {
-  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'Q', sprint: 'Shift', turn: 'A / D' },
-  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB', sprint: 'LS click', turn: 'Left stick' },
+  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'F', grapple: 'Q', sprint: 'Shift', turn: 'A / D' },
+  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB', grapple: 'LB', sprint: 'LS click', turn: 'Left stick' },
 };
 
 const HITMARKER_TIME = 0.18;
@@ -62,7 +62,7 @@ export class Hud {
         <div class="bar health"><i></i></div>
       </div>
       <div class="hud-tag" style="--seat:${color}">P${index + 1}</div>
-      <div class="hud-gear"><div class="nades"></div></div>
+      <div class="hud-gear"><div class="nades"></div><div class="hook"><b></b><em></em></div></div>
       <div class="hud-match"><div class="hud-clock"></div><div class="hud-standings"></div></div>
       <div class="hud-feed"></div>
       <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
@@ -126,6 +126,9 @@ export class Hud {
       ammoNote: q('.ammo-note'),
       other: q('.other'),
       nades: q('.nades'),
+      hook: q('.hud-gear .hook'),
+      hookFill: q('.hud-gear .hook b'),
+      hookLabel: q('.hud-gear .hook em'),
       missile: q('.missile-cam'),
       fuel: q('.mc-fuel b'),
       death: q('.death'),
@@ -280,6 +283,15 @@ export class Hud {
       const o = player.slots[1 - player.slot];
       this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
     }
+    // The grapple: a bar that fills over the cooldown, lit when it's ready.
+    const hook = player.hook;
+    const ready = hook.state === 'off' && hook.cooldown <= 0;
+    const fill = ready ? 1 : hook.busy ? 0 : 1 - Math.min(1, hook.cooldown / hook.cooldownMax);
+    this.set('hookFill', Math.round(fill * 40) / 40, (x) => (e.hookFill.style.transform = `scaleX(${x})`));
+    this.set('hookReady', ready, (x) => {
+      e.hook.classList.toggle('ready', x);
+      e.hookLabel.textContent = `${this.keys.grapple} Grapple`;
+    });
     this.set('nades', player.grenades, (x) => (e.nades.innerHTML = `<b>${x}</b><span>${'<i></i>'.repeat(x)}${'<i class="empty"></i>'.repeat(Math.max(0, 4 - x))}</span><em>Briquettes</em>`));
 
     // Missile camera overlay.

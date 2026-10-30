@@ -907,6 +907,44 @@ kbd {
   color: var(--visor-dim);
 }
 
+.hud-gear .hook {
+  position: relative;
+  margin-top: calc(6px * var(--hud-scale, 1));
+  width: calc(92px * var(--hud-scale, 1));
+  height: calc(5px * var(--hud-scale, 1));
+  border: 1px solid var(--visor-line);
+  border-radius: 2px;
+  background: var(--visor-bg);
+}
+
+.hud-gear .hook b {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: var(--visor-dim);
+}
+
+.hud-gear .hook.ready b {
+  background: var(--ember-2);
+  box-shadow: 0 0 5px rgba(255, 160, 60, 0.8);
+}
+
+.hud-gear .hook em {
+  position: absolute;
+  left: 0;
+  top: calc(7px * var(--hud-scale, 1));
+  white-space: nowrap;
+  font-style: normal;
+  font-size: max(9px, calc(11px * var(--hud-scale, 1)));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--visor-dim);
+}
+
+.hud-gear .hook.ready em {
+  color: var(--visor);
+}
+
 .missile-cam {
   position: absolute;
   inset: 0;

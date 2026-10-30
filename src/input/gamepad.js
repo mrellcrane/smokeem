@@ -222,6 +222,7 @@ export class GamepadInput {
     if (edge(PAD.RT)) s.press('fire');
     if (edge(PAD.LT)) s.press('grenade');
     if (edge(PAD.RB)) s.press('melee');
+    if (edge(PAD.LB)) s.press('grapple');
     if (edge(PAD.Y)) s.press('switchWeapon');
     s.held.scoreboard = down(PAD.VIEW);
 
@@ -245,6 +246,7 @@ export class GamepadInput {
     s.held.interact = down(PAD.X);
     s.held.grenade = down(PAD.LT);
     s.held.melee = down(PAD.RB);
+    s.held.grapple = down(PAD.LB);
 
     for (let i = 0; i < prev.length; i++) prev[i] = buttonDown(gp, i);
   }
