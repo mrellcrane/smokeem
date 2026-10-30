@@ -27,4 +27,6 @@ export const gfx = {
   skyline: true,
   // Sunbeams and dust under the factory's skylights (medium and high presets only).
   shafts: true,
+  // Armor, visors and guns reflect the arena (a cube map captured at load, render/reflections.js).
+  reflections: true,
 };

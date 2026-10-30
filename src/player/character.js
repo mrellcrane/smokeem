@@ -7,6 +7,7 @@ import { FINISHES, GLOVE, finishOf, partGeometry, showsAtLow } from '../combat/w
 import { JOINTS as BODY_JOINTS, BONES as BODY_BONES, HANDS, REGIONS, DATA } from './body/bodyMesh.js';
 import { castBody } from './body/cast.js';
 import { viewmodelUniforms } from './viewmodel.js';
+import { envUniforms } from '../render/reflections.js';
 
 // The contestant body: an armored soldier (a CC0 model, see body/CREDITS.md) in a Halo Mark VI
 // style helmet with a big gold visor, gloved fists and a smoker canister on the back. Smooth-skinned to a 16-bone body skeleton plus
@@ -494,6 +495,8 @@ const RIM_VERTEX = /* glsl */ `
 const RIM_HEAD = /* glsl */ `
   uniform vec3 uSky;
   uniform vec3 uGround;
+  uniform samplerCube uEnv;
+  uniform float uEnvOn;
   varying float vGlow;
   varying float vShine;
   varying vec3 vTeam;
@@ -514,6 +517,8 @@ const RIM_FRAGMENT = /* glsl */ `
     vec3 env = mix(uGround, uSky, smoothstep(-0.2, 0.3, R.y)) + uSky * 0.6 * exp(-pow((R.y - 0.1) * 7.0, 2.0));
     float fres = (1.0 - ndv) * (1.0 - ndv) * (1.0 - ndv);
     float glass = smoothstep(0.9, 1.0, vShine);
+    // The arena itself once it's captured (render/reflections.js): blurry on plates, sharp on glass.
+    env = mix(env, textureLod(uEnv, R, mix(4.0, 1.0, glass)).rgb * 1.25, uEnvOn);
     outgoingLight += env * vShine * mix(0.02 + 0.2 * fres, 0.18 + 0.45 * fres, glass);
   }
 `;
@@ -533,12 +538,14 @@ function bodyMaterial() {
       // (The same sky and ground the first-person guns reflect, from the map's look.)
       shader.uniforms.uSky = viewmodelUniforms.uSky;
       shader.uniforms.uGround = viewmodelUniforms.uGround;
+      shader.uniforms.uEnv = envUniforms.uEnv;
+      shader.uniforms.uEnvOn = envUniforms.uEnvOn;
       shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vShine = aShine;\n  vTeam = aTeam;');
       shader.fragmentShader =
         RIM_HEAD +
         f.replace('#include <lights_phong_fragment>', SHINE_LIGHTS).replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
     };
-    sharedMaterial.customProgramCacheKey = () => 'character-shine';
+    sharedMaterial.customProgramCacheKey = () => 'character-shine-env';
   }
   return sharedMaterial;
 }

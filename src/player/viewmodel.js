@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp, clamp } from '../util/math.js';
 import { partsGeometry } from '../combat/weaponModels.js';
 import { gloveParts } from './gloves.js';
+import { envUniforms } from '../render/reflections.js';
 import { GUNS } from '../combat/guns/index.js';
 import { SWITCH_TIME } from '../combat/weapons.js';
 
@@ -37,6 +38,9 @@ const VM_FRAGMENT_HEAD = /* glsl */ `
   uniform vec3 uUp;
   uniform vec3 uSky;
   uniform vec3 uGround;
+  uniform samplerCube uEnv;
+  uniform float uEnvOn;
+  uniform mat3 uCamRot;
   varying float vFinish;
   varying vec3 vGun;
   float vmHash(vec3 p) {
@@ -78,8 +82,11 @@ const VM_ENV = /* glsl */ `
     vec3 V = normalize(vViewPosition);
     vec3 R = reflect(-V, normal);
     float up = dot(R, uUp);
-    // Ground, a bright band at the horizon, the sky above it.
+    // The arena's reflection (render/reflections.js), turned into the world by the view's
+    // rotation; before it's captured (the loadout pictures), ground, a bright band at the
+    // horizon and the sky above it.
     vec3 env = mix(uGround, uSky, smoothstep(-0.25, 0.25, up)) + uSky * 0.7 * exp(-pow((up - 0.12) * 7.0, 2.0));
+    env = mix(env, textureLod(uEnv, uCamRot * R, mix(3.5, 2.0, isMetal)).rgb * 1.25, uEnvOn);
     float fres = pow(1.0 - saturate(dot(normal, V)), 3.0);
     vec3 tint = mix(vec3(1.0), diffuseColor.rgb * 1.6 + 0.2, isMetal);
     float k = isMetal * mix(0.15, 0.55, fres) + isPaint * mix(0.02, 0.25, fres) + isWood * 0.08 * fres;
@@ -93,7 +100,7 @@ export function viewmodelMaterial() {
   sharedMaterial = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xffffff, shininess: 40 });
   sharedMaterial.name = 'viewmodel';
   sharedMaterial.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, viewmodelUniforms);
+    Object.assign(shader.uniforms, viewmodelUniforms, envUniforms);
     shader.vertexShader = VM_VERTEX_HEAD + shader.vertexShader.replace(
       '#include <begin_vertex>',
       '#include <begin_vertex>\n  transformed += uGroupOff[int(aGroup + 0.5)];\n  vFinish = aFinish;\n  vGun = position;',
@@ -103,7 +110,7 @@ export function viewmodelMaterial() {
       .replace('#include <lights_phong_fragment>', VM_LIGHTS)
       .replace('#include <envmap_fragment>', VM_ENV);
   };
-  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v3';
+  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v4';
   return sharedMaterial;
 }
 
