@@ -72,7 +72,11 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/config.js`: movement and body tuning numbers.
 - `src/vehicles/sizzler.js`: the Sizzler motorcycle (`game.vehicles`, built when the map's build
   returns `vehicles` spots; tuning in `SIZZLER`, `config.js`). Each bike is a kinematic body moved
-  by its own character controller (a ball) plus a box registered as an entity (the one collider
+  by its own character controller: a ball floating `BALL_LIFT` over the ground that only meets
+  walls, rocks and bodies, while a ball cast down (`groundBelow`) puts the bike on the ground
+  (steps up to the float height, snaps down `SNAP`, won't drive up slopes over about 38 degrees,
+  and leaves the ground off a lip or a crest with the speed it was climbing at, so terrain's
+  creases and the creek's banks never catch it). Plus a box registered as an entity (the one collider
   shots and blasts see; `kind: 'vehicle'`, hull `vitals`, `die()` blows up with the rider). It
   ticks after the players: it reads its rider's `InputState` and `ridePressed`, turns toward the
   rider's `yaw` (or a bot's `driveYaw`), drives, splatters (`runInto`), fires its twin guns at
