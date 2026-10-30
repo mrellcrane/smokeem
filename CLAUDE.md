@@ -70,6 +70,20 @@ Live build: https://mrellcrane.github.io/smokeem/
   `game.match`; when time runs out `game.endMatch()` sets state `'over'` and `main.js` shows
   the results.
 - `src/config.js`: movement and body tuning numbers.
+- `src/vehicles/sizzler.js`: the Sizzler motorcycle (`game.vehicles`, built when the map's build
+  returns `vehicles` spots; tuning in `SIZZLER`, `config.js`). Each bike is a kinematic body moved
+  by its own character controller (a ball) plus a box registered as an entity (the one collider
+  shots and blasts see; `kind: 'vehicle'`, hull `vitals`, `die()` blows up with the rider). It
+  ticks after the players: it reads its rider's `InputState` and `ridePressed`, turns toward the
+  rider's `yaw` (or a bot's `driveYaw`), drives, splatters (`runInto`), fires its twin guns at
+  `aimPoint` (the chase camera's line for people, the eye's for bots) and carries the rider's
+  capsule on the seat (`seat`). The rider is in mode `'ride'` (`Player.startRide` / `endRide`;
+  `Vehicles.mount` / `dismount`, `touch` offers a free bike as `vehiclePrompt`), takes
+  `riderTakes` of damage, sees through `Vehicles.camera` (tipped `camTilt` below the aim; the HUD
+  lifts the reticle by as much, `--aim-lift`), and its body sits on the bike (`riding`, `roll`,
+  `tilt` in `Player.pose`; `RIDE` in `character.js`). Frames and wheels are two instanced meshes
+  for every bike (Phong with glow parts lit by `aFinish`); the engine is one looping voice per
+  bike (`sfx.engine` / `setEngine`); replays record both meshes.
 - `src/modes/`: optional match modes on top of free-for-all, picked on the title screen
   (`settings.mode`, `game.mode`). `oysters.js` is Rocky Mountain Oysters: per-player sack size,
   its sway on a short rope from the belt (one instanced mesh), shots that hit it (`castShot`
@@ -210,7 +224,9 @@ Live build: https://mrellcrane.github.io/smokeem/
 - `src/ai/`: bots. `navgraph.js` samples a multi-level nav graph from the physics world at load
   (walk / drop / jump / doublejump / firejump edges, plus map links, A* with a heap); `mapLinks.js` adds the
   obstacle moves per map (walls, nets, ropes, bars); `bot.js` is the brain that writes a bot's
-  `InputState` each tick. Besides fighting, chasing and roaming it flings props with the Gravity
+  `InputState` each tick. Besides fighting, chasing and roaming it rides Sizzlers (`goalBikeNear`
+  claims a free one in reach; `ride`, `drive` and `driveStuck` drive walk and drop edges only, via
+  `findPath`'s edge filter), flings props with the Gravity
   Gun at range (`fling`, `FLING_BAND`), walks into anyone's linked portal when it's a big shortcut
   (`takePortal`), crouches for SAUCED in Oysters (`sauce`), and throws grenades by situation (a
   target standing still, a crowd, an empty gun, or a lob where someone ducked out of sight:

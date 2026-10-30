@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { InputState } from '../input/inputState.js';
 import { DEG, clamp } from '../util/math.js';
 import { WEAPONS, GRENADE } from '../combat/weapons.js';
+import { SIZZLER } from '../config.js';
 
 // A bot is a regular Player whose InputState is written by this brain instead of a controller,
 // so it moves, climbs, shoots and dies by exactly the same rules as people.
@@ -50,6 +51,13 @@ const LOB_GRAVITY = 16;
 const FLING_BAND = { min: 0, max: 18, pref: 9 };
 const GRENADE_LOB = { launchSpeed: GRENADE.throwSpeed, launchUp: GRENADE.throwUp, projectile: { damping: 0.05, fuse: 5 } };
 const HEAR_RANGE = 7;
+// Sizzlers: how likely a roaming bot heads for a free one in reach (per skill), how far it'll
+// walk for one, how long it rides with nobody around before getting off, and the edges a bike
+// can take (no climbs or jumps).
+const BIKE_CHANCE = { easy: 0.3, normal: 0.5, hard: 0.65 };
+const BIKE_REACH = 40;
+const RIDE_FOR = [30, 70];
+const DRIVE = (e) => e.type === 'walk' || e.type === 'drop';
 const MEMORY = 6;
 const PERCEIVE_EVERY = 0.15;
 
@@ -149,6 +157,17 @@ export class BotBrain {
     this.portalCheckT = 0;
     // Crouching over someone we just smoked in Rocky Mountain Oysters (SAUCED).
     this.sauceT = 0;
+    // Sizzlers: the one we're walking to, how long we've ridden and mean to, letting the guns
+    // cool, getting unstuck (backing up), and no bike for a while after getting off one.
+    if (this.goalBike?.claim === this) this.goalBike.claim = null;
+    this.goalBike = null;
+    this.rideT = 0;
+    this.rideFor = 0;
+    this.cooling = false;
+    this.reverseT = 0;
+    this.driveStuckT = 0;
+    this.driveStucks = 0;
+    this.bikeCooldown ??= 0;
     this.hurtBy = null;
     this.hurtT = -99;
     this.alive = true;
@@ -198,9 +217,28 @@ export class BotBrain {
       this.guideMissile();
       return;
     }
+    this.bikeCooldown -= dt;
+    if (p.vehicle) {
+      this.ride(dt);
+      return;
+    }
 
     const t = this.game.time;
     const sees = this.target && t - this.lastSeenT < 0.4;
+
+    // The bike we walked to: get on (unless someone beat us to it).
+    const gb = this.goalBike;
+    if (gb && (gb.rider || !gb.alive)) {
+      this.dropBike();
+      this.path = null;
+    } else if (gb && p.vehiclePrompt === gb) {
+      s.press('interact');
+      this.dropBike();
+      this.path = null;
+      this.rideT = 0;
+      this.rideFor = RIDE_FOR[0] + Math.random() * (RIDE_FOR[1] - RIDE_FOR[0]);
+      return;
+    }
 
     // Standing on the gun we walked here for (or any power gun): swap for it. A swap gives up
     // the gun in hand, so first draw the one worth least; hold still for that unless fighting.
@@ -765,6 +803,150 @@ export class BotBrain {
     s.held.sprint = true;
   }
 
+  // ------------------------------------------------------------ Sizzlers
+
+  // Now and then, a free bike in reach (that no other bot is already after) becomes the goal.
+  goalBikeNear() {
+    const vs = this.game.vehicles;
+    const p = this.player;
+    if (!vs || this.bikeCooldown > 0 || Math.random() > BIKE_CHANCE[this.skillName]) return false;
+    let best = null;
+    let bd = BIKE_REACH;
+    for (const b of vs.bikes) {
+      if (!b.alive || b.rider || (b.claim && b.claim !== this && b.claim.goalBike === b)) continue;
+      const d = b.pos.distanceTo(p.center);
+      if (d < bd) {
+        bd = d;
+        best = b;
+      }
+    }
+    if (!best) return false;
+    _t.set(best.pos.x + Math.sin(best.yaw) * 0.3, best.pos.y, best.pos.z + Math.cos(best.yaw) * 0.3);
+    this.planTo(_t, 'vehicle');
+    if (!this.path) return false;
+    this.goalBike = best;
+    best.claim = this;
+    return true;
+  }
+
+  dropBike() {
+    if (this.goalBike?.claim === this) this.goalBike.claim = null;
+    this.goalBike = null;
+  }
+
+  // On a Sizzler. The bike turns toward where we look, so fighting from it means looking at the
+  // target and driving at them (running them over if they don't move), guns going, easing off
+  // the trigger before the guns overheat. Otherwise drive a route a bike can take. Get off when
+  // the hull's nearly gone mid-fight, when it keeps getting stuck, or after riding a while with
+  // nobody around.
+  ride(dt) {
+    const p = this.player;
+    const s = this.state;
+    const b = p.vehicle;
+    const sk = this.skill;
+    const t = this.game.time;
+    this.rideT += dt;
+    const sees = this.target && t - this.lastSeenT < 0.4;
+    const bail = (sees && b.vitals.healthFrac < 0.25 && Math.random() < dt * 3) || this.driveStucks >= 4 || (!sees && this.rideT > this.rideFor);
+    if (bail) {
+      s.press('interact');
+      this.bikeCooldown = 12 + Math.random() * 10;
+      this.path = null;
+      this.driveStucks = 0;
+      return;
+    }
+    if (sees) {
+      const tg = this.target;
+      tg.centerPosition(_t);
+      const dist = p.center.distanceTo(_t);
+      this.trackT += dt;
+      this.reactT -= dt;
+      const maxErr = sk.aimError * DEG * (1 + 1.5 * Math.exp(-this.trackT));
+      this.errX = clamp(this.errX + (Math.random() - 0.5) * maxErr * 5 * dt, -maxErr, maxErr);
+      this.errY = clamp(this.errY + (Math.random() - 0.5) * maxErr * 5 * dt, -maxErr, maxErr);
+      // Lead a moving target a little (the rounds are hitscan, but we're moving too).
+      if (tg.vel) _t.addScaledVector(tg.vel, 0.08 * sk.lead);
+      this.aimAt(_t, dt);
+      // Strafing runs: past mid range the bike arcs across them (guns still on them, within
+      // their swing), switching sides now and then; close in, straight at them.
+      this.strafeT -= dt;
+      if (this.strafeT <= 0) {
+        this.strafe = Math.random() < 0.5 ? -1 : 1;
+        this.strafeT = 1.5 + Math.random() * 2;
+      }
+      p.driveYaw = dist > 9 ? wrap(this.wantYaw + this.strafe * SIZZLER.gun.swing * 0.5) : null;
+      s.moveY = 1;
+      s.held.sprint = dist > 22 && b.boost > 0.3;
+      // Let the guns cool before they lock up (Easy bots run them hot).
+      if (b.heat > (this.skillName === 'easy' ? 0.97 : 0.82)) this.cooling = true;
+      if (b.heat < 0.35) this.cooling = false;
+      const cone = (sk.fireCone * DEG + Math.atan(0.6 / Math.max(1, dist))) * 1.4;
+      if (this.reactT <= 0 && !this.cooling && !b.overheated && dist < SIZZLER.gun.range && this.aimError(_t) < cone) s.held.fire = true;
+      this.path = null;
+      this.driveStuck(dt, b);
+      return;
+    }
+    p.driveYaw = null;
+    // A target we lost: where we saw them. Otherwise anywhere on the ground a bike can reach.
+    if (!this.path || this.step >= this.path.length) {
+      if (this.target && t - this.lastSeenT < MEMORY) this.planTo(this.lastSeen, 'chase', DRIVE);
+      else {
+        const n = this.game.nav.randomNode((x) => x.y < 4.5 && !x.mud);
+        this.planTo(_t.set(n.x, n.y, n.z), 'drive', DRIVE);
+      }
+    }
+    this.drive(dt, b);
+  }
+
+  // Steer down the path, looking a waypoint or two ahead; slow for sharp turns, boost on the
+  // straights.
+  drive(dt, b) {
+    const p = this.player;
+    const s = this.state;
+    const path = this.path;
+    if (!path) {
+      this.driveStuck(dt, b);
+      return;
+    }
+    const c = p.center;
+    while (this.step < path.length && Math.hypot(path[this.step].node.x - c.x, path[this.step].node.z - c.z) < 2.6) this.step++;
+    if (this.step >= path.length) {
+      this.path = null;
+      return;
+    }
+    const look = path[Math.min(path.length - 1, this.step + 1)].node;
+    const yaw = Math.atan2(-(look.x - c.x), -(look.z - c.z));
+    this.turnToward(yaw, -0.08, 4, dt);
+    const off = Math.abs(wrap(yaw - b.yaw));
+    s.moveY = off > 1.3 ? 0.3 : off > 0.6 ? 0.65 : 1;
+    s.held.sprint = off < 0.25 && b.boost > 0.5 && path.length - this.step > 8;
+    this.driveStuck(dt, b);
+  }
+
+  // Not getting anywhere with the throttle open: back up and turn for a moment, then try again
+  // (a new route every other time).
+  driveStuck(dt, b) {
+    const s = this.state;
+    const speed = Math.hypot(b.vel.x, b.vel.z);
+    if (speed > 6) this.driveStucks = Math.max(0, this.driveStucks - dt * 0.3);
+    if (this.reverseT > 0) {
+      this.reverseT -= dt;
+      s.moveY = -1;
+      s.moveX = this.unstickX;
+      s.held.fire = false;
+      return;
+    }
+    if (s.moveY > 0.25 && speed < 1.2) this.driveStuckT += dt;
+    else this.driveStuckT = Math.max(0, this.driveStuckT - dt * 2);
+    if (this.driveStuckT > 1.2) {
+      this.driveStuckT = 0;
+      this.reverseT = 0.9;
+      this.driveStucks++;
+      this.unstickX = Math.random() < 0.5 ? -1 : 1;
+      if (this.driveStucks % 2 === 0) this.path = null;
+    }
+  }
+
   roam(dt) {
     if (!this.path || this.step >= this.path.length) this.pickRoamGoal();
     if (this.takePortal(dt)) return;
@@ -773,6 +955,7 @@ export class BotBrain {
 
   pickRoamGoal() {
     const p = this.player;
+    if (this.goalBikeNear()) return;
     const items = this.game.pickups.items;
     let goal = null;
     let kind = 'wander';
@@ -813,13 +996,13 @@ export class BotBrain {
     this.planTo(goal, kind);
   }
 
-  planTo(goal, kind) {
+  planTo(goal, kind, allow = null) {
     const nav = this.game.nav;
     const p = this.player;
     _d.set(p.center.x, p.feetY(), p.center.z);
     const start = nav.nearest(_d, 6);
     const end = nav.nearest(goal, 6);
-    this.path = nav.findPath(start, end);
+    this.path = nav.findPath(start, end, allow);
     this.step = 0;
     this.goalKind = kind;
     this.bestDist = Infinity;

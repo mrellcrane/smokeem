@@ -227,7 +227,8 @@ export class GamepadInput {
 
     // X: reload on a tap. Over a swappable weapon, holding picks it up instead.
     if (edge(PAD.X)) {
-      if (p?.pickupPrompt) this.xHeld = 0;
+      // (Getting on and off a Sizzler is a hold too.)
+      if (p?.pickupPrompt || p?.vehiclePrompt || p?.vehicle) this.xHeld = 0;
       else s.press('reload');
     }
     if (this.xHeld >= 0) {

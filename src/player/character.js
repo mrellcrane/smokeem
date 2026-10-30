@@ -231,6 +231,10 @@ const THROW = { time: 0.55, wind: [-0.02, 0.34, 0.16], sling: [0.08, 0.08, -0.56
 const MELEE_SWING = { time: 0.4, twist: 0.4, thrust: 0.32, turn: 0.95 };
 const FLINCH = { time: 0.35, back: 0.11, side: 0.09, head: 0.12 };
 const CLIMB = { rate: 2.6, reach: 0.18, knee: 0.55 };
+// On a Sizzler: thighs forward along the seat, shins down to the pegs (radians), the torso leaned
+// over the tank, and the hands on the grips (body space: the bike's bars from where the rider's
+// feet are, vehicles/sizzler.js). The gun goes on the back as for climbing.
+const RIDE = { thigh: 1.45, knee: -1.75, lean: 0.32, grips: { R: new THREE.Vector3(0.34, 0.86, -0.8), L: new THREE.Vector3(-0.34, 0.86, -0.8) } };
 // Climbing, the gun goes on the back, muzzle up over the shoulder (spine space).
 const SLING_POS = new THREE.Vector3(0.06, 0.12, 0.22);
 const SLING_Q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0.6));
@@ -267,6 +271,8 @@ const _w = new THREE.Vector3();
 const _l = new THREE.Vector3();
 const _el = new THREE.Vector3();
 const _sh = new THREE.Vector3();
+const _sp = new THREE.Vector3();
+const _qr = new THREE.Quaternion();
 const _leg = { thigh: 0, knee: 0 };
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -634,6 +640,8 @@ export class CharacterModel {
 
     this.group = new THREE.Group();
     this.group.name = 'character';
+    // (Turned, then tipped and rolled with a bike.)
+    this.group.rotation.order = 'YXZ';
     this.bones = {};
     for (const name of r.names) {
       const b = new THREE.Bone();
@@ -728,7 +736,7 @@ export class CharacterModel {
     this.landHard = this.kickAmount = 0;
     this.throwT = this.meleeT = this.hurtT = 9;
     this.hurtFwd = this.hurtSide = 0;
-    this.reloadW = this.climbPhase = 0;
+    this.reloadW = this.climbPhase = this.ride = 0;
     this.aimW = this.sprintW = 0;
     this.gunTip = 0;
     this.shieldFlash = 0;
@@ -864,7 +872,7 @@ export class CharacterModel {
   update(dt, s) {
     const g = this.group;
     g.position.set(s.x, s.y, s.z);
-    g.rotation.y = s.yaw;
+    g.rotation.set(s.tilt ?? 0, s.yaw, s.roll ?? 0);
 
     const B = this.bones;
     const speed = s.speed;
@@ -920,6 +928,8 @@ export class CharacterModel {
     this.crouch += ((s.crouched ? 1 : 0) - this.crouch) * damp(12, dt);
     this.air += ((s.grounded || s.climbing ? 0 : 1) - this.air) * damp(10, dt);
     this.climb += ((s.climbing ? 1 : 0) - this.climb) * damp(10, dt);
+    this.ride += ((s.riding ? 1 : 0) - this.ride) * damp(12, dt);
+    const rd = this.ride;
     this.airT = s.grounded || s.climbing ? 0 : this.airT + dt;
     const ground = (1 - this.air) * (1 - this.climb);
 
@@ -996,12 +1006,12 @@ export class CharacterModel {
     const swing = ml < 1 ? (ml < 0.33 ? Math.sin((ml / 0.33) * Math.PI * 0.5) : Math.cos(((ml - 0.33) / 0.67) * Math.PI)) : 0;
     const strike = ml < 1 && ml > 0.25 ? Math.sin(((ml - 0.25) / 0.75) * Math.PI) : 0;
     B.spine.rotation.set(
-      bend - this.crouch * CROUCH.lean + kick + breathe - flinch * FLINCH.back * this.hurtFwd,
+      bend - this.crouch * CROUCH.lean - RIDE.lean * rd + kick + breathe - flinch * FLINCH.back * this.hurtFwd,
       -this.hipYaw + swing * MELEE_SWING.twist,
       flinch * FLINCH.side * this.hurtSide,
     );
     // The bladed stance: the torso turns about its own (bent) axis, so the bend stays on the aim.
-    const twist = TWIST * this.twoHand * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb);
+    const twist = TWIST * this.twoHand * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb) * (1 - rd);
     B.spine.quaternion.multiply(_qe.setFromAxisAngle(Y_AXIS, twist));
     this.twistInv.setFromAxisAngle(Y_AXIS, -twist);
 
@@ -1035,10 +1045,10 @@ export class CharacterModel {
     }
     B.head.position.add(_p.set(0, lift - hipsLift, 0).applyQuaternion(_qb));
 
-    const aL = swL + _leg.thigh;
-    const aR = swR + _leg.thigh;
-    const bL = kL + _leg.knee;
-    const bR = kR + _leg.knee;
+    const aL = swL + _leg.thigh + (RIDE.thigh - swL - _leg.thigh) * rd;
+    const aR = swR + _leg.thigh + (RIDE.thigh - swR - _leg.thigh) * rd;
+    const bL = kL + _leg.knee + (RIDE.knee - kL - _leg.knee) * rd;
+    const bR = kR + _leg.knee + (RIDE.knee - kR - _leg.knee) * rd;
     B.legUL.rotation.x = aL;
     B.legUR.rotation.x = aR;
     B.legLL.rotation.x = bL;
@@ -1048,6 +1058,11 @@ export class CharacterModel {
     const flat = _leg.thigh + _leg.knee;
     B.footL.rotation.x = (-flat - (aL + bL - flat) * 0.75) * ground + (0.3 - (aL + bL) * 0.5) * (1 - ground);
     B.footR.rotation.x = (-flat - (aR + bR - flat) * 0.75) * ground + (0.3 - (aR + bR) * 0.5) * (1 - ground);
+    // (Riding, the soles sit level on the pegs.)
+    if (rd > 0.001) {
+      B.footL.rotation.x += (-(aL + bL) - B.footL.rotation.x) * rd;
+      B.footR.rotation.x += (-(aR + bR) - B.footR.rotation.x) * rd;
+    }
 
     // The gun: at the shoulder while firing or zoomed, across the chest while sprinting,
     // otherwise at the hip; the arms reach up instead while climbing.
@@ -1055,7 +1070,9 @@ export class CharacterModel {
     this.aimW += ((aiming ? 1 : 0) - this.aimW) * damp(14, dt);
     this.sprintW += ((s.sprinting && !aiming && speed > 1 ? 1 : 0) - this.sprintW) * damp(8, dt);
     const k = this.climb;
-    const a = Math.max(this.aimW, this.shoulderGun) * (1 - k);
+    // (Slung while climbing or riding.)
+    const sling = Math.max(k, rd);
+    const a = Math.max(this.aimW, this.shoulderGun) * (1 - sling);
     const sp = this.sprintW * (1 - k) * (1 - this.shoulderGun);
     const A = GUN_POSE.aim;
     const S = GUN_POSE.sprint;
@@ -1086,9 +1103,14 @@ export class CharacterModel {
     // (Undoing the stance's turn, in the spine's frame.)
     _gq.setFromEuler(_e).premultiply(this.twistInv);
     _gp.applyQuaternion(this.twistInv);
-    if (k > 0.001) {
-      _gp.lerp(SLING_POS, k);
-      _gq.slerp(SLING_Q, k);
+    if (sling > 0.001) {
+      _gp.lerp(SLING_POS, sling);
+      _gq.slerp(SLING_Q, sling);
+    }
+    // Riding: the spine's frame in body space, to put the hands on the bike's grips.
+    if (rd > 0.001) {
+      _qr.copy(B.root.quaternion).multiply(B.hips.quaternion).multiply(B.spine.quaternion).invert();
+      _sp.copy(B.spine.position).applyQuaternion(B.hips.quaternion).add(B.hips.position).applyQuaternion(B.root.quaternion).add(B.root.position);
     }
     if (bone) {
       B[bone].position.copy(_gp);
@@ -1150,6 +1172,12 @@ export class CharacterModel {
         qu.slerpQuaternions(_qa, _qd, k);
         ql.slerpQuaternions(_qb, _qe, k);
         qw.identity().slerp(_qg, 1 - k);
+      } else if (rd > 0.001) {
+        _t.copy(RIDE.grips[sd]).sub(_sp).applyQuaternion(_qr);
+        solveArm(arm, _sh, _t, arm.pole, _qd, _qe);
+        qu.slerpQuaternions(_qa, _qd, rd);
+        ql.slerpQuaternions(_qb, _qe, rd);
+        qw.identity().slerp(_qg, 1 - rd);
       } else {
         qu.copy(_qa);
         ql.copy(_qb);

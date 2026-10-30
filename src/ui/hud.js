@@ -5,13 +5,14 @@ import { RESPAWN_DELAY, SCOPE_ZOOM } from '../player/player.js';
 import { controlsHtml } from './controls.js';
 import { clockText, ordinal } from '../match.js';
 import { Radar } from './radar.js';
+import { SIZZLER } from '../config.js';
 
 // Per-player HUD laid over that player's viewport. Plain DOM; every write is cached so the
 // DOM is only touched when a value actually changes.
 
 const KEY_LABELS = {
-  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'Q' },
-  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB' },
+  keyboardMouse: { climb: 'W / S', move: 'WASD', jump: 'Space', crouch: 'C', reload: 'R', interact: 'E', fire: 'Click', steer: 'Mouse', pick: 'A / D', melee: 'Q', sprint: 'Shift', turn: 'A / D' },
+  gamepad: { climb: 'Left stick', move: 'Left stick', jump: 'A', crouch: 'B', reload: 'X', interact: 'Hold X', fire: 'RT', steer: 'Right stick', pick: 'Left stick', melee: 'RB', sprint: 'LS click', turn: 'Left stick' },
 };
 
 const HITMARKER_TIME = 0.18;
@@ -182,6 +183,9 @@ export class Hud {
         return `${k.move} move along · ${k.jump} hop off · ${k.crouch} drop`;
       case 'dead':
         return '';
+      case 'ride':
+        // (For a few seconds after getting on: it sits over the bike.)
+        return game.time - player.rideT < 5 ? `${k.fire} guns · ${k.sprint} boost · ${k.jump} hop · ${k.interact} get off` : '';
       default:
         break;
     }
@@ -190,6 +194,7 @@ export class Hud {
     if (game.swarms.after(player)) return 'Bugs coming: sprint away or swat them';
     const prompt = player.pickupPrompt;
     if (prompt) return `${k.interact}: swap ${player.weapon.def.name} for ${prompt.def.name}`;
+    if (player.vehiclePrompt) return `${k.interact}: ride the Sizzler`;
     if (player.inFire) return 'Too hot!';
     if (player.inMud) return 'Mud: slow going, weak jumps';
     const w = player.weapon;
@@ -235,29 +240,46 @@ export class Hud {
       this.set('dmgOp', '0', (x) => (e.dmgArrow.style.opacity = x));
     }
 
-    // Ammo.
-    this.set('wname', w.def.name, (x) => (e.wname.textContent = x));
-    // (The Gravity Gun has no ammo.)
-    const endless = !Number.isFinite(w.def.mag);
-    this.set('mag', w.mag, (x) => (e.mag.textContent = Number.isFinite(x) ? x : '∞'));
-    this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
-    const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
-    this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
-    // A row of ticks, one per round (bigger mags share ticks), emptying as you fire.
-    const cap = endless ? 0 : Math.min(MAX_TICKS, w.def.mag);
-    this.set('tickCap', cap, (x) => {
-      e.ammoTicks.style.display = x ? '' : 'none';
-      e.ammoTicks.style.setProperty('--cap', x);
-      e.ammoTicks.classList.toggle('big', x <= 12);
-    });
-    if (cap) {
-      const shown = Math.ceil((w.mag / w.def.mag) * cap);
-      this.set('tickFill', shown, (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
+    // Ammo (on a Sizzler: its hull, the guns' heat as the ticks, and the boost).
+    const bike = player.vehicle;
+    if (bike) {
+      const hull = Math.ceil(bike.vitals.healthFrac * 100);
+      this.set('wname', 'Sizzler', (x) => (e.wname.textContent = x));
+      this.set('mag', `${hull}%`, (x) => (e.mag.textContent = x));
+      this.set('reserve', -1, (x) => (e.reserve.textContent = ''));
+      this.set('magLow', hull <= 30 || bike.overheated, (x) => e.ammo.classList.toggle('low', x));
+      this.set('tickCap', 20, (x) => {
+        e.ammoTicks.style.display = '';
+        e.ammoTicks.style.setProperty('--cap', x);
+        e.ammoTicks.classList.toggle('big', false);
+      });
+      this.set('tickFill', Math.ceil((1 - bike.heat) * 20), (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
+      this.set('ammoNote', bike.overheated ? 'Overheated' : 'Hull', (x) => (e.ammoNote.textContent = x));
+      this.set('other', `Boost ${Math.round(bike.boost * 100)}%`, (x) => (e.other.textContent = x));
+    } else {
+      this.set('wname', w.def.name, (x) => (e.wname.textContent = x));
+      // (The Gravity Gun has no ammo.)
+      const endless = !Number.isFinite(w.def.mag);
+      this.set('mag', w.mag, (x) => (e.mag.textContent = Number.isFinite(x) ? x : '∞'));
+      this.set('reserve', endless ? -1 : w.reserve, (x) => (e.reserve.textContent = x < 0 ? '' : ` / ${x}`));
+      const lowMag = !endless && (w.mag === 0 || (w.def.mag >= 6 && w.mag <= Math.ceil(w.def.mag * 0.25)));
+      this.set('magLow', lowMag, (x) => e.ammo.classList.toggle('low', x));
+      // A row of ticks, one per round (bigger mags share ticks), emptying as you fire.
+      const cap = endless ? 0 : Math.min(MAX_TICKS, w.def.mag);
+      this.set('tickCap', cap, (x) => {
+        e.ammoTicks.style.display = x ? '' : 'none';
+        e.ammoTicks.style.setProperty('--cap', x);
+        e.ammoTicks.classList.toggle('big', x <= 12);
+      });
+      if (cap) {
+        const shown = Math.ceil((w.mag / w.def.mag) * cap);
+        this.set('tickFill', shown, (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
+      }
+      const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
+      this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
+      const o = player.slots[1 - player.slot];
+      this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
     }
-    const note = w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
-    this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
-    const o = player.slots[1 - player.slot];
-    this.set('other', o ? `${o.def.name} ${o.mag}/${o.reserve}` : '', (x) => (e.other.textContent = x));
     this.set('nades', player.grenades, (x) => (e.nades.innerHTML = `<b>${x}</b><span>${'<i></i>'.repeat(x)}${'<i class="empty"></i>'.repeat(Math.max(0, 4 - x))}</span><em>Briquettes</em>`));
 
     // Missile camera overlay.
@@ -270,8 +292,12 @@ export class Hud {
 
     // Crosshair: ticks spread with the weapon's current inaccuracy.
     const cam = player.camera;
+    // On a Sizzler the chase camera looks a little below the aim, so the reticle sits above the
+    // middle by as much.
+    const lift = bike ? (Math.tan(SIZZLER.camTilt) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2) : 0;
+    this.set('aimLift', Math.round(lift), (x) => this.el.style.setProperty('--aim-lift', `${x}px`));
     const gap = alive
-      ? 3 + (Math.tan(currentSpread(player) * DEG) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2)
+      ? 3 + (Math.tan((bike ? SIZZLER.gun.spread : currentSpread(player)) * DEG) / Math.tan((cam.fov * DEG) / 2)) * (this.rect.h / 2)
       : 3;
     this.set('gap', Math.round(gap), (g) => {
       const [up, down, left, right] = e.ticks;

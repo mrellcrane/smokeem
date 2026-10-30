@@ -422,6 +422,52 @@ export class Sfx {
     return voice;
   }
 
+  // A vehicle's engine: one looping voice that setEngine() keeps placed, revved and faded every
+  // frame. Returns null until audio is unlocked.
+  engine() {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return null;
+    this.engineBuf ??= engineLoop(ctx);
+    const src = ctx.createBufferSource();
+    src.buffer = this.engineBuf;
+    src.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    src.connect(lp).connect(g).connect(this.master);
+    src.start();
+    return { src, lp, g };
+  }
+
+  // at: where the engine is; source: its rider (their own engine plays up close); rev: 0 idle to
+  // about 1 flat out; level: 0 off to 1.
+  setEngine(h, at, source, rev, level) {
+    if (!h || !this.ctx) return;
+    let dist = 0;
+    if (!(source && this.listeners.includes(source))) {
+      dist = Infinity;
+      for (const l of this.listeners) dist = Math.min(dist, l.camera.position.distanceTo(at));
+      if (!Number.isFinite(dist)) dist = 0;
+    }
+    const now = this.ctx.currentTime;
+    const gain = level * 0.32 * (1 / (1 + Math.pow(dist / 12, 1.6)));
+    h.g.gain.setTargetAtTime(gain, now, 0.06);
+    h.src.playbackRate.setTargetAtTime(0.75 + rev * 1.3, now, 0.08);
+    h.lp.frequency.setTargetAtTime(Math.max(500, (900 + rev * 2400) * Math.exp(-dist / 60)), now, 0.08);
+  }
+
+  stopEngine(h) {
+    if (!h || !this.ctx) return;
+    h.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02);
+    try {
+      h.src.stop(this.ctx.currentTime + 0.1);
+    } catch {
+      // Already stopped.
+    }
+  }
+
   // Fade a playing sound out over a few milliseconds (no click) and stop it.
   stop(voice) {
     if (!voice || !this.ctx) return;
@@ -433,6 +479,25 @@ export class Sfx {
       // Already stopped.
     }
   }
+}
+
+// One second of a single-cylinder engine at 30 firings a second (playbackRate revs it): each
+// firing a low thump with a raspy edge, a whole number of them so the loop is seamless.
+function engineLoop(ctx) {
+  const rate = ctx.sampleRate;
+  const n = rate;
+  const buf = ctx.createBuffer(1, n, rate);
+  const d = buf.getChannelData(0);
+  const F = 30;
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / rate;
+    const ph = (t * F) % 1;
+    const pulse = Math.exp(-ph * 9);
+    lp += (noise() - lp) * 0.08;
+    d[i] = Math.tanh(1.6 * (0.7 * Math.sin(2 * Math.PI * F * t) * pulse + 0.35 * Math.sin(4 * Math.PI * F * t) + 0.18 * Math.sin(6 * Math.PI * F * t + 1) * pulse + 0.5 * lp * pulse));
+  }
+  return buf;
 }
 
 function decode(ctx, data) {

@@ -210,8 +210,9 @@ export class NavGraph {
   }
 
   // A* from node to node with a binary heap and buffers reused between searches.
-  // Returns a list of { node, type, edge } steps (excluding the start).
-  findPath(start, goal) {
+  // Returns a list of { node, type, edge } steps (excluding the start). allow(edge): only edges
+  // it passes (a bike only drives and drops).
+  findPath(start, goal, allow = null) {
     if (!start || !goal) return null;
     if (start === goal) return [];
     const N = this.nodes.length;
@@ -271,6 +272,7 @@ export class NavGraph {
       }
       if (f - h(nodes[cur]) > g[cur] + 1e-3) continue; // stale heap entry
       for (const e of nodes[cur].edges) {
+        if (allow && !allow(e)) continue;
         const ng = g[cur] + e.cost;
         if (seen[e.to] !== gen || ng < g[e.to]) {
           seen[e.to] = gen;

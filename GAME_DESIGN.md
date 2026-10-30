@@ -490,9 +490,33 @@ synthesized.
 - **Tenderizer** melee: 65 damage at up to 2.3 m. Anyone up to 3.6 m in front pulls you into a
   quick lunge. Hits from behind smoke instantly. 0.9 s cooldown.
 
-## Vehicle (later)
+## Vehicle: the Sizzler
 
-One motorcycle with a mounted gun. Fast, fragile, fun off ramps. Name proposal: **Sizzler**.
+Owner ask (2026-10-30): a one-player motorcycle with guns on it, on the Valhalla-style map
+(Smokehouse Creek), and bots smart enough to use it. One parked by each smokehouse.
+
+- **Getting on and off**: walk up to it, E (or hold X). Same again to get off; you hop off to
+  whichever side has room. While riding there are no grenades, melee, pickups or reloads.
+- **Driving**, Halo style: the bike turns toward where you look (mouse or right stick), and A / D
+  (or the left stick) also steer it directly. W / S (stick forward and back) is throttle, brake
+  and reverse. Shift (left stick click) boosts from a tank that refills. Space (A) hops.
+  Top speed 15 m/s, 21 boosting; the creek slows it to 6. It leans into turns and tips with
+  the ground.
+- **Twin guns** under the bars, firing in turn (9 rounds a second, 12 damage each, 70 m). They
+  swing a little off the bike's heading. Hold the trigger too long and they overheat for 2 s
+  (the HUD's ticks are the heat; the number is the hull).
+- **Chase camera**: third person, behind and above, looking a touch below the aim so the bike is
+  in view; the reticle sits above the middle, on the guns' line.
+- **The hull**: 280 points, no shields, no regen. Destroyed, it blows up (a grenade-sized blast)
+  and takes the rider with it, credited to whoever finished it. The rider stays hittable and
+  takes 75% damage.
+- **Splatter**: running into someone at 10 m/s or more smokes them; slower, it hurts and shoves.
+- **Respawn**: back in its spot 30 s after it's destroyed, or after 40 s left empty away from it.
+- **Bots**: now and then a roaming bot walks to a free bike in reach and gets on. Riding, it drives
+  routes a bike can take (no climbs), makes strafing runs on whoever it sees (guns on them while
+  the bike arcs past), drives straight at them up close, eases off the trigger before the guns
+  overheat, backs out when stuck, and gets off when the hull's nearly gone mid-fight or after a
+  while with nobody around.
 
 ## Abilities (later)
 
@@ -615,7 +639,7 @@ never the same one twice in a row). Guns on "Map default" use each map's own set
 | Fire | Left mouse |
 | Zoom / aim | Right mouse |
 | Reload | R |
-| Pick up / interact | E |
+| Pick up / interact (get on or off a Sizzler) | E |
 | Grenade | G |
 | Melee | Q or F |
 | Switch weapon | Mouse wheel or X, or 1 / 2 for a slot |
@@ -633,7 +657,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 | Jump / double jump / wall kick | A |
 | Crouch (slide from a sprint) | B (hold) |
 | Reload | X (tap) |
-| Pick up / swap weapon on the ground | X (hold) |
+| Pick up / swap weapon on the ground, get on or off a Sizzler | X (hold) |
 | Switch weapon | Y |
 | Fire | RT |
 | Grenade | LT |
@@ -734,7 +758,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   map choice are done.
   Each new map needs its own layout, bot links (`src/ai/mapLinks.js`), pickup pads and a
   default weapon set, registered in `src/world/maps.js`.
-- Abilities, the motorcycle, team modes.
+- Abilities, team modes. (The motorcycle, the Sizzler, is done: see Vehicle.)
 
 ### Phase 3: Online
 
@@ -1064,3 +1088,9 @@ Need answers before the step that uses them gets built.
   and stepping stones, a hill on each flank, and a launch pad in front of each base that throws
   you to the creek (the bots path through them too). The ground is one terrain mesh and collider,
   shaded by slope and wetness. Default set Competition Cut. Fewer draw calls than Mudlark.
+- 2026-10-30: The Sizzler (owner ask: a one-player motorcycle with guns for the Valhalla-style
+  map, and bots that use it). Two of them on Smokehouse Creek. Halo-style handling (it turns
+  toward your view), twin overheating guns, boost and hop, splatter, a hull that blows up with
+  the rider, a chase camera with the reticle above the middle, and bots that board, drive, make
+  strafing runs and bail. Riders take 75% damage so a rider isn't just a bigger target. About 2
+  draw calls per view (frames and wheels, instanced).
