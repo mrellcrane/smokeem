@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { damp } from '../util/math.js';
 import { BODY } from '../config.js';
 import { GUNS, allParts } from '../combat/guns/index.js';
-import { GLOVE, GLOW, SCREEN } from '../combat/weaponModels.js';
+import { FINISHES, GLOVE, finishOf, partGeometry, showsAtLow } from '../combat/weaponModels.js';
 import { JOINTS as BODY_JOINTS, BONES as BODY_BONES, HANDS, REGIONS, DATA } from './body/bodyMesh.js';
 import { castBody } from './body/cast.js';
 
@@ -290,7 +290,8 @@ const EMBER = 0xff7a1a;
 // How much a part glows on its own (ignores light and shadow): visor and canister ember ring
 // fully, the team-color light strips a little less, glowing bits of the held gun some.
 const GLOWS = { visor: 1, shine: 1, ember: 1, strip: 0.9 };
-const GUN_GLOWS = { [GLOW]: 0.8, [SCREEN]: 0.8 };
+// How much a gun's glowing parts glow (weaponModels.js finishes).
+const GUN_GLOW = 0.8;
 
 // The body as decoded from the generated data, once per page load and shared by every body
 // (read only).
@@ -426,14 +427,12 @@ function buildGeometry(colors, inflate, r, character) {
   for (const [id, bone] of Object.entries(r.gunBones)) {
     const j = r.joints[bone];
     const bi = r.names.indexOf(bone);
-    for (const [c, size, color] of allParts(id)) {
-      const pad = inflate ? 0.035 : 0;
-      const g = new THREE.BoxGeometry(size[0] + pad, size[1] + pad, size[2] + pad);
-      g.deleteAttribute('uv');
-      g.translate(j[0] + c[0], j[1] + c[1], j[2] + c[2]);
+    for (const [c, size, color, opts] of allParts(id)) {
+      if (!showsAtLow(size)) continue;
+      const g = partGeometry(c, size, opts, 'lo', { offset: j, inflate: inflate ? 0.035 : 0 });
       const n = g.attributes.position.count;
       const part = [new THREE.Color().set(color ?? colors.armor)];
-      const { col, glow, tm } = paint(n, part, [color === null ? 0 : GUN_GLOWS[color] ?? 0], () => 0, colors.armor);
+      const { col, glow, tm } = paint(n, part, [finishOf(color, opts) === FINISHES.glow ? GUN_GLOW : 0], () => 0, colors.armor);
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.setAttribute('aGlow', new THREE.BufferAttribute(glow, 1));
       g.setAttribute('aTeam', new THREE.BufferAttribute(tm, 3));

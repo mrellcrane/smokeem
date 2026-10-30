@@ -1,4 +1,4 @@
-import { GLOVE, GLOW, METAL, METAL_LIGHT, WOOD, WOOD_DARK } from '../weaponModels.js';
+import { BORE, GLOVE, GLOW, METAL, METAL_LIGHT, RUBBER, WOOD, WOOD_DARK } from '../weaponModels.js';
 
 // Hickory: full-auto mid-range rifle. The workhorse.
 export default {
@@ -35,21 +35,44 @@ export default {
     // Range band bots like to use it in, meters.
     bot: { min: 0, max: 70, pref: 18 },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
-  // A null color means the owner's armor color.
+  // Parts in gun space (barrel along -z, origin at the grip): [center, size, color, options]
+  // (see weaponModels.js). A null color means the owner's armor color.
   parts: [
-    [[0, 0.02, -0.12], [0.07, 0.09, 0.34], METAL],
-    [[0, 0.073, -0.12], [0.03, 0.016, 0.26], METAL_LIGHT],
-    [[0, 0.092, -0.03], [0.032, 0.03, 0.05], METAL],
-    [[0, 0.092, -0.056], [0.012, 0.012, 0.004], GLOW],
-    [[0, 0.012, -0.37], [0.082, 0.072, 0.22], WOOD],
-    [[0, 0.02, -0.53], [0.03, 0.03, 0.14], METAL],
-    [[0, 0.02, -0.615], [0.048, 0.048, 0.05], METAL_LIGHT],
-    [[0, -0.01, 0.12], [0.06, 0.08, 0.2], WOOD],
-    [[0, -0.02, 0.225], [0.07, 0.11, 0.03], WOOD_DARK],
-    [[0, -0.07, -0.02], [0.045, 0.1, 0.05], METAL],
-    [[0, -0.085, -0.17], [0.05, 0.13, 0.07], METAL],
-    [[0, -0.07, -0.134], [0.052, 0.022, 0.003], GLOW],
+    // Receiver, its ribbed top cover, the rear sight with its glow dot.
+    [[0, 0.02, -0.12], [0.066, 0.085, 0.34], METAL],
+    [[0, 0.069, -0.11], [0.054, 0.018, 0.29], METAL_LIGHT],
+    [[0, 0.079, -0.06], [0.056, 0.004, 0.012], METAL, { bevel: 0 }],
+    [[0, 0.079, -0.12], [0.056, 0.004, 0.012], METAL, { bevel: 0 }],
+    [[0, 0.079, -0.18], [0.056, 0.004, 0.012], METAL, { bevel: 0 }],
+    [[0, 0.092, 0.0], [0.034, 0.03, 0.045], METAL],
+    [[0, 0.096, -0.023], [0.012, 0.012, 0.004], GLOW],
+    // Ejection port and charging handle on the right.
+    [[0.0335, 0.032, -0.1], [0.002, 0.03, 0.085], BORE, { bevel: 0 }],
+    [[0.046, 0.05, -0.03], [0.028, 0.014, 0.014], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
+    // Wooden handguard with vent slots, the gas tube over the barrel.
+    [[0, 0.01, -0.37], [0.078, 0.07, 0.22], WOOD, { taper: [0.92, 0.9] }],
+    [[0.039, 0.016, -0.33], [0.004, 0.012, 0.05], BORE, { bevel: 0 }],
+    [[0.038, 0.016, -0.41], [0.004, 0.012, 0.05], BORE, { bevel: 0 }],
+    [[0, 0.057, -0.43], [0.024, 0.024, 0.24], METAL, { shape: 'cyl' }],
+    // Barrel, front sight, muzzle brake.
+    [[0, 0.02, -0.545], [0.028, 0.028, 0.17], METAL, { shape: 'cyl' }],
+    [[0, 0.058, -0.565], [0.03, 0.034, 0.024], METAL],
+    [[0, 0.085, -0.565], [0.008, 0.026, 0.008], METAL_LIGHT],
+    [[0, 0.02, -0.615], [0.044, 0.044, 0.06], METAL_LIGHT, { shape: 'cyl', seg: 8, bore: 0.45 }],
+    [[0, 0.02, -0.615], [0.048, 0.012, 0.03], BORE, { bevel: 0 }],
+    // Stock, dropping a little toward the rubber butt pad.
+    [[0, -0.012, 0.12], [0.058, 0.086, 0.2], WOOD, { taper: [0.85, 0.75], rot: [0.08, 0, 0] }],
+    [[0, -0.028, 0.226], [0.064, 0.112, 0.024], RUBBER],
+    // Pistol grip raked back, trigger guard and trigger.
+    [[0, -0.07, 0.0], [0.042, 0.105, 0.052], WOOD_DARK, { rot: [-0.3, 0, 0] }],
+    [[0, -0.05, -0.07], [0.014, 0.006, 0.075], METAL, { bevel: 0 }],
+    [[0, -0.035, -0.105], [0.014, 0.03, 0.006], METAL, { bevel: 0 }],
+    [[0, -0.034, -0.055], [0.007, 0.026, 0.008], METAL_LIGHT, { rot: [0.25, 0, 0] }],
+    // Curved magazine, with the ammo glow down its side.
+    [[0, -0.065, -0.165], [0.046, 0.07, 0.068], METAL, { rot: [0.12, 0, 0] }],
+    [[0, -0.124, -0.18], [0.044, 0.066, 0.064], METAL, { rot: [0.35, 0, 0] }],
+    [[0.0235, -0.07, -0.165], [0.003, 0.05, 0.014], GLOW, { rot: [0.12, 0, 0] }],
+    [[0, -0.16, -0.196], [0.05, 0.012, 0.07], METAL_LIGHT, { rot: [0.35, 0, 0] }],
   ],
   // Gloves and forearms for the first-person view.
   hands: [

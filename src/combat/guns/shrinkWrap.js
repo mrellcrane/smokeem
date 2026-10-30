@@ -42,20 +42,21 @@ export default {
     sound: 'shrinkZap',
     bot: { min: 0, max: 40, pref: 12, power: true },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
-  // A null color means the owner's armor color.
   parts: [
-    [[0, 0.045, -0.07], [0.09, 0.09, 0.15], METAL_LIGHT],
-    [[0, 0.1, -0.03], [0.012, 0.05, 0.09], ORANGE],
+    // A round body with a tapered back, three fins, the emitter tube with its rings and tip.
+    [[0, 0.045, -0.07], [0.09, 0.09, 0.15], METAL_LIGHT, { shape: 'cyl', seg: 16 }],
+    [[0, 0.045, 0.02], [0.07, 0.07, 0.04], METAL, { shape: 'cyl', seg: 16, taper: 0.6, rot: [Math.PI, 0, 0] }],
+    [[0, 0.1, -0.03], [0.012, 0.05, 0.09], ORANGE, { taper: [1, 0.5] }],
     [[0.05, 0.045, 0.0], [0.012, 0.05, 0.06], ORANGE],
     [[-0.05, 0.045, 0.0], [0.012, 0.05, 0.06], ORANGE],
-    [[0, 0.045, -0.23], [0.035, 0.035, 0.18], METAL],
-    [[0, 0.045, -0.17], [0.065, 0.065, 0.014], SCREEN],
-    [[0, 0.045, -0.22], [0.075, 0.075, 0.014], SCREEN],
-    [[0, 0.045, -0.27], [0.085, 0.085, 0.014], SCREEN],
-    [[0, 0.045, -0.33], [0.05, 0.05, 0.03], SCREEN],
+    [[0, 0.045, -0.23], [0.035, 0.035, 0.18], METAL, { shape: 'cyl' }],
+    [[0, 0.045, -0.17], [0.065, 0.065, 0.014], SCREEN, { shape: 'cyl', seg: 16 }],
+    [[0, 0.045, -0.22], [0.075, 0.075, 0.014], SCREEN, { shape: 'cyl', seg: 16 }],
+    [[0, 0.045, -0.27], [0.085, 0.085, 0.014], SCREEN, { shape: 'cyl', seg: 16 }],
+    [[0, 0.045, -0.33], [0.05, 0.05, 0.03], SCREEN, { shape: 'cyl', seg: 16, taper: 0.6 }],
+    // Grip in the owner's color on a metal handle.
     [[0, 0.01, 0.02], [0.05, 0.04, 0.07], null],
-    [[0, -0.055, 0.03], [0.038, 0.1, 0.05], METAL],
+    [[0, -0.055, 0.03], [0.038, 0.1, 0.05], METAL, { rot: [-0.25, 0, 0] }],
   ],
   // One-handed: glove on the grip and the forearm behind it.
   hands: [

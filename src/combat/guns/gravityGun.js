@@ -1,4 +1,4 @@
-import { GLOVE, METAL, METAL_LIGHT, SCREEN } from '../weaponModels.js';
+import { BORE, GLOVE, METAL, METAL_LIGHT, RUBBER, SCREEN } from '../weaponModels.js';
 
 const HAZARD = 0xe8a21c;
 
@@ -44,16 +44,25 @@ export default {
     bot: { min: 0, max: 4.5, pref: 3, power: true },
   },
   parts: [
-    // Hazard-orange body with black panels, a glowing core and three claws.
-    [[0, 0.0, -0.1], [0.15, 0.13, 0.36], HAZARD],
-    [[0, 0.07, -0.1], [0.1, 0.02, 0.3], METAL],
-    [[0, 0.0, -0.3], [0.1, 0.1, 0.06], METAL],
-    [[0, 0.0, -0.335], [0.06, 0.06, 0.02], SCREEN],
-    [[0, 0.07, -0.38], [0.025, 0.025, 0.12], METAL_LIGHT],
-    [[0.06, -0.035, -0.38], [0.025, 0.025, 0.12], METAL_LIGHT],
-    [[-0.06, -0.035, -0.38], [0.025, 0.025, 0.12], METAL_LIGHT],
-    [[0, -0.09, 0.02], [0.045, 0.1, 0.05], METAL],
+    // The body, narrowing to the front, its top plate and vents.
+    [[0, 0.0, -0.1], [0.15, 0.13, 0.36], HAZARD, { taper: [0.82, 0.85] }],
+    [[0, 0.072, -0.1], [0.1, 0.02, 0.3], METAL, { taper: [0.85, 1] }],
+    [[-0.074, 0.0, -0.04], [0.004, 0.05, 0.012], BORE, { bevel: 0 }],
+    [[-0.074, 0.0, -0.07], [0.004, 0.05, 0.012], BORE, { bevel: 0 }],
+    [[-0.074, 0.0, -0.1], [0.004, 0.05, 0.012], BORE, { bevel: 0 }],
+    [[0.074, 0.0, -0.04], [0.004, 0.05, 0.012], BORE, { bevel: 0 }],
+    [[0.074, 0.0, -0.07], [0.004, 0.05, 0.012], BORE, { bevel: 0 }],
+    [[0.074, 0.0, -0.1], [0.004, 0.05, 0.012], BORE, { bevel: 0 }],
+    // The emitter ring and glowing core, three claws splayed out.
+    [[0, 0.0, -0.3], [0.11, 0.11, 0.06], METAL, { shape: 'cyl', seg: 16 }],
+    [[0, 0.0, -0.335], [0.07, 0.07, 0.016], SCREEN, { shape: 'cyl', seg: 16 }],
+    [[0, 0.074, -0.38], [0.024, 0.024, 0.13], METAL_LIGHT, { rot: [0.3, 0, 0] }],
+    [[0.062, -0.036, -0.38], [0.024, 0.024, 0.13], METAL_LIGHT, { rot: [-0.15, -0.26, 0] }],
+    [[-0.062, -0.036, -0.38], [0.024, 0.024, 0.13], METAL_LIGHT, { rot: [-0.15, 0.26, 0] }],
+    // Grip, the back of the body, a pad in the owner's color.
+    [[0, -0.09, 0.02], [0.045, 0.1, 0.05], RUBBER, { rot: [-0.25, 0, 0] }],
     [[0, 0.01, 0.12], [0.11, 0.1, 0.12], HAZARD],
+    [[0, 0.065, 0.12], [0.06, 0.01, 0.1], METAL],
     [[0, -0.02, 0.19], [0.08, 0.08, 0.03], null],
   ],
   hands: [

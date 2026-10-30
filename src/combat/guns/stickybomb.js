@@ -1,4 +1,4 @@
-import { GLOVE, GLOW, METAL, METAL_LIGHT, SHELL_RED } from '../weaponModels.js';
+import { GLOVE, GLOW, METAL, METAL_LIGHT, RUBBER, SHELL_RED } from '../weaponModels.js';
 
 // Stickybomb Launcher (TF2's): lobs sticky bombs that cling to walls, floors and ceilings (not
 // to people), arm after a moment, and all go off together on the aim button. Up to 6 out at
@@ -48,15 +48,20 @@ export default {
     bot: { min: 4, max: 18, pref: 10, lob: true },
   },
   parts: [
-    // Barrel, drum and stock, TF2 style: dark metal with red bands.
-    [[0, 0.03, -0.24], [0.09, 0.09, 0.5], METAL],
-    [[0, 0.03, -0.47], [0.1, 0.1, 0.03], SHELL_RED],
-    [[0, 0.03, -0.3], [0.1, 0.1, 0.025], SHELL_RED],
-    [[0, -0.04, -0.12], [0.14, 0.13, 0.16], METAL_LIGHT],
-    [[0.072, -0.04, -0.12], [0.004, 0.06, 0.1], GLOW],
-    [[0, -0.08, 0.0], [0.045, 0.1, 0.05], METAL],
+    // Barrel with red bands and a rail, the revolving drum glowing on each side.
+    [[0, 0.03, -0.26], [0.09, 0.09, 0.46], METAL, { shape: 'cyl', seg: 16, bore: 0.72 }],
+    [[0, 0.03, -0.465], [0.1, 0.1, 0.03], SHELL_RED, { shape: 'cyl', seg: 16 }],
+    [[0, 0.03, -0.3], [0.1, 0.1, 0.025], SHELL_RED, { shape: 'cyl', seg: 16 }],
+    [[0, 0.081, -0.2], [0.02, 0.012, 0.3], METAL_LIGHT],
+    [[0, 0.094, -0.06], [0.012, 0.02, 0.012], METAL],
+    [[0, -0.045, -0.12], [0.13, 0.13, 0.15], METAL_LIGHT, { shape: 'cyl', seg: 12 }],
+    [[0, -0.045, -0.12], [0.04, 0.04, 0.16], METAL, { shape: 'cyl' }],
+    [[0.066, -0.045, -0.12], [0.006, 0.05, 0.1], GLOW, { bevel: 0 }],
+    [[-0.066, -0.045, -0.12], [0.006, 0.05, 0.1], GLOW, { bevel: 0 }],
+    // Grip, the rear body, a pad in the owner's color.
+    [[0, -0.08, 0.0], [0.045, 0.1, 0.05], RUBBER, { rot: [-0.3, 0, 0] }],
     [[0, 0.0, 0.1], [0.07, 0.08, 0.16], METAL],
-    [[0, -0.02, 0.19], [0.06, 0.1, 0.04], null],
+    [[0, -0.02, 0.19], [0.064, 0.106, 0.04], null],
   ],
   hands: [
     [[0.005, -0.085, 0.0], [0.07, 0.085, 0.09], GLOVE],

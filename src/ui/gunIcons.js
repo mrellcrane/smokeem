@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { partsGeometry } from '../combat/weaponModels.js';
 import { allParts } from '../combat/guns/index.js';
+import { viewmodelMaterial, viewmodelUniforms } from '../player/viewmodel.js';
 
 // Pictures of the guns for the loadout cards and the set's gun list: each gun's third-person
 // model rendered once, side on and barrel to the right, into a small transparent PNG with the
@@ -29,7 +30,9 @@ export function renderGunIcons(renderer, ids) {
   const sun = new THREE.DirectionalLight(0xffffff, 3.2);
   sun.position.set(2, 3, 1.5);
   scene.add(sun);
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // The first-person material (shine by finish), with the reflection's up the picture's up.
+  const material = viewmodelMaterial();
+  viewmodelUniforms.uUp.value.set(0, 1, 0);
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 20);
   camera.position.set(5, 0, 0);
   camera.lookAt(0, 0, 0);
@@ -93,6 +96,5 @@ export function renderGunIcons(renderer, ids) {
   renderer.setRenderTarget(prevTarget);
   renderer.setClearColor(prevColor, prevAlpha);
   renderer.autoClear = prevAutoClear;
-  material.dispose();
   target.dispose();
 }

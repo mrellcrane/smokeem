@@ -1,4 +1,4 @@
-import { GLOVE, JAR_AMBER, METAL, OLIVE, ORANGE, WOOD_DARK } from '../weaponModels.js';
+import { GLOVE, JAR_AMBER, METAL, METAL_LIGHT, OLIVE, ORANGE, WOOD_DARK } from '../weaponModels.js';
 
 // Swarm Jar: lobs a jar that smashes on whatever it touches and lets out a swarm of bugs that
 // hunt the nearest enemy (see swarms.js). The power gun of Hot and Cold.
@@ -35,18 +35,25 @@ export default {
     bot: { min: 8, max: 20, pref: 14, lob: true, power: true, noSight: true },
   },
   parts: [
+    // The cradle and its posts.
     [[0, -0.005, -0.16], [0.13, 0.02, 0.36], METAL],
-    [[0.065, 0.06, -0.2], [0.012, 0.11, 0.012], METAL],
-    [[-0.065, 0.06, -0.2], [0.012, 0.11, 0.012], METAL],
-    [[0, 0.07, -0.2], [0.11, 0.13, 0.11], JAR_AMBER],
-    [[0, 0.145, -0.2], [0.085, 0.025, 0.085], JAR_AMBER],
-    [[0, 0.168, -0.2], [0.095, 0.022, 0.095], WOOD_DARK],
-    [[0.03, 0.06, -0.144], [0.016, 0.016, 0.004], 0x2a1c10],
-    [[-0.02, 0.095, -0.144], [0.016, 0.016, 0.004], 0x2a1c10],
-    [[0.0, 0.035, -0.144], [0.016, 0.016, 0.004], 0x2a1c10],
-    [[0, -0.035, -0.02], [0.02, 0.04, 0.03], ORANGE],
-    [[0, -0.01, 0.12], [0.06, 0.06, 0.18], OLIVE],
-    [[0, -0.07, 0.0], [0.045, 0.1, 0.05], null],
+    [[0.065, 0.06, -0.2], [0.012, 0.11, 0.012], METAL, { shape: 'cyl', axis: 'y' }],
+    [[-0.065, 0.06, -0.2], [0.012, 0.11, 0.012], METAL, { shape: 'cyl', axis: 'y' }],
+    [[0, 0.11, -0.2], [0.142, 0.012, 0.016], METAL_LIGHT],
+    // The jar with its neck, lid, a strap and bugs crawling inside.
+    [[0, 0.07, -0.2], [0.11, 0.13, 0.11], JAR_AMBER, { shape: 'cyl', axis: 'y', seg: 16 }],
+    [[0, 0.145, -0.2], [0.085, 0.025, 0.085], JAR_AMBER, { shape: 'cyl', axis: 'y', seg: 16 }],
+    [[0, 0.168, -0.2], [0.098, 0.024, 0.098], WOOD_DARK, { shape: 'cyl', axis: 'y', seg: 16 }],
+    [[0, 0.04, -0.2], [0.114, 0.012, 0.114], METAL, { shape: 'cyl', axis: 'y', seg: 16 }],
+    [[0.03, 0.06, -0.15], [0.016, 0.016, 0.004], 0x2a1c10, { rot: [0, 0.5, 0] }],
+    [[-0.02, 0.095, -0.147], [0.016, 0.016, 0.004], 0x2a1c10, { rot: [0, -0.4, 0.5] }],
+    [[0.0, 0.075, -0.146], [0.016, 0.016, 0.004], 0x2a1c10],
+    [[-0.05, 0.08, -0.18], [0.004, 0.016, 0.016], 0x2a1c10, { rot: [0.4, 0, 0] }],
+    [[-0.048, 0.11, -0.22], [0.004, 0.016, 0.016], 0x2a1c10],
+    // Trigger housing, stock, grip in the owner's color.
+    [[0, -0.035, -0.02], [0.03, 0.05, 0.06], ORANGE],
+    [[0, -0.01, 0.12], [0.06, 0.064, 0.18], OLIVE, { taper: [0.9, 0.85] }],
+    [[0, -0.07, 0.0], [0.045, 0.1, 0.05], null, { rot: [-0.25, 0, 0] }],
   ],
   // Gloves and forearms: right hand on the grip, left hand under the cradle.
   hands: [

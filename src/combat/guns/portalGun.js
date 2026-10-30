@@ -37,19 +37,20 @@ export default {
     // skip: bots never pick it up or use it.
     bot: { min: 0, max: 0, pref: 0, skip: true },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
-  // A null color means the owner's armor color.
   parts: [
-    [[0, 0.02, -0.03], [0.11, 0.11, 0.26], WHITE],
-    [[0, 0.02, 0.13], [0.09, 0.09, 0.08], METAL_LIGHT],
-    [[0, 0.02, -0.2], [0.07, 0.07, 0.1], BLACK],
-    [[0, 0.02, -0.26], [0.1, 0.1, 0.03], WHITE],
-    [[0, 0.02, -0.29], [0.04, 0.04, 0.04], CORE],
-    [[0, 0.075, -0.33], [0.016, 0.016, 0.1], BLACK],
-    [[-0.05, -0.008, -0.33], [0.016, 0.016, 0.1], BLACK],
-    [[0.05, -0.008, -0.33], [0.016, 0.016, 0.1], BLACK],
-    [[0, 0.078, -0.01], [0.035, 0.012, 0.18], null],
-    [[0, -0.07, 0.05], [0.04, 0.1, 0.05], METAL],
+    // The white shell, its metal back, the black neck and front ring, the glowing core.
+    [[0, 0.02, -0.03], [0.11, 0.11, 0.26], WHITE, { shape: 'cyl', seg: 18, taper: 0.85 }],
+    [[0, 0.02, 0.13], [0.09, 0.09, 0.08], METAL_LIGHT, { shape: 'cyl', seg: 18, taper: 0.7, rot: [Math.PI, 0, 0] }],
+    [[0, 0.02, -0.2], [0.07, 0.07, 0.1], BLACK, { shape: 'cyl', seg: 18 }],
+    [[0, 0.02, -0.26], [0.1, 0.1, 0.03], WHITE, { shape: 'cyl', seg: 18 }],
+    [[0, 0.02, -0.29], [0.04, 0.04, 0.04], CORE, { shape: 'cyl', seg: 14, finish: 'glow' }],
+    // Three black prongs curling in toward the core.
+    [[0, 0.07, -0.33], [0.016, 0.016, 0.1], BLACK, { rot: [-0.25, 0, 0] }],
+    [[-0.045, -0.005, -0.33], [0.016, 0.016, 0.1], BLACK, { rot: [0.12, -0.2, 0] }],
+    [[0.045, -0.005, -0.33], [0.016, 0.016, 0.1], BLACK, { rot: [0.12, 0.2, 0] }],
+    // A stripe in the owner's color on top, the grip.
+    [[0, 0.076, -0.01], [0.035, 0.012, 0.18], null],
+    [[0, -0.07, 0.05], [0.04, 0.1, 0.05], METAL, { rot: [-0.25, 0, 0] }],
   ],
   // Both hands: the right on the grip, the left under the black core.
   hands: [

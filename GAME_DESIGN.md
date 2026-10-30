@@ -700,7 +700,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
   can read: third-person muzzle flashes, tracers that stay visible far away, combat cues (done);
   (5) painted sky and skyline; (6) textures 2.0 (done); (7) body language: real locomotion, aiming
   separate from legs, jumps and landings (done); (8) pickup beacons (done); (9) explosions, impacts and
-  decals (done); (10) arena dressing; (11) first-person feel; (12) climbing, reload, throw, melee,
+  decals (done); (10) arena dressing; (11) first-person feel; gun models 2.0 (done: see the decision log); (12) climbing, reload, throw, melee,
   flinch and death animation; (13) animated reloads in first person; (14) normal maps on
   high only; (15) a shadowless low tier only if the Xbox bench needs it.
 - **More maps** (owner wants this): Map 2, Smokestack Works, and the map choice are done.
@@ -912,3 +912,10 @@ Need answers before the step that uses them gets built.
   grabs what's under the crosshair (unless someone is close in front: then it punts them); fire
   again throws; the aim button still grabs and drops, as in Half-Life 2. The ammo line says
   "Fire or aim grabs" / "Fire throws · aim drops".
+- 2026-10-30: Owner said guns and characters look worst and matter most, so the graphics pass
+  turns to them, guns first. Every gun is rebuilt from a small shape kit (chamfered boxes, round
+  barrels with dark bores, raked grips, curved mags, tapered stocks and muzzles) and the first-person
+  material now shines by finish: metal reflects the sky and ground, wood has grain, glow parts light
+  themselves. Same models in the loadout pictures and on pickups; bodies carry a lighter version
+  (about 12% more vertices per body). Draw calls unchanged. Next: gloves with fingers, then the
+  characters.

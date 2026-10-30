@@ -1,4 +1,4 @@
-import { GLOVE, METAL, METAL_LIGHT, SCREEN, WOOD_DARK } from '../weaponModels.js';
+import { BORE, GLOVE, METAL, METAL_LIGHT, RUBBER, SCREEN, WOOD_DARK } from '../weaponModels.js';
 
 // Cold Smoke: marksman rifle. Holds the long lanes; loose from the hip, pinpoint scoped.
 export default {
@@ -41,15 +41,37 @@ export default {
     bot: { min: 12, max: 80, pref: 32, zoomAt: 15, careful: 0.6, highGround: 0.7, headshots: true },
   },
   parts: [
-    [[0, 0.02, -0.1], [0.06, 0.08, 0.32], METAL],
-    [[0, 0.03, -0.57], [0.026, 0.026, 0.62], METAL_LIGHT],
-    [[0, 0.095, -0.12], [0.045, 0.05, 0.24], METAL],
-    [[0, 0.095, -0.242], [0.04, 0.044, 0.004], SCREEN],
-    [[0, 0.095, 0.002], [0.04, 0.044, 0.004], SCREEN],
-    [[0, -0.01, 0.16], [0.06, 0.09, 0.26], WOOD_DARK],
-    [[0, 0.045, 0.14], [0.05, 0.03, 0.12], WOOD_DARK],
-    [[0, -0.06, -0.12], [0.045, 0.07, 0.06], METAL],
-    [[0.032, -0.02, -0.05], [0.004, 0.02, 0.3], null],
+    // Receiver, the bolt handle on the right, the magazine.
+    [[0, 0.02, -0.1], [0.058, 0.075, 0.3], METAL],
+    [[0.04, 0.04, 0.0], [0.04, 0.01, 0.01], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
+    [[0.062, 0.036, 0.0], [0.018, 0.018, 0.018], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
+    [[0, -0.05, -0.12], [0.042, 0.06, 0.06], METAL],
+    // A long barrel, tapering to the muzzle brake, over a slim fore end.
+    [[0, 0.03, -0.57], [0.028, 0.028, 0.62], METAL_LIGHT, { shape: 'cyl', taper: 0.75 }],
+    [[0, 0.03, -0.87], [0.036, 0.036, 0.05], METAL, { shape: 'cyl', bore: 0.45 }],
+    [[0, 0.03, -0.87], [0.04, 0.012, 0.02], BORE, { bevel: 0 }],
+    [[0, 0.004, -0.34], [0.054, 0.058, 0.2], WOOD_DARK, { taper: [0.85, 0.8] }],
+    // The scope: tube, bells, lenses that glow, turrets, rings.
+    [[0, 0.098, -0.12], [0.04, 0.04, 0.2], METAL, { shape: 'cyl' }],
+    [[0, 0.098, -0.245], [0.052, 0.052, 0.05], METAL, { shape: 'cyl', taper: 1.12 }],
+    [[0, 0.098, 0.0], [0.046, 0.046, 0.04], METAL, { shape: 'cyl', taper: 1.08, rot: [Math.PI, 0, 0] }],
+    [[0, 0.098, -0.2705], [0.05, 0.05, 0.003], SCREEN, { shape: 'cyl' }],
+    [[0, 0.098, 0.0205], [0.042, 0.042, 0.003], SCREEN, { shape: 'cyl' }],
+    [[0, 0.126, -0.12], [0.022, 0.018, 0.022], METAL_LIGHT, { shape: 'cyl', axis: 'y' }],
+    [[-0.027, 0.098, -0.12], [0.016, 0.022, 0.022], METAL_LIGHT, { shape: 'cyl', axis: 'x' }],
+    [[0, 0.066, -0.05], [0.03, 0.03, 0.016], METAL],
+    [[0, 0.066, -0.19], [0.03, 0.03, 0.016], METAL],
+    // Stock with its cheek rest and pad, the grip, a stripe in the owner's color on each side.
+    [[0, -0.012, 0.16], [0.056, 0.09, 0.26], WOOD_DARK, { taper: [0.8, 0.7], rot: [0.06, 0, 0] }],
+    [[0, 0.042, 0.16], [0.05, 0.03, 0.12], WOOD_DARK],
+    [[0, -0.022, 0.296], [0.06, 0.112, 0.02], RUBBER],
+    [[0, -0.065, 0.03], [0.04, 0.09, 0.05], WOOD_DARK, { rot: [-0.35, 0, 0] }],
+    [[0.03, 0.0, -0.1], [0.004, 0.018, 0.26], null, { bevel: 0 }],
+    [[-0.03, 0.0, -0.1], [0.004, 0.018, 0.26], null, { bevel: 0 }],
+    // Trigger guard and trigger.
+    [[0, -0.05, -0.065], [0.014, 0.006, 0.07], METAL, { bevel: 0 }],
+    [[0, -0.035, -0.1], [0.014, 0.03, 0.006], METAL, { bevel: 0 }],
+    [[0, -0.034, -0.05], [0.007, 0.026, 0.008], METAL_LIGHT, { rot: [0.25, 0, 0] }],
   ],
   hands: [
     [[0.005, -0.075, 0.02], [0.07, 0.085, 0.09], GLOVE],

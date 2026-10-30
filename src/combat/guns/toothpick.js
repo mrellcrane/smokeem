@@ -1,4 +1,4 @@
-import { GLOVE, GLOW, METAL, METAL_LIGHT, WOOD_DARK } from '../weaponModels.js';
+import { BORE, GLOVE, GLOW, METAL, METAL_LIGHT, WOOD_DARK } from '../weaponModels.js';
 
 // Toothpick: sidearm pistol. Quick to draw, a finisher and a long-range pinger.
 export default {
@@ -35,15 +35,29 @@ export default {
     reloadRate: 1.25,
     bot: { min: 0, max: 45, pref: 14, sidearm: true },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
-  // A null color means the owner's armor color.
   parts: [
-    [[0, 0.045, -0.06], [0.04, 0.06, 0.2], METAL_LIGHT],
-    [[0, 0.0, -0.05], [0.038, 0.04, 0.16], METAL],
-    [[0, 0.045, -0.19], [0.012, 0.012, 0.06], METAL],
-    [[0, 0.08, -0.01], [0.01, 0.008, 0.01], GLOW],
-    [[0, -0.06, 0.03], [0.036, 0.1, 0.05], WOOD_DARK],
-    [[0, -0.115, 0.04], [0.04, 0.012, 0.055], null],
+    // Slide with its grip serrations, sights and the muzzle; the frame and its rail.
+    [[0, 0.047, -0.06], [0.036, 0.05, 0.21], METAL_LIGHT, { taper: [0.95, 0.9] }],
+    [[-0.0185, 0.047, 0.005], [0.002, 0.034, 0.004], BORE, { bevel: 0 }],
+    [[-0.0185, 0.047, 0.015], [0.002, 0.034, 0.004], BORE, { bevel: 0 }],
+    [[-0.0185, 0.047, 0.025], [0.002, 0.034, 0.004], BORE, { bevel: 0 }],
+    [[0.0185, 0.047, 0.005], [0.002, 0.034, 0.004], BORE, { bevel: 0 }],
+    [[0.0185, 0.047, 0.015], [0.002, 0.034, 0.004], BORE, { bevel: 0 }],
+    [[0.0185, 0.047, 0.025], [0.002, 0.034, 0.004], BORE, { bevel: 0 }],
+    [[0.016, 0.06, -0.04], [0.006, 0.014, 0.05], BORE, { bevel: 0 }],
+    [[0, 0.075, -0.145], [0.006, 0.01, 0.01], METAL],
+    [[0, 0.081, -0.145], [0.006, 0.006, 0.004], GLOW],
+    [[0, 0.077, 0.03], [0.028, 0.012, 0.012], METAL],
+    [[0, 0.045, -0.17], [0.018, 0.018, 0.016], METAL, { shape: 'cyl', bore: 0.6 }],
+    [[0, 0.006, -0.06], [0.034, 0.036, 0.17], METAL],
+    [[0, -0.016, -0.11], [0.03, 0.012, 0.07], METAL_LIGHT],
+    [[0, 0.06, 0.045], [0.01, 0.022, 0.012], METAL, { rot: [-0.4, 0, 0] }],
+    // Grip raked back with its base plate in the owner's color, trigger guard and trigger.
+    [[0, -0.055, 0.03], [0.036, 0.1, 0.052], WOOD_DARK, { rot: [-0.25, 0, 0] }],
+    [[0, -0.108, 0.045], [0.04, 0.012, 0.056], null, { rot: [-0.25, 0, 0] }],
+    [[0, -0.03, -0.05], [0.012, 0.005, 0.06], METAL, { bevel: 0 }],
+    [[0, -0.02, -0.08], [0.012, 0.025, 0.005], METAL, { bevel: 0 }],
+    [[0, -0.018, -0.042], [0.006, 0.02, 0.007], METAL_LIGHT, { rot: [0.25, 0, 0] }],
   ],
   // One-handed: glove on the grip and the forearm behind it.
   hands: [

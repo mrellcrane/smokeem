@@ -12,12 +12,98 @@ import { SWITCH_TIME } from '../combat/weapons.js';
 
 let sharedMaterial = null;
 
+// The first-person guns' look: Blinn-Phong whose shine depends on each vertex's finish
+// (weaponModels.js FINISHES), a sky-and-ground reflection on metal and paint so bare metal
+// reads as metal, wood grain and a fine grit in the surface (both from the gun-space position,
+// so nothing to texture), and glowing parts lit by themselves. The reflection's up is the
+// world's, in camera space (set per view), so it slides as you look up and down.
+export const viewmodelUniforms = {
+  uUp: { value: new THREE.Vector3(0, 1, 0) },
+  uSky: { value: new THREE.Color(0xb8d4f0) },
+  uGround: { value: new THREE.Color(0x4a3a2c) },
+};
+const VM_VERTEX_HEAD = /* glsl */ `
+  attribute float aFinish;
+  varying float vFinish;
+  varying vec3 vGun;
+`;
+const VM_FRAGMENT_HEAD = /* glsl */ `
+  uniform vec3 uUp;
+  uniform vec3 uSky;
+  uniform vec3 uGround;
+  varying float vFinish;
+  varying vec3 vGun;
+  float vmHash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+  float vmNoise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(vmHash(i), vmHash(i + vec3(1, 0, 0)), f.x), mix(vmHash(i + vec3(0, 1, 0)), vmHash(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(vmHash(i + vec3(0, 0, 1)), vmHash(i + vec3(1, 0, 1)), f.x), mix(vmHash(i + vec3(0, 1, 1)), vmHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+  }
+`;
+// Finishes: 0 matte, 1 wood, 2 paint, 3 metal, 4 glow.
+const VM_COLOR = /* glsl */ `
+  #include <color_fragment>
+  float isWood = 1.0 - step(0.5, abs(vFinish - 1.0));
+  float isPaint = 1.0 - step(0.5, abs(vFinish - 2.0));
+  float isMetal = 1.0 - step(0.5, abs(vFinish - 3.0));
+  float isGlow = step(3.5, vFinish);
+  float grit = vmNoise(vGun * 260.0);
+  // Grain runs along the gun (z), wavering.
+  float grain = sin((vGun.y * 0.8 + vGun.x) * 420.0 + vmNoise(vGun * vec3(40.0, 40.0, 6.0)) * 9.0);
+  float tone = 1.0 + (grit - 0.5) * mix(0.1, 0.06, isPaint) + isWood * (grain * 0.09 + (vmNoise(vGun * vec3(30.0, 30.0, 3.0)) - 0.5) * 0.2);
+  diffuseColor.rgb *= tone;
+`;
+const VM_LIGHTS = /* glsl */ `
+  BlinnPhongMaterial material;
+  material.diffuseColor = diffuseColor.rgb;
+  material.specularColor = mix(vec3(0.05), mix(vec3(1.0), diffuseColor.rgb * 2.2 + 0.25, 0.4), isMetal) * (1.0 + isPaint * 4.0 + isWood * 1.5) * (1.0 - isGlow);
+  material.specularShininess = mix(mix(12.0, 24.0, isWood), mix(50.0, 70.0, isMetal), isPaint + isMetal);
+  material.specularStrength = 0.6 + grit * 0.6;
+`;
+const VM_ENV = /* glsl */ `
+  #include <envmap_fragment>
+  {
+    vec3 V = normalize(vViewPosition);
+    vec3 R = reflect(-V, normal);
+    float up = dot(R, uUp);
+    // Ground, a bright band at the horizon, the sky above it.
+    vec3 env = mix(uGround, uSky, smoothstep(-0.25, 0.25, up)) + uSky * 0.7 * exp(-pow((up - 0.12) * 7.0, 2.0));
+    float fres = pow(1.0 - saturate(dot(normal, V)), 3.0);
+    vec3 tint = mix(vec3(1.0), diffuseColor.rgb * 1.6 + 0.2, isMetal);
+    float k = isMetal * mix(0.15, 0.55, fres) + isPaint * mix(0.02, 0.25, fres) + isWood * 0.08 * fres;
+    outgoingLight += env * tint * k;
+    outgoingLight = mix(outgoingLight, diffuseColor.rgb * 1.6, isGlow);
+  }
+`;
+
+export function viewmodelMaterial() {
+  if (sharedMaterial) return sharedMaterial;
+  sharedMaterial = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xffffff, shininess: 40 });
+  sharedMaterial.name = 'viewmodel';
+  sharedMaterial.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, viewmodelUniforms);
+    shader.vertexShader = VM_VERTEX_HEAD + shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\n  vFinish = aFinish;\n  vGun = position;',
+    );
+    shader.fragmentShader = VM_FRAGMENT_HEAD + shader.fragmentShader
+      .replace('#include <color_fragment>', VM_COLOR)
+      .replace('#include <lights_phong_fragment>', VM_LIGHTS)
+      .replace('#include <envmap_fragment>', VM_ENV);
+  };
+  sharedMaterial.customProgramCacheKey = () => 'viewmodel-v2';
+  return sharedMaterial;
+}
+
 export class Viewmodel {
   constructor(textures, armorColor, guns) {
-    if (!sharedMaterial) {
-      sharedMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
-      sharedMaterial.name = 'viewmodel';
-    }
+    viewmodelMaterial();
     this.root = new THREE.Group();
     this.root.name = 'viewmodel';
     this.guns = {};

@@ -1,4 +1,4 @@
-import { GLOVE, METAL, OLIVE, ORANGE, SCREEN } from '../weaponModels.js';
+import { BORE, GLOVE, METAL, METAL_LIGHT, OLIVE, ORANGE, RUBBER, SCREEN } from '../weaponModels.js';
 
 // Smoke Signal: a guided rocket you fly from its nose camera. The power weapon.
 export default {
@@ -34,18 +34,27 @@ export default {
     // Range band bots like to use it in, meters.
     bot: { min: 9, max: 80, pref: 22, power: true },
   },
-  // Box parts in gun space (barrel along -z, origin at the grip): [center, size, color].
-  // A null color means the owner's armor color.
   parts: [
-    [[0, 0.07, -0.2], [0.14, 0.14, 0.9], OLIVE],
-    [[0, 0.07, -0.67], [0.17, 0.17, 0.06], METAL],
-    [[0, 0.07, 0.27], [0.16, 0.16, 0.05], METAL],
-    [[0, 0.142, -0.45], [0.143, 0.006, 0.08], ORANGE],
-    [[0, 0.142, 0.05], [0.143, 0.006, 0.08], ORANGE],
+    // The tube: a flared steel muzzle, a venturi at the back, orange bands, a heat shield.
+    [[0, 0.07, -0.2], [0.14, 0.14, 0.86], OLIVE, { shape: 'cyl', seg: 18 }],
+    [[0, 0.07, -0.66], [0.172, 0.172, 0.07], METAL, { shape: 'cyl', seg: 18, taper: 1.08, bore: 0.78 }],
+    [[0, 0.07, 0.26], [0.16, 0.16, 0.06], METAL, { shape: 'cyl', seg: 18, taper: 1.12, bore: 0.75, rot: [Math.PI, 0, 0] }],
+    [[0, 0.07, -0.45], [0.146, 0.146, 0.07], ORANGE, { shape: 'cyl', seg: 18 }],
+    [[0, 0.07, 0.05], [0.146, 0.146, 0.07], ORANGE, { shape: 'cyl', seg: 18 }],
+    [[0, 0.147, -0.2], [0.05, 0.012, 0.34], METAL_LIGHT],
+    [[0, 0.135, -0.33], [0.02, 0.02, 0.02], METAL],
+    [[0, 0.135, -0.07], [0.02, 0.02, 0.02], METAL],
+    // The sight box on the left with its screen toward you, on a bracket.
     [[-0.105, 0.1, -0.12], [0.06, 0.08, 0.09], METAL],
-    [[-0.105, 0.1, -0.075], [0.045, 0.055, 0.003], SCREEN],
-    [[0, -0.03, 0], [0.045, 0.1, 0.05], METAL],
-    [[0, -0.02, -0.32], [0.04, 0.09, 0.05], METAL],
+    [[-0.105, 0.1, -0.0745], [0.044, 0.054, 0.003], SCREEN, { bevel: 0 }],
+    [[-0.105, 0.145, -0.15], [0.05, 0.012, 0.03], METAL_LIGHT],
+    [[-0.075, 0.09, -0.12], [0.02, 0.03, 0.05], METAL_LIGHT],
+    // Grips and the trigger, a pad under the tube for the shoulder.
+    [[0, -0.03, 0.0], [0.045, 0.1, 0.05], RUBBER, { rot: [-0.25, 0, 0] }],
+    [[0, -0.02, -0.32], [0.04, 0.09, 0.05], RUBBER, { rot: [-0.1, 0, 0] }],
+    [[0, 0.005, -0.02], [0.05, 0.03, 0.12], METAL],
+    [[0, -0.005, -0.06], [0.007, 0.024, 0.008], METAL_LIGHT, { rot: [0.25, 0, 0] }],
+    [[0, -0.012, 0.15], [0.07, 0.03, 0.14], RUBBER],
   ],
   // Gloves and forearms for the first-person view.
   hands: [
