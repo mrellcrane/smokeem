@@ -1123,3 +1123,9 @@ Need answers before the step that uses them gets built.
   hear a loop). Guns, blasts and footsteps get two extra takes per recording made in the browser
   (pitch, tone and attack variants; nothing more to download), the same take never plays twice
   in a row, and close sounds get a little stereo width while far ones stay plain points.
+- 2026-10-30: Bodies sit in the arena's light (feel research: Halo lights everything from one
+  consistent lighting, so nothing looks pasted on). Every body reads the baked light where it
+  stands: in the shade of a deck or a wall its sky fill dims, and next to a fire or a glowing
+  strip it takes that color, most on its underside. Your first-person gun dims in shade and loses
+  the sun when something's between you and it. No new draw calls or shaders. (The static
+  one-bounce tint from the research was left out: bodies were where it showed.)

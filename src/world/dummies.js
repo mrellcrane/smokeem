@@ -162,6 +162,7 @@ export class Dummy {
       s.side = vx * cy - vz * sy;
     }
     this.model.update(dt, s);
+    this.model.sampleLight(this.game.bake, x, y, z, dt);
   }
 
   dispose() {

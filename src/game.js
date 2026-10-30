@@ -32,7 +32,6 @@ import { Pickups } from './combat/pickups.js';
 import { NavGraph } from './ai/navgraph.js';
 import { BotBrain, BOT_NAMES, BOT_COLORS } from './ai/bot.js';
 import { Player } from './player/player.js';
-import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial, viewmodelUniforms } from './player/viewmodel.js';
 import { captureReflections, releaseReflections, envUniforms } from './render/reflections.js';
 import { Bloom } from './render/bloom.js';
@@ -56,6 +55,7 @@ const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => res
 
 const _sunDir = new THREE.Vector3();
 const _invQ = new THREE.Quaternion();
+const _eye = new THREE.Vector3();
 const _fitT = new THREE.Vector3();
 const _fitB = new THREE.Vector3();
 const _fitO = new THREE.Vector3();
@@ -849,8 +849,13 @@ export class Game {
         // The gun has its own lights, so they're turned down by as much as this view's exposure
         // turns everything up: an eye adapted to the dark doesn't make the gun glow.
         const k = (this.grade ? this.grade.open : 1) / exposure;
-        this.vmHemi.intensity = this.look.vm.hemi * k;
-        this.vmSun.intensity = this.look.vm.sun * k;
+        // And they sit in the light where we stand: the sky's fill dims in shade (the bake under
+        // our feet, as our body has it), the sun goes when something's between us and it.
+        p.eyePosition(_eye);
+        const lit = this._sunRay(_eye, _sunDir, 400) ? 0 : 1;
+        p.sunLit = (p.sunLit ?? 1) + (lit - (p.sunLit ?? 1)) * Math.min(1, dt * 8);
+        this.vmHemi.intensity = this.look.vm.hemi * k * p.model.local.uLocal.value;
+        this.vmSun.intensity = this.look.vm.sun * k * (0.15 + 0.85 * p.sunLit);
         // Light the viewmodel from the real sun direction, in camera space.
         _invQ.copy(p.camera.quaternion).invert();
         this.vmSun.position.copy(_sunDir).applyQuaternion(_invQ).multiplyScalar(5);
@@ -915,7 +920,6 @@ export class Game {
     for (const t of Object.values(this.textures)) t.dispose();
     // The bake outlives the match (later matches reuse it); this only frees this renderer's copy.
     this.bake.texture.dispose();
-    disposeCharacterMaterial();
     disposeViewmodelMaterial();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

@@ -271,6 +271,10 @@ const _w = new THREE.Vector3();
 const _l = new THREE.Vector3();
 const _el = new THREE.Vector3();
 const _sh = new THREE.Vector3();
+const _bounce = new THREE.Color();
+// sampleLight: the light under a deck, and how much of the floor's glow a body takes.
+const UNDER_LIGHT = 0.6;
+const BOUNCE = 0.45;
 const _sp = new THREE.Vector3();
 const _qr = new THREE.Quaternion();
 const _leg = { thigh: 0, knee: 0 };
@@ -519,6 +523,8 @@ const RIM_VERTEX = /* glsl */ `
   varying vec3 vTeam;
 `;
 const RIM_HEAD = /* glsl */ `
+  uniform float uLocal;
+  uniform vec3 uBounce;
   uniform vec3 uSky;
   uniform vec3 uGround;
   uniform samplerCube uEnv;
@@ -582,37 +588,49 @@ const SHIELD_FRAGMENT = /* glsl */ `
   gl_FragColor = vec4(col * a * (1.0 + uPop), 1.0);
 `;
 
-let sharedMaterial = null;
-function bodyMaterial() {
-  if (!sharedMaterial) {
-    sharedMaterial = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xffffff, shininess: 30 });
-    sharedMaterial.name = 'character';
-    sharedMaterial.onBeforeCompile = (shader) => {
-      const v = shader.vertexShader;
-      const f = shader.fragmentShader;
-      if (!v.includes('#include <begin_vertex>') || !f.includes('#include <opaque_fragment>') || !f.includes('#include <lights_phong_fragment>')) {
-        console.warn('character: shader chunks changed, rim light off');
-        return;
-      }
-      // (The same sky and ground the first-person guns reflect, from the map's look.)
-      shader.uniforms.uSky = viewmodelUniforms.uSky;
-      shader.uniforms.uGround = viewmodelUniforms.uGround;
-      shader.uniforms.uEnv = envUniforms.uEnv;
-      shader.uniforms.uEnvOn = envUniforms.uEnvOn;
-      shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vShine = aShine;\n  vTeam = aTeam;');
-      shader.fragmentShader =
-        RIM_HEAD +
-        f.replace('#include <lights_phong_fragment>', SHINE_LIGHTS).replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
-    };
-    sharedMaterial.customProgramCacheKey = () => 'character-shine-env';
+// The light where a body stands (CharacterModel.sampleLight, from the arena's bake): the sky's
+// fill and reflections dim in the shade of decks and walls, and glowing strips and fires nearby
+// tint it, most on its underside, so bodies sit in the same light as the arena.
+const LOCAL_LIGHT = /* glsl */ `
+  reflectedLight.indirectDiffuse *= uLocal;
+  reflectedLight.indirectSpecular *= uLocal;
+  {
+    vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+    reflectedLight.indirectDiffuse += uBounce * diffuseColor.rgb * (0.35 + 0.65 * (0.5 - 0.5 * dot(normal, upV)));
   }
-  return sharedMaterial;
+`;
+
+// Each body has its own material (all one program) so its local light uploads with it: three only
+// re-uploads a built-in material's uniforms when the material changes between draws.
+function bodyMaterial(local) {
+  const m = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xffffff, shininess: 30 });
+  m.name = 'character';
+  m.onBeforeCompile = (shader) => {
+    const v = shader.vertexShader;
+    const f = shader.fragmentShader;
+    if (!v.includes('#include <begin_vertex>') || !f.includes('#include <opaque_fragment>') || !f.includes('#include <lights_phong_fragment>')) {
+      console.warn('character: shader chunks changed, rim light off');
+      return;
+    }
+    // (The same sky and ground the first-person guns reflect, from the map's look.)
+    shader.uniforms.uSky = viewmodelUniforms.uSky;
+    shader.uniforms.uGround = viewmodelUniforms.uGround;
+    shader.uniforms.uEnv = envUniforms.uEnv;
+    shader.uniforms.uEnvOn = envUniforms.uEnvOn;
+    shader.vertexShader = RIM_VERTEX + v.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;\n  vShine = aShine;\n  vTeam = aTeam;');
+    shader.uniforms.uLocal = local.uLocal;
+    shader.uniforms.uBounce = local.uBounce;
+    shader.fragmentShader =
+      RIM_HEAD +
+      f
+        .replace('#include <lights_phong_fragment>', SHINE_LIGHTS)
+        .replace('#include <aomap_fragment>', `#include <aomap_fragment>\n${LOCAL_LIGHT}`)
+        .replace('#include <opaque_fragment>', `${RIM_FRAGMENT}\n#include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'character-shine-env';
+  return m;
 }
 
-export function disposeCharacterMaterial() {
-  sharedMaterial?.dispose();
-  sharedMaterial = null;
-}
 
 export class CharacterModel {
   // guns: ids of every gun this body might hold this match (the match's weapon set).
@@ -666,7 +684,9 @@ export class CharacterModel {
     this.bones.spine.rotation.order = 'YXZ';
     this.bones.hips.rotation.order = 'ZYX';
 
-    this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r, character), bodyMaterial());
+    // Where the body stands: the shade it's in and nearby glow (sampleLight).
+    this.local = { uLocal: { value: 1 }, uBounce: { value: new THREE.Color(0, 0, 0) } };
+    this.mesh = new THREE.SkinnedMesh(buildGeometry(colors, false, r, character), bodyMaterial(this.local));
     this.mesh.add(this.bones.root);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
@@ -1204,7 +1224,21 @@ export class CharacterModel {
     this.shellUniforms.uFlash.value = on ? 0.5 : 0;
   }
 
+  // The light where the body stands (x, y feet, z), eased over a moment so moving between sun and
+  // shade isn't a pop. Under something (a deck over the floor the bake knows), it's in shade.
+  sampleLight(bake, x, y, z, dt) {
+    if (!bake) return;
+    let light = bake.lightAt(x, z);
+    if (y < bake.groundAt(x, z) - 1) light = Math.min(light, UNDER_LIGHT);
+    bake.glowAt(x, z, _bounce);
+    const k = dt > 0 ? damp(5, dt) : 1;
+    const u = this.local;
+    u.uLocal.value += (light - u.uLocal.value) * k;
+    u.uBounce.value.lerp(_bounce.multiplyScalar(BOUNCE), k);
+  }
+
   dispose() {
+    this.mesh.material.dispose();
     this.mesh.geometry.dispose();
     this.shell.geometry.dispose();
     this.shellMaterial.dispose();

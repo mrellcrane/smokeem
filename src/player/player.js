@@ -1618,6 +1618,8 @@ export class Player {
       s.reload = w.reloadProgress;
       s.reloadShell = !!w.def.reloadPerShell;
       this.model.update(dt, s);
+      // The light where we stand (the arena's bake): shade and nearby glow.
+      this.model.sampleLight(this.game.bake, s.x, s.y, s.z, dt);
     }
     this.viewmodel?.update(dt, this, this.lastLookX, this.lastLookY);
     this.lastLookX = 0;
