@@ -20,6 +20,8 @@ export const QUALITY_PRESETS = {
     // Portal pictures of the other side: one refreshed every this many frames (0: none, just
     // the swirl).
     portalViews: 0,
+    // Sunbeams and dust under indoor skylights (world/shafts.js).
+    shafts: false,
   },
   medium: {
     label: 'Medium',
@@ -33,6 +35,7 @@ export const QUALITY_PRESETS = {
     fxScale: 1,
     decals: 96,
     portalViews: 6,
+    shafts: true,
   },
   high: {
     label: 'High',
@@ -46,6 +49,7 @@ export const QUALITY_PRESETS = {
     fxScale: 1.25,
     decals: 160,
     portalViews: 3,
+    shafts: true,
     // Normal maps on the relief-painted surfaces (textures.js).
     normalMaps: true,
   },

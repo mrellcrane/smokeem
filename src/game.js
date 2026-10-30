@@ -177,6 +177,7 @@ export class Game {
       materials: this.materials,
       textures: this.textures,
       bakeSize: preset.bakeSize,
+      preset,
     });
     // One shadow map for the whole map, fitted to it.
     fitShadowCamera(this.sun, this.arena.shadowHalf ?? this.arena.half + 1, this.arena.shadowTop);

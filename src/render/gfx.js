@@ -25,4 +25,6 @@ export const gfx = {
   normalMaps: true,
   // The facility skyline around outdoor maps, with its smoke plumes (world/skyline.js).
   skyline: true,
+  // Sunbeams and dust under the factory's skylights (medium and high presets only).
+  shafts: true,
 };

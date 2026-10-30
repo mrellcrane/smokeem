@@ -275,6 +275,11 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   (`aGlow`, `aBlink`, `aTrain`, `uTime`) and whose fragment fades it into the horizon haze, plus
   the stacks' smoke as one billboard mesh moved entirely in its vertex shader. About 3 draw
   calls per view.
+- Indoor sunbeams (`shafts.js`, Smokestack): an open slanted prism per skylight bay, from the
+  opening down to the floor along the sun, drawn additively and faded toward the floor, at
+  grazing angles and right at the camera; dust motes as one points mesh drifting down the beams
+  in its vertex shader. Medium and High only (`preset.shafts`, gfx switch `shafts`); map builds
+  get the preset as `preset`.
 - Pooled systems hide themselves while empty (particles, tracers, beams, grenades, bolts, swarms, pickups): three still issues a draw for a zero-count instanced mesh. Pickups are one instanced mesh per gun type plus one for grenade pairs.
 - The sky dome draws last (`renderOrder` 1, depth test on, no depth write), so the arena's depth hides most of its pixels.
 - Textures are painted once per page load and size (the preset's `textureSize`: 512 on medium
