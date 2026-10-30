@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BODY, MOVE, CAMERA, AIM, CORPSE, SIZE, SIZZLER } from '../config.js';
+import { BODY, MOVE, CAMERA, AIM, CORPSE, SIZE } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
@@ -317,7 +317,7 @@ export class Player {
 
   // First-person gun on screen: not while dead, flying a missile or looking through a scope.
   showsViewmodel() {
-    return this.alive && !this.guiding && !this.vehicle && !(this.weapon.def.scope && this.aimZoom > SCOPE_ZOOM);
+    return this.alive && !this.guiding && (!this.vehicle || this.vehicle.T.firstPerson) && !(this.weapon.def.scope && this.aimZoom > SCOPE_ZOOM);
   }
 
   get alive() {
@@ -376,8 +376,9 @@ export class Player {
     this.knockT = 0.4;
   }
 
-  // On a Sizzler (Vehicles.mount): standing up straight, hands off the gun.
-  startRide() {
+  // On a vehicle (Vehicles.mount): standing up straight, hands off the gun (except on a hog,
+  // where we shoot our own; curled up out of sight in a drum).
+  startRide(b) {
     if (this.sliding) this.endSlide();
     if (this.crouched) {
       this.collider.setHalfHeight(STAND_HH * this.size);
@@ -393,6 +394,11 @@ export class Player {
     this.pickupPrompt = null;
     this.aimTarget = this.aimNear = null;
     this.launched = false;
+    if (b?.T.hideRider) this.model.group.visible = false;
+    if (b?.T.riderShoots) {
+      this.game.gravity?.release(this, false);
+      return;
+    }
     const w = this.weapon;
     cancelReload(this.game, w);
     if (w.spinSfx) {
@@ -406,6 +412,7 @@ export class Player {
   // Off the bike (Vehicles.dismount); `dead`: smoked on it, so die() takes over.
   endRide(dead) {
     this.ridePressed = null;
+    this.model.group.visible = true;
     if (!dead) this.mode = 'move';
   }
 
@@ -676,6 +683,13 @@ export class Player {
     if (this.vehicle) {
       if (this.inFire) dealDamage(this.game, this, FIRE_DPS * dt, { cause: 'fire' });
       if (this.alive && this.vitals.update(dt) && !this.isBot) this.game.sfx.play('shieldCharge');
+      // On a hog: our own gun, zoom and all (sprint is its charge, so no sprinting).
+      if (this.alive && this.vehicle?.T.riderShoots) {
+        const w = this.weapon;
+        const wantZoom = this.input.held.aim && !w.reloading && !this.left;
+        this.aimZoom += ((wantZoom ? w.def.zoom : 1) - this.aimZoom) * damp(14, dt);
+        updateShooting(this.game, this, dt, pressed);
+      }
       return;
     }
     this.tickStride(dt);
@@ -1603,14 +1617,16 @@ export class Player {
       this.setFov(settings.fov + 10, aspect);
       return;
     }
-    // On a Sizzler: the chase camera, and our own body on the seat.
-    if (this.vehicle) {
+    // On a vehicle: the chase camera, and our own body on the seat (a hog's rider sees from their
+    // own eyes).
+    const ride = this.vehicle;
+    if (ride && !ride.T.firstPerson) {
       this.game.vehicles.camera(this, cam, alpha, dt);
       cam.rotation.x += sx;
       cam.rotation.y += sy;
       cam.layers.enable(1 + this.id);
-      const fast = Math.min(1, this.speed() / SIZZLER.topSpeed);
-      this.fovBoost += (SIZZLER.camFov * fast - this.fovBoost) * damp(4, dt);
+      const fast = Math.min(1, this.speed() / ride.S.topSpeed);
+      this.fovBoost += (ride.S.camFov * fast - this.fovBoost) * damp(4, dt);
       this.setFov(settings.fov + this.fovBoost, aspect);
       return;
     }
@@ -1658,8 +1674,11 @@ export class Player {
       // Seated on a bike: the body faces where the bike goes and leans and tips with it.
       const bike = this.vehicle;
       s.riding = !!bike;
+      // (Hands on the bars, gun slung; on a hog they keep the gun and the body faces the aim.)
+      s.rideArms = !!bike && !bike.T.riderShoots;
+      s.straddle = bike ? (bike.T.straddle ?? 0) : 0;
       if (bike) {
-        s.yaw = bike.drawnYaw(alpha);
+        if (s.rideArms) s.yaw = bike.drawnYaw(alpha);
         s.roll = bike.prevRoll + (bike.roll - bike.prevRoll) * alpha;
         s.tilt = bike.prevPitch + (bike.pitch - bike.prevPitch) * alpha;
         s.speed = 0;

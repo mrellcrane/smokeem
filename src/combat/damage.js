@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SIZE, SIZZLER } from '../config.js';
+import { SIZE } from '../config.js';
 
 // The one path all damage goes through, so players, targets and bots react the same way.
 //
@@ -15,7 +15,7 @@ export function dealDamage(game, target, amount, info) {
   if (target.size > 1) amount *= SIZE.bigDamageIn;
   if (info?.attacker?.size < 1) amount *= SIZE.smallDamageOut;
   // A Sizzler's rider is a little sheltered by the bike.
-  if (target.vehicle) amount *= SIZZLER.riderTakes;
+  if (target.vehicle) amount *= target.vehicle.S.riderTakes;
   const res = target.vitals.damage(amount);
   if (res.shieldDamage > 0) target.model?.flashShield(res.broke ? 1 : 0.55);
   if (res.broke) game.fx.shieldPop(target.centerPosition(_c));

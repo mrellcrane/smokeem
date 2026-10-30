@@ -889,7 +889,7 @@ export class CharacterModel {
     this.landHard = this.kickAmount = 0;
     this.throwT = this.meleeT = this.hurtT = 9;
     this.hurtFwd = this.hurtSide = 0;
-    this.reloadW = this.climbPhase = this.ride = 0;
+    this.reloadW = this.climbPhase = this.ride = this.rideArms = 0;
     this.aimW = this.sprintW = 0;
     this.gunTip = 0;
     this.shieldFlash = 0;
@@ -1091,6 +1091,9 @@ export class CharacterModel {
     this.climb += ((s.climbing ? 1 : 0) - this.climb) * damp(10, dt);
     this.ride += ((s.riding ? 1 : 0) - this.ride) * damp(12, dt);
     const rd = this.ride;
+    // (The hands on the bars and the gun slung: not on a hog, where the rider shoots.)
+    this.rideArms += ((s.rideArms ? 1 : 0) - this.rideArms) * damp(12, dt);
+    const ra = this.rideArms;
     this.airT = s.grounded || s.climbing ? 0 : this.airT + dt;
     const ground = (1 - this.air) * (1 - this.climb);
 
@@ -1167,13 +1170,13 @@ export class CharacterModel {
     const swing = ml < 1 ? (ml < 0.33 ? Math.sin((ml / 0.33) * Math.PI * 0.5) : Math.cos(((ml - 0.33) / 0.67) * Math.PI)) : 0;
     const strike = ml < 1 && ml > 0.25 ? Math.sin(((ml - 0.25) / 0.75) * Math.PI) : 0;
     B.spine.rotation.set(
-      bend - this.crouch * CROUCH.lean - RIDE.lean * rd + kick + breathe - flinch * FLINCH.back * this.hurtFwd,
+      bend - this.crouch * CROUCH.lean - RIDE.lean * ra + kick + breathe - flinch * FLINCH.back * this.hurtFwd,
       -this.hipYaw + swing * MELEE_SWING.twist,
       flinch * FLINCH.side * this.hurtSide,
     );
     // The bladed stance: the torso turns about its own (bent) axis, so the bend stays on the aim.
     // (Square to the front with a gun in each hand.)
-    const twist = TWIST * this.twoHand * (this.leftId ? 0 : 1) * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb) * (1 - rd);
+    const twist = TWIST * this.twoHand * (this.leftId ? 0 : 1) * (1 - this.sprintW * (1 - this.shoulderGun)) * (1 - this.climb) * (1 - ra);
     B.spine.quaternion.multiply(_qe.setFromAxisAngle(Y_AXIS, twist));
     this.twistInv.setFromAxisAngle(Y_AXIS, -twist);
 
@@ -1213,6 +1216,9 @@ export class CharacterModel {
     const bR = kR + _leg.knee + (RIDE.knee - kR - _leg.knee) * rd;
     B.legUL.rotation.x = aL;
     B.legUR.rotation.x = aR;
+    // Astride something wide (a hog), the thighs go out to the sides.
+    B.legUL.rotation.z = -(s.straddle ?? 0) * rd;
+    B.legUR.rotation.z = (s.straddle ?? 0) * rd;
     B.legLL.rotation.x = bL;
     B.legLR.rotation.x = bR;
     // Feet stay flat through a crouch and roll heel to toe with the stride; in the air the toes
@@ -1233,7 +1239,7 @@ export class CharacterModel {
     this.sprintW += ((s.sprinting && !aiming && speed > 1 ? 1 : 0) - this.sprintW) * damp(8, dt);
     const k = this.climb;
     // (Slung while climbing or riding.)
-    const sling = Math.max(k, rd);
+    const sling = Math.max(k, ra);
     const a = Math.max(this.aimW, this.shoulderGun) * (1 - sling);
     const sp = this.sprintW * (1 - k) * (1 - this.shoulderGun);
     const A = GUN_POSE.aim;
@@ -1270,7 +1276,7 @@ export class CharacterModel {
       _gq.slerp(SLING_Q, sling);
     }
     // Riding: the spine's frame in body space, to put the hands on the bike's grips.
-    if (rd > 0.001) {
+    if (ra > 0.001) {
       _qr.copy(B.root.quaternion).multiply(B.hips.quaternion).multiply(B.spine.quaternion).invert();
       _sp.copy(B.spine.position).applyQuaternion(B.hips.quaternion).add(B.hips.position).applyQuaternion(B.root.quaternion).add(B.root.position);
     }
@@ -1346,12 +1352,12 @@ export class CharacterModel {
         qu.slerpQuaternions(_qa, _qd, k);
         ql.slerpQuaternions(_qb, _qe, k);
         qw.identity().slerp(_qg, 1 - k);
-      } else if (rd > 0.001) {
+      } else if (ra > 0.001) {
         _t.copy(RIDE.grips[sd]).sub(_sp).applyQuaternion(_qr);
         solveArm(arm, _sh, _t, arm.pole, _qd, _qe);
-        qu.slerpQuaternions(_qa, _qd, rd);
-        ql.slerpQuaternions(_qb, _qe, rd);
-        qw.identity().slerp(_qg, 1 - rd);
+        qu.slerpQuaternions(_qa, _qd, ra);
+        ql.slerpQuaternions(_qb, _qe, ra);
+        qw.identity().slerp(_qg, 1 - ra);
       } else {
         qu.copy(_qa);
         ql.copy(_qb);

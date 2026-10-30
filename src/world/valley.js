@@ -49,6 +49,9 @@ const ROCKS = [
   [-11, -22, 1.0], [11, 22, 1.0], [-30, 18, 1.3], [30, -18, 1.3], [-32, -20, 1.1], [32, 20, 1.1],
 ];
 
+// The vehicles on each side (x mirrored for the west side): type, x, z.
+const VEHICLE_SPOTS = [['sizzler', 35, -9.5], ['smokeRing', 35, 9.5], ['drumRoll', 30, -16], ['bigHog', 30, 16]];
+
 // Smooth value noise in 0..1 (for where the ground wears to dirt and breaks into rock).
 function hash2(i, j) {
   const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453;
@@ -579,8 +582,11 @@ export function buildValley({ scene, RAPIER, world, materials: M, textures, bake
     stands: [],
     screen: null,
     podium: { x: 0, y: 0.05, z: 0 },
-    // A Sizzler by each smokehouse's north front corner, facing the valley.
-    vehicles: [-1, 1].map((s) => ({ pos: [s * 35, heightAt(s * 35, -9.5) + 0.05, -9.5], yaw: (s * Math.PI) / 2 })),
+    // By each smokehouse, facing the valley: a Sizzler at the north front corner, a Smoke Ring at
+    // the south one, and a Drum Roll and a Big Hog further out.
+    vehicles: [-1, 1].flatMap((s) =>
+      VEHICLE_SPOTS.map(([type, x, z]) => ({ type, pos: [s * x, heightAt(s * x, z) + 0.05, z], yaw: (s * Math.PI) / 2 })),
+    ),
     spawnPoints,
     pickupSpots: PICKUP_SPOTS,
     dummyPosts: DUMMY_POSTS,

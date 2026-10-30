@@ -275,3 +275,88 @@ export const SIZZLER = {
   // From where a rider gets on (meters from the seat).
   reach: 2.3,
 };
+
+// The Smoke Ring (vehicles/sizzler.js, type smokeRing): a one-seat hovercraft. Same keys as
+// SIZZLER (only what differs here); it floats `hover` over the ground and over water (the creek)
+// and mud alike, A/D (the left stick) slide it sideways (`strafe`, m/s) instead of steering, its
+// grip is loose so it drifts, and its twin guns throw ember bolts.
+export const SMOKE_RING = {
+  ...SIZZLER,
+  topSpeed: 13,
+  boostSpeed: 19,
+  reverseSpeed: 7,
+  accel: 13,
+  boostAccel: 15,
+  grip: 3,
+  turn: 3.2,
+  slowTurn: 0.7,
+  strafe: 7,
+  hop: 0,
+  hover: 0.45,
+  health: 240,
+  riderTakes: 0.7,
+  blast: { radius: 5, inner: 1.5, damage: 110, knockback: 9 },
+  gun: { ...SIZZLER.gun, damage: 14, rate: 6, spread: 1.4, range: 65, swing: 0.35, heatPerShot: 0.05 },
+  // (The rider sits up high: so does the camera.)
+  camPivot: 2.3,
+  camBack: 4.6,
+  camUp: 1.0,
+};
+
+// The Drum Roll (type drumRoll): you curl up inside a giant rolling smoker drum. No guns: it rams
+// (splatters at speed), bounces off walls (`bounce`: share of the speed kept), hops, boosts, and
+// the trigger slams the ground (`slam`: damage and shove all round, then `cooldown` seconds). The
+// drum takes most of the damage meant for its rider.
+export const DRUM_ROLL = {
+  ...SIZZLER,
+  topSpeed: 17,
+  boostSpeed: 24,
+  reverseSpeed: 8,
+  accel: 12,
+  boostAccel: 18,
+  brake: 18,
+  coast: 2,
+  grip: 4,
+  turn: 4,
+  slowTurn: 0.8,
+  airTurn: 0.6,
+  hop: 6.5,
+  bounce: 0.55,
+  health: 320,
+  riderTakes: 0.35,
+  blast: { radius: 4.5, inner: 1.2, damage: 90, knockback: 10 },
+  splatter: 11,
+  bumpDamage: 55,
+  slam: { radius: 4.5, damage: 45, knockback: 11, cooldown: 4 },
+  gun: null,
+  camPivot: 1.6,
+  camBack: 5.4,
+  camUp: 1.3,
+};
+
+// The Big Hog (type bigHog): a giant pig you ride and shoot your own gun from, in first person.
+// Sprint is a charge (`charge`: speed for `time` seconds, then `cooldown`) that splatters whoever
+// it runs into; it climbs steeper than the bike, jumps higher, and when it's beaten it collapses
+// and throws its rider off (no blast).
+export const BIG_HOG = {
+  ...SIZZLER,
+  topSpeed: 11,
+  boostSpeed: 11,
+  reverseSpeed: 4,
+  accel: 14,
+  grip: 9,
+  turn: 3.4,
+  slowTurn: 0.8,
+  hop: 7,
+  maxSlope: 46,
+  health: 300,
+  riderTakes: 0.85,
+  blast: null,
+  bump: 4,
+  splatter: 13,
+  bumpDamage: 40,
+  charge: { speed: 19, time: 1.3, cooldown: 4.5 },
+  gun: null,
+  // The rider's eye sits this far over the hog's ground point (first person).
+  camFov: 4,
+};

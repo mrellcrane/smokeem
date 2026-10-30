@@ -588,6 +588,31 @@ Owner ask (2026-10-30): a one-player motorcycle with guns on it, on the Valhalla
   overheat, backs out when stuck, and gets off when the hull's nearly gone mid-fight or after a
   while with nobody around.
 
+## Vehicles: the solo rides
+
+Owner ask (2026-10-30, "all 3 solo rides"): three more one-seat vehicles beside the Sizzler, one
+of each parked by each smokehouse on Smokehouse Creek (`VEHICLE_SPOTS` in `valley.js`). They share
+the bike's code (getting on and off, the hull, splatter, respawn, the chase camera) and differ in
+how they drive and what the trigger does.
+
+- **Smoke Ring**, a hovercraft (Halo's Ghost is the model): floats half a meter up, over the
+  creek's water and the mud at full speed. A / D (the left stick) slide it sideways instead of
+  steering; it drifts. Two ember guns on its sides (6 rounds a second, 14 damage, 65 m, they swing
+  less than the bike's). No hop. Hull 240, the rider takes 70%. The rider sits up high on a
+  saddle post, so its camera sits higher too.
+- **Drum Roll**, a giant smoker drum you ride inside, out of sight. No guns. Fast (17, 24 boosting),
+  hops, and bounces off walls instead of stopping dead. The trigger slams the ground: everyone
+  within 4.5 m (not behind cover) is thrown back and takes up to 45, then 4 s to recharge (the
+  HUD's ticks). It splatters at 11 m/s. Hull 320, and its rider takes only 35% (hidden, but still
+  hittable).
+- **Big Hog**, a giant pig with a saddle. You ride in first person and shoot your own gun
+  (reloads, zoom and all; no sprint). Slower (11) but climbs steeper slopes and jumps higher.
+  Sprint is a charge: 19 m/s for 1.3 s, then 4.5 s to come back; it splatters whoever it hits at
+  13 m/s or more. Beaten (300 hull), it collapses and throws you off instead of blowing up. The
+  rider takes 85%.
+- **Bots** ride all of them: the drum boosts in and slams up close, the hog charges from mid range
+  and shoots its own gun, the hovercraft fights like the bike.
+
 ## Abilities (later)
 
 - **Dig**: go under the map for about 10 seconds. You can see enemies but stay hidden, then pop
@@ -719,7 +744,7 @@ never the same one twice in a row). Guns on "Map default" use each map's own set
 | Fire | Left mouse |
 | Zoom / aim (the left gun when dual wielding) | Right mouse |
 | Reload | R |
-| Pick up / interact (get on or off a Sizzler) | E |
+| Pick up / interact (get on or off a vehicle) | E |
 | Grenade | G |
 | Melee | F |
 | Grapple | Q |
@@ -738,7 +763,7 @@ Never bind gameplay to Ctrl or Cmd on Mac (see CLAUDE.md).
 | Jump / double jump / wall kick | A |
 | Crouch (slide from a sprint) | B (hold) |
 | Reload | X (tap) |
-| Pick up / swap weapon on the ground, get on or off a Sizzler | X (hold) |
+| Pick up / swap weapon on the ground, get on or off a vehicle | X (hold) |
 | Switch weapon | Y |
 | Fire | RT |
 | Grenade (the left gun when dual wielding) | LT |
@@ -1248,3 +1273,7 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Twelve more characters (owner: "do all of them"): seven BBQ originals (Hot Dog, Grill
   Bot, Hog Wild, Brisket Bruiser, Ghost Pepper, Corn Dog Commando, the Pitmaster) and five game
   homages (Samus, the Doom Slayer, Mario, Sonic, Banjo).
+- 2026-10-30: Three solo rides (owner: "all 3 solo rides"): the Smoke Ring hovercraft, the Drum
+  Roll and the Big Hog, one of each per side on Smokehouse Creek. See Vehicles: the solo rides.
+  The pig stands in for the "animal mount" idea; the drum's rider is hidden and well sheltered,
+  so it has no guns.
