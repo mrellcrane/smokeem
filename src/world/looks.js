@@ -59,3 +59,16 @@ export const YARD_LOOK = {
   vm: { hemi: 2.4, sun: 2.4 },
   grade: { sat: 0.72, contrast: 1.12, tint: [0.97, 1.0, 1.04], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.7, haze: 1.35 },
 };
+
+// The Big Stack: a canyon at golden hour, the sun low in the west raking across the decks, warm
+// bounce off the rock, the stack's smoke against a deepening sky. No facility round it.
+export const STACK_LOOK = {
+  sun: { dir: [-48, 34, 14], color: 0xffc890, intensity: 3.1 },
+  hemi: { sky: 0x98b4e4, ground: 0x9a6a4a, intensity: 1.5 },
+  fog: { near: 80, far: 380 },
+  sky: { zenith: 0x233f7c, mid: 0x7d9cc8, horizon: 0xe6c6a0, below: 0x8f6e58 },
+  flare: true,
+  godRays: true,
+  vm: { hemi: 2.4, sun: 2.4 },
+  grade: { sat: 0.76, contrast: 1.12, tint: [1.0, 0.99, 1.0], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.6, haze: 1.3 },
+};

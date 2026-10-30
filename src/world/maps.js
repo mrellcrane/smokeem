@@ -2,7 +2,8 @@ import { buildArena } from './arena.js';
 import { buildFactory } from './factory.js';
 import { buildValley, VALLEY_LINKS } from './valley.js';
 import { buildYard } from './yard.js';
-import { MUDLARK_LOOK, FACTORY_LOOK, VALLEY_LOOK, YARD_LOOK } from './looks.js';
+import { buildStack, STACK_LINKS } from './stack.js';
+import { MUDLARK_LOOK, FACTORY_LOOK, VALLEY_LOOK, YARD_LOOK, STACK_LOOK } from './looks.js';
 import { MUDLARK_LINKS, FACTORY_LINKS } from '../ai/mapLinks.js';
 
 // The maps: how to build each one, its look, the bots' extra moves on it (mapLinks.js) and its
@@ -41,6 +42,15 @@ export const MAPS = {
     look: YARD_LOOK,
     links: [],
     // (Precision guns for the towers' long lines, rockets for the roof.)
+    defaultSet: 'cookoff',
+  },
+  stack: {
+    name: 'The Big Stack',
+    blurb: 'a canyon round one giant smokestack: three decks up its sides, perches in the corners, launch pads and long falls.',
+    build: buildStack,
+    look: STACK_LOOK,
+    links: STACK_LINKS,
+    // (The Carver for the decks and perches, Hot Links for the top.)
     defaultSet: 'cookoff',
   },
 };

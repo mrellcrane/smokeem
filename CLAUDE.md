@@ -26,7 +26,7 @@ Then open the localhost URL it prints.
 - Add `?bench` to run a scripted split-screen match that reports frame time, render time,
   draw calls (shadow pass and per view) and load time (`src/render/bench.js`, only loaded
   for that URL). Options: `q=low|medium|high`, `views=1..4` (default 3), `secs`, `set`,
-  `map=mudlark|factory|valley|yard`, and `off=name,...` to turn graphics switches in `src/render/gfx.js` off for a before/after.
+  `map=mudlark|factory|valley|yard|stack`, and `off=name,...` to turn graphics switches in `src/render/gfx.js` off for a before/after.
   Run it on the Xbox from the Pages URL for real numbers; headless only checks draw counts.
 - To test controllers headless, override `navigator.getGamepads` in `page.addInitScript`
   with fake pad objects (`connected`, `mapping: 'standard'`, `axes`, `buttons[i].pressed` /
@@ -249,7 +249,8 @@ Live build: https://mrellcrane.github.io/smokeem/
     links, default weapon set); `settings.map` picks one ('random' never repeats the last), and
     `Game.create({ map })` sets `game.mapId` / `game.map`. `arena.js` is Mudlark Gauntlet,
     `factory.js` Smokestack Works, `valley.js` Smokehouse Creek, `yard.js` Cook-Off Yard (built
-    half a turn symmetric: `boxS` and `P` turn a piece into the other half); shared pieces (crates, barriers, drums, pickup pads, the
+    half a turn symmetric: `boxS` and `P` turn a piece into the other half), `stack.js` The Big Stack
+    (round decks as cylinders round the stack, launch pads aimed by `padVelocity`, `STACK_LINKS`); shared pieces (crates, barriers, drums, pickup pads, the
     grandstands) are in `parts.js`; set dressing (Mudlark's sponsor boards, TV cameras, wall-top
     drum smokers and cable runs; Smokestack's hanging sausages, gauges, warning boards and corner
     pallets; on the floors, Mudlark's rocks and pebbles and stains, Smokestack's keep-clear border,

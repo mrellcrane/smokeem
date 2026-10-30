@@ -744,7 +744,24 @@ long lines, Hot Links on the roof). The layout is the same turned half a turn ab
 - **The open yard**: a food truck on each side (its serving window toward the shed), log piles,
   crates, barriers and drums, and a fire pit by each end of the shed.
 
-The title screen has a Map choice: Mudlark, Smokestack, Creek, Cook-Off or Random (a different map each match,
+### Map 5: The Big Stack (name is a proposal)
+
+Owner ask (2026-10-30): a map that plays like Halo 3's Guardian, as an original layout (not a
+copy). A 56 m square canyon floor with one giant brick smokestack in the middle, all about height:
+whoever holds the high ground wins, and falling off costs you the climb. Default set Cookoff.
+
+- **The stack** (middle): a brick column 24 m tall, glowing firebox doors at its foot, smoke
+  pouring out of the top. Its base sits in an ash pit (slow, like mud).
+- **Three decks** round it, one over another: 5 m (wide), 10 m and 15 m (narrow, the power gun,
+  a broken low rim to duck behind). Each stands on legs on the one below.
+- **Launch pads**: two on the floor (north and south) throw you up onto the first deck, two on
+  the first deck (east and west) throw you all the way to the top.
+- **Corner perches**: northwest and southeast at 5 m (a ramp up beside each along the canyon
+  wall, a bridge to the first deck); northeast and southwest at 10 m (a rope up the inner face, a
+  bridge over the first deck to the second, a field gun on top).
+- **The floor**: boulders, crates and drums for cover, a field gun and grenades.
+
+The title screen has a Map choice: Mudlark, Smokestack, Creek, Cook-Off, Big Stack or Random (a different map each match,
 never the same one twice in a row). Guns on "Map default" use each map's own set.
 
 ## Controls
@@ -1298,3 +1315,5 @@ Need answers before the step that uses them gets built.
   the same way instead (owner: "go ahead with both"): Cook-Off Yard first (towers in opposite
   corners, a central shed with the power on its roof), then a tall vertical map round one giant
   central structure.
+- 2026-10-30: The Big Stack, the second original map from the owner's Halo ask: vertical play round
+  one giant smokestack, decks at 5, 10 and 15 m, launch pads between them, corner perches.
