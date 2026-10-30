@@ -217,6 +217,8 @@ export class BotBrain {
       this.guideMissile();
       return;
     }
+    // Carried in someone's Gravity Gun: nothing to do but wait.
+    if (p.heldBy) return;
     this.bikeCooldown -= dt;
     if (p.vehicle) {
       this.ride(dt);

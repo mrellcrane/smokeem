@@ -282,8 +282,8 @@ export const VALLEY_LINKS = [-1, 1].map((s) => ({
   b: [s * PAD_TO_X, heightAt(s * PAD_TO_X, 0), 0],
 }));
 
-export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512 }) {
-  const B = new StaticBuilder(RAPIER, world);
+export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512, loose = false }) {
+  const B = new StaticBuilder(RAPIER, world, { loose });
   const zones = new Zones();
   const rand = mulberry32(53);
 
@@ -377,6 +377,8 @@ export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512
     surfaces: B.surfaces,
     blockers: B.blockers,
     trims: B.trims,
+    // Crates and drums for the Gravity Gun to throw (world/props.js), when it's in the match.
+    loose: B.loose ?? [],
     update(dt, time, fx) {
       for (const v of vents) {
         v.acc += dt * v.wisps;

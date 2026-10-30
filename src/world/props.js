@@ -5,13 +5,18 @@ import { dealDamage } from '../combat/damage.js';
 import { explode } from '../combat/explosions.js';
 
 // Loose props for the Gravity Gun to throw (only in matches whose set has it): crates, barrels
-// and propane tanks, as Rapier dynamic bodies around the pickup pads. Like grenades they bounce
-// off the level and people, but don't block anyone (movement and shots skip dynamic bodies).
+// and propane tanks, as Rapier dynamic bodies around the pickup pads, plus the map's own small
+// crates and drums, which come loose in such a match (StaticBuilder `loose`, drawn with the map's
+// own materials, one instanced mesh each, scaled per crate). People bump and shove them
+// (Player.moveBy collides with props), but shots pass through them.
 // A prop thrown by a gravity gun hurts whoever it hits hard, once per throw; a propane tank goes
 // off when a thrown one hits hard or a blast catches it. Lost or blown-up props come back at
 // their spot after a while. One instanced mesh per kind.
 
 const KINDS = {
+  // The map's own (parts.js): a crate of any size (half extents set per crate) and a drum.
+  mapCrate: { half: [0.5, 0.5, 0.5], density: 0.9, restitution: 0.12, damage: 55 },
+  mapDrum: { cyl: [0.55, 0.45], density: 1.1, restitution: 0.18, damage: 60 },
   crate: { half: [0.32, 0.32, 0.32], density: 1.2, restitution: 0.15, damage: 55, look: 'crate' },
   barrel: { cyl: [0.42, 0.28], density: 1.4, restitution: 0.2, damage: 60, look: 'barrel' },
   propane: {
@@ -70,15 +75,43 @@ const _m = new THREE.Matrix4();
 const _s = new THREE.Vector3(1, 1, 1);
 const _q = new THREE.Quaternion();
 const _c = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
+
+// The map's crates and drums, for the map's own materials (unit sized; static materials read a
+// vertex color, here plain).
+function mapGeometry(kind) {
+  const g = kind === 'mapCrate' ? new THREE.BoxGeometry(1, 1, 1) : new THREE.CylinderGeometry(0.45, 0.45, 1.1, 14);
+  const n = g.attributes.position.count;
+  const col = new Float32Array(n * 3);
+  const pos = g.attributes.position;
+  for (let i = 0; i < n; i++) {
+    // (A drum's band, a little lighter and warmer up top, like the map's glowing ring.)
+    const band = kind === 'mapDrum' && pos.getY(i) > 0.15 && pos.getY(i) < 0.3;
+    col[i * 3] = band ? 1.6 : 0.9;
+    col[i * 3 + 1] = band ? 0.9 : 0.9;
+    col[i * 3 + 2] = band ? 0.5 : 0.9;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
 
 export class Props {
-  constructor(game, material, pads) {
+  // M: the match's materials. loose: the map's crates and drums that came loose (StaticBuilder).
+  constructor(game, M, pads, loose = []) {
     this.game = game;
     this.list = [];
     this.meshes = {};
     this.meshList = [];
+    // Collider handles of every prop, for the people who bump into them (Player.moveBy).
+    this.colliders = new Set();
+    const counts = { mapCrate: 0, mapDrum: 0 };
+    for (const l of loose) counts[l.kind === 'crate' ? 'mapCrate' : 'mapDrum']++;
     for (const kind of Object.keys(KINDS)) {
-      const m = new THREE.InstancedMesh(propGeometry(kind), material, 16);
+      const map = kind === 'mapCrate' || kind === 'mapDrum';
+      if (map && !counts[kind]) continue;
+      const geom = map ? mapGeometry(kind) : propGeometry(kind);
+      const mat = kind === 'mapCrate' ? M.crate : kind === 'mapDrum' ? M.metalDark : M.props;
+      const m = new THREE.InstancedMesh(geom, mat, map ? counts[kind] : 16);
       m.name = `props:${kind}`;
       m.castShadow = true;
       m.receiveShadow = true;
@@ -99,6 +132,11 @@ export class Props {
         this.list.push({ kind, def: KINDS[kind], home: new THREE.Vector3(x, floor, z), body: null, collider: null, alive: false, respawnT: 0 });
       }
     }
+    for (const l of loose) {
+      const crate = l.kind === 'crate';
+      const def = crate ? { ...KINDS.mapCrate, half: [l.s / 2, l.s / 2, l.s / 2] } : KINDS.mapDrum;
+      this.list.push({ kind: crate ? 'mapCrate' : 'mapDrum', def, size: crate ? l.s : 1, rotY: l.rotY ?? 0, home: new THREE.Vector3(l.x, l.y, l.z), body: null, collider: null, alive: false, respawnT: 0 });
+    }
     for (const p of this.list) this.place(p);
   }
 
@@ -115,11 +153,14 @@ export class Props {
     );
     const desc = d.half ? RAPIER.ColliderDesc.cuboid(...d.half) : RAPIER.ColliderDesc.cylinder(d.cyl[0], d.cyl[1]);
     p.collider = world.createCollider(desc.setDensity(d.density).setRestitution(d.restitution).setFriction(0.8), p.body);
+    this.colliders.add(p.collider.handle);
+    if (p.rotY) p.body.setRotation(_q.setFromAxisAngle(_up, p.rotY), true);
     const t = p.body.translation();
     p.pos = new THREE.Vector3(t.x, t.y, t.z);
     p.prev = p.pos.clone();
-    p.rot = new THREE.Quaternion();
-    p.prevRot = new THREE.Quaternion();
+    const r0 = p.body.rotation();
+    p.rot = new THREE.Quaternion(r0.x, r0.y, r0.z, r0.w);
+    p.prevRot = p.rot.clone();
     p.vel = new THREE.Vector3();
     p.thrownBy = null;
     p.thrownT = -99;
@@ -129,6 +170,7 @@ export class Props {
 
   remove(p) {
     if (!p.alive) return;
+    this.colliders.delete(p.collider.handle);
     this.game.physics.world.removeRigidBody(p.body);
     p.body = p.collider = null;
     p.alive = false;
@@ -138,7 +180,7 @@ export class Props {
 
   // A prop's size for grabbing and hitting (meters from its middle).
   reach(p) {
-    return p.def.half ? 0.45 : Math.max(p.def.cyl[0], p.def.cyl[1]) + 0.1;
+    return p.def.half ? p.def.half[0] * 1.3 + 0.03 : Math.max(p.def.cyl[0], p.def.cyl[1]) + 0.1;
   }
 
   tick(dt) {
@@ -232,7 +274,7 @@ export class Props {
       const m = this.meshes[p.kind];
       _c.lerpVectors(p.prev, p.pos, alpha);
       _q.slerpQuaternions(p.prevRot, p.rot, alpha);
-      m.setMatrixAt(m.count++, _m.compose(_c, _q, _s));
+      m.setMatrixAt(m.count++, _m.compose(_c, _q, _s.setScalar(p.size ?? 1)));
     }
     for (const m of this.meshList) {
       m.visible = m.count > 0;

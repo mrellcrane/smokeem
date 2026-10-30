@@ -119,7 +119,14 @@ Live build: https://mrellcrane.github.io/smokeem/
   missiles; grenades, Chimney coals and sticky bombs as Rapier dynamic bodies, one instanced mesh
   per look, with optional contact fuses; stickies switch to fixed bodies where they land), the
   Gravity Gun's grab, hold, throw and punt (`gravity.js`, with the loose props it throws in
-  `src/world/props.js`, built only when the match's set has it), controller aim assist
+  `src/world/props.js`, built only when the match's set has it; in such a match the map build
+  gets `loose: true`, so `parts.crate` (up to `LOOSE_CRATE`) and `parts.drum` go into
+  `StaticBuilder.loose` instead of the static level and Props makes them physics props drawn
+  with the map's materials; `Player.moveBy` collides with props, so people shove them. Each kind
+  it can hold is an entry in `KINDS` (find, hold, throw): props and grenades are physics bodies;
+  dropped guns, corpses, dummies, live players and bikes are carried by position, pause their own
+  movement while `heldBy` is set, and once thrown hurt the first one they fly into (`flying`)),
+  controller aim assist
   (`aimAssist.js`: magnetism, slowdown and tracking; each gun's def can set `assist` (cone in
   degrees, reach, range, slowdown, tracking) over the `AIM` defaults (`assistOf`), cones shrink
   by `player.aimZoom`, and `player.aimTarget` (the red reticle) is set exactly where a shot would

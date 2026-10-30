@@ -210,6 +210,8 @@ export class Game {
       textures: this.textures,
       bakeSize: preset.bakeSize,
       preset,
+      // The Gravity Gun's set: small crates and drums come loose for it to throw.
+      loose: this.arsenal.guns.includes('gravityGun'),
     });
     // One shadow map for the whole map, fitted to it.
     fitShadowCamera(this.sun, this.arena.shadowHalf ?? this.arena.half + 1, this.arena.shadowTop);
@@ -240,7 +242,7 @@ export class Game {
     // The Gravity Gun's set brings loose props to throw (after the nav graph, which ignores them).
     if (this.arsenal.guns.includes('gravityGun')) {
       this.gravity = new Gravity(this, WEAPONS.gravityGun);
-      this.props = new Props(this, this.materials.props, this.pickups.pads);
+      this.props = new Props(this, this.materials, this.pickups.pads, this.arena.loose);
     }
     // Sizzlers, on maps with spots for them (after the nav graph too: bikes aren't level).
     if (this.arena.vehicles?.length) this.vehicles = new Vehicles(this, this.arena.vehicles);
@@ -758,7 +760,8 @@ export class Game {
     this.bolts.tick(dt);
     this.swarms.tick(dt);
     this.pickups.tick(dt);
-    this.gravity?.tick();
+    this.gravity?.tick(dt);
+    this.gravity?.flying();
     this.props?.tick(dt);
     this.oysters?.tick(dt);
     for (const d of this.dummies) d.tick(dt);

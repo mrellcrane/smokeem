@@ -55,8 +55,8 @@ const DUMMY_POSTS = [
   { name: 'Dock Dummy', post: [14, DOCK, -1], yaw: -Math.PI / 2 },
 ];
 
-export function buildFactory({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, preset = null }) {
-  const B = new StaticBuilder(RAPIER, world);
+export function buildFactory({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, preset = null, loose = false }) {
+  const B = new StaticBuilder(RAPIER, world, { loose });
   const zones = new Zones();
 
   // Floor slab, with a hole for the grease vat.
@@ -149,6 +149,8 @@ export function buildFactory({ scene, RAPIER, world, materials: M, textures, bak
     surfaces: B.surfaces,
     blockers: B.blockers,
     trims: B.trims,
+    // Crates and drums for the Gravity Gun to throw (world/props.js), when it's in the match.
+    loose: B.loose ?? [],
     update(dt, time, fx) {
       fire.update(time);
       shafts?.update(time);

@@ -132,6 +132,17 @@ export class Pickups {
       } else if (!item.spawner) {
         item.life -= dt;
         if (item.life <= 0) this.removeDrop(item);
+        // Thrown by a Gravity Gun: flies until it lands (or falls out of the world).
+        else if (item.vel && !item.heldBy) {
+          item.pos.addScaledVector(item.vel, dt);
+          item.vel.y -= 16 * dt;
+          const floor = this.game.bake ? this.game.bake.floorBelow(item.pos.x, item.pos.y + 0.4, item.pos.z) : 0;
+          if (item.pos.y < -20) this.removeDrop(item);
+          else if (Number.isFinite(floor) && item.pos.y <= floor && item.vel.y <= 0) {
+            item.pos.y = floor;
+            item.vel = null;
+          }
+        }
       }
     }
   }

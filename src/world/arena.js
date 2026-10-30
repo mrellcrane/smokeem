@@ -29,8 +29,8 @@ const PICKUP_SPOTS = [
   { type: 'grenades', count: 2, pos: [-25, 0, -19.5], respawn: 20 },
 ];
 
-export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeSize = 512 }) {
-  const B = new StaticBuilder(RAPIER, world);
+export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, loose = false }) {
+  const B = new StaticBuilder(RAPIER, world, { loose });
   const zones = new Zones();
   const H = ARENA_HALF;
 
@@ -113,6 +113,8 @@ export function buildArena({ scene, RAPIER, world, materials: M, textures, bakeS
     surfaces: B.surfaces,
     blockers: B.blockers,
     trims: B.trims,
+    // Crates and drums for the Gravity Gun to throw (world/props.js), when it's in the match.
+    loose: B.loose ?? [],
     // fx: the match's Effects (embers and wisps off the fire troughs).
     update(dt, time, fx) {
       fire.update(time);

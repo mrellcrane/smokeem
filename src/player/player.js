@@ -72,6 +72,12 @@ export class Player {
     this.filter = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
     // Mantle probes ignore bodies, so nobody vaults onto someone's head.
     this.notBody = (c) => !game.entities.has(c.handle);
+    // Walking: the level, bodies and the Gravity Gun's props (shoved along), not grenades.
+    this.moveFlags = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS;
+    this.moveFilter = (c) => {
+      const b = c.parent();
+      return !b || !b.isDynamic() || !!game.props?.colliders.has(c.handle);
+    };
     // Wall kicks push off fixed level geometry only: no bodies, grenades, sensors or the
     // invisible blockers over the perimeter walls.
     this.wallFilter = RAPIER.QueryFilterFlags.ONLY_FIXED | RAPIER.QueryFilterFlags.EXCLUDE_SENSORS;
@@ -521,6 +527,8 @@ export class Player {
     this.guiding = null;
     this.pickupPrompt = null;
     this.vehicle = this.vehiclePrompt = this.ridePressed = null;
+    this.heldBy = null;
+    this.heldT = 0;
     this.deathInfo = null;
     this.collider.setEnabled(true);
     this.model.reset();
@@ -584,6 +592,12 @@ export class Player {
       this.deathT += dt;
       if (!this.isBot) this.pickLoadout();
       if (this.deathT >= RESPAWN_DELAY) this.game.respawn(this);
+      return;
+    }
+    // In someone's Gravity Gun: carried (combat/gravity.js), helpless until they let go or we
+    // break free.
+    if (this.heldBy) {
+      if (this.vitals.update(dt) && !this.isBot) this.game.sfx.play('shieldCharge');
       return;
     }
     this.grabCooldown = Math.max(0, this.grabCooldown - dt);
@@ -737,7 +751,8 @@ export class Player {
   // goes limp, slides to a stop, and puffs away just before the respawn. Looks only: nothing
   // collides with it.
   startCorpse(info) {
-    const c = (this.corpse ??= { pos: new THREE.Vector3(), vel: new THREE.Vector3(), axis: new THREE.Vector3(), dir: new THREE.Vector3() });
+    const c = (this.corpse ??= { pos: new THREE.Vector3(), vel: new THREE.Vector3(), axis: new THREE.Vector3(), dir: new THREE.Vector3(), owner: this, heldBy: null });
+    c.heldBy = null;
     c.pos.set(this.center.x, this.feetY(), this.center.z);
     const d = c.dir;
     if (info?.dir) d.copy(info.dir);
@@ -773,6 +788,11 @@ export class Player {
     const c = this.corpse;
     c.t += dt;
     c.limp = Math.min(1, c.limp + dt * 4);
+    // In a Gravity Gun: it goes where it's carried (combat/gravity.js), limp.
+    if (c.heldBy) {
+      this.model.ragdoll(dt, c);
+      return;
+    }
     c.vel.y -= MOVE.gravity * dt;
     // Walls stop it sliding on.
     const step = Math.hypot(c.vel.x, c.vel.z) * dt;
@@ -815,7 +835,7 @@ export class Player {
     d.x = dx;
     d.y = dy;
     d.z = dz;
-    this.cc.computeColliderMovement(this.collider, d, this.filter);
+    this.cc.computeColliderMovement(this.collider, d, this.moveFlags, undefined, this.moveFilter);
     const m = this.cc.computedMovement();
     this.center.x += m.x;
     this.center.y += m.y;

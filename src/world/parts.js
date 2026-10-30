@@ -1,7 +1,14 @@
 // Building blocks every map uses: crates, barriers, drums, pickup pads and the game show's
 // grandstands. Each adds to a StaticBuilder (B) with the match's materials (M).
 
+// Crates up to this size (meters) and every drum come loose in a Gravity Gun match (B.loose).
+export const LOOSE_CRATE = 1.15;
+
 export function crate(B, M, x, y, z, s, rotY = 0) {
+  if (B.loose && s <= LOOSE_CRATE) {
+    B.loose.push({ kind: 'crate', x, y, z, s, rotY });
+    return;
+  }
   B.box(M.crate, [x, y + s / 2, z], [s, s, s], { uv: 'fit', rotY });
 }
 
@@ -11,6 +18,10 @@ export function barrier(B, M, x, z, rotY, y = 0) {
 }
 
 export function drum(B, M, x, z, y = 0) {
+  if (B.loose) {
+    B.loose.push({ kind: 'drum', x, y, z });
+    return;
+  }
   B.cylinder(M.metalDark, [x, y, z], 0.45, 1.1, { segments: 12 });
   B.cylinder(M.glowOrange, [x, y + 0.75, z], 0.46, 0.1, { segments: 12, collide: false, castShadow: false });
 }
