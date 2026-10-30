@@ -21,4 +21,6 @@ export const gfx = {
   // A low-frame-rate picture of the other side in each portal (combat/portals.js; preset's
   // portalViews, off on low).
   portalViews: true,
+  // Normal maps on walls and floors (high preset only).
+  normalMaps: true,
 };

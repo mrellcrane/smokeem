@@ -62,7 +62,9 @@ function blobs(ctx, w, h, rand, count, rMin, rMax, colors, alpha) {
 // Relief: every painter below also paints a grayscale height canvas with the same shapes
 // (128 flat, seams and gaps lower, rivets and pebbles higher). relief() then shades the color
 // by the height's slope toward a light direction, so raised details catch light on one side and
-// shadow on the other, painted in (no normal maps, no shader cost).
+// shadow on the other, painted in at no shader cost. It also turns the same slopes into a normal
+// map (kept per texture in `normals`), which the High preset hands to the materials so the
+// details answer the real sun too.
 
 function heightCanvas(S) {
   const [c, ctx] = canvas(S, S);
@@ -145,6 +147,35 @@ function relief(ctx, hctx, S, light, strength = 0.35, { grain: noise = 0, rand =
     }
   }
   ctx.putImageData(img, 0, 0);
+  lastNormal = normalCanvas(h, S, left, right);
+}
+
+// Tangent-space normals from the blurred heights (x along u, y along v: the canvas's y runs
+// down, against v).
+const NORMAL_SLOPE = 0.012;
+let lastNormal = null;
+function normalCanvas(h, S, left, right) {
+  const [c, ctx] = canvas(S, S);
+  const img = ctx.createImageData(S, S);
+  const d = img.data;
+  const s = NORMAL_SLOPE * (S / 256);
+  for (let y = 0; y < S; y++) {
+    const up = left[y] * S;
+    const o = y * S;
+    const dn = right[y] * S;
+    for (let x = 0; x < S; x++) {
+      const nx = -(h[o + right[x]] - h[o + left[x]]) * s;
+      const ny = (h[dn + x] - h[up + x]) * s;
+      const l = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+      const i = (o + x) * 4;
+      d[i] = (nx * l * 0.5 + 0.5) * 255;
+      d[i + 1] = (ny * l * 0.5 + 0.5) * 255;
+      d[i + 2] = (l * 0.5 + 0.5) * 255;
+      d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
 }
 
 // A shape drawn on both canvases: color on ctx, height level on hctx (null: color only).
@@ -1038,11 +1069,15 @@ function flash() {
 // Painting takes a while, so each texture is painted once per page load. Later matches get
 // clones (same canvas, new texture), since every match has its own renderer.
 const painted = new Map();
+// Each painted texture's normal map canvas, by the same key (only textures painted with relief).
+const normals = new Map();
 function keep(name, paint) {
   const t = painted.get(name);
   if (t) return t.clone();
+  lastNormal = null;
   const fresh = paint();
   painted.set(name, fresh);
+  if (lastNormal) normals.set(name, lastNormal);
   return fresh;
 }
 
@@ -1072,9 +1107,19 @@ function painters(S) {
   };
 }
 
-export function createTextures(size = 512) {
+// With `normalMaps`, each relief-painted surface also gets its normal map as `<name>Normal`.
+export function createTextures(size = 512, { normalMaps = false } = {}) {
   const out = {};
-  for (const [name, [key, paint]] of Object.entries(painters(size))) out[name] = keep(key, paint);
+  for (const [name, [key, paint]] of Object.entries(painters(size))) {
+    out[name] = keep(key, paint);
+    const n = normalMaps && normals.get(key);
+    if (n) {
+      const t = toTexture(n, { srgb: false });
+      // Same tiling as the color map.
+      t.repeat.copy(out[name].repeat);
+      out[`${name}Normal`] = t;
+    }
+  }
   return out;
 }
 

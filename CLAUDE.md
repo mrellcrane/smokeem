@@ -274,7 +274,9 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   and high, 256 on low); later matches reuse the canvases, and the title screen pre-paints
   them while idle (`prepaintTextures`). Surface painters also paint a height canvas, and
   `relief()` shades the color by its slope (walls lit from above, the ground from the sun's
-  azimuth), so details look raised at no per-frame cost. Keep distinctive marks (numbers,
+  azimuth), so details look raised at no per-frame cost. `relief()` also writes a normal map from the same
+  slopes; on High (`preset.normalMaps`, gfx switch `normalMaps`) `createTextures` returns it as
+  `<name>Normal` and `createMaterials` sets it as the material's `normalMap`. Keep distinctive marks (numbers,
   prints) off tiling textures: they show the repeat.
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
