@@ -8,7 +8,7 @@ import * as THREE from 'three';
 // (the body itself and each bone, gun bones included) and every player's eye and aim go into a
 // ring of preallocated float arrays, with the killer-to-be's tracers in a small ring of their
 // own. A replaying view copies the past frame's transforms onto the bodies, renders, and puts
-// the present back. Only bodies, Rocky Mountain Oysters' sacks and shots are replayed:
+// the present back. Only bodies, Rocky Mountain Oysters' sacks, Sizzlers and shots are replayed:
 // projectiles, pickups and effects show as they are now.
 
 export const REPLAY = { before: 1.8, length: 2.3 };
@@ -33,6 +33,10 @@ export class Replay {
     const sacks = game.oysters?.sacks;
     this.sackOff = size;
     if (sacks) size += sacks.instanceMatrix.array.length + game.oysters.owners.array.length + 1;
+    // Sizzlers: their frames' and wheels' matrices and counts.
+    this.bikes = game.vehicles ? [game.vehicles.frames, game.vehicles.wheels] : [];
+    this.bikeOff = size;
+    for (const m of this.bikes) size += m.instanceMatrix.array.length + 1;
     this.frames = Array.from({ length: FRAMES }, () => ({ t: -Infinity, d: new Float32Array(size) }));
     this.head = 0;
     this.lastT = -Infinity;
@@ -82,6 +86,13 @@ export class Replay {
       d.set(oy.owners.array, this.sackOff + m.length);
       d[this.sackOff + m.length + oy.owners.array.length] = oy.sacks.count;
     }
+    let j = this.bikeOff;
+    for (const m of this.bikes) {
+      const a = m.instanceMatrix.array;
+      d.set(a, j);
+      d[j + a.length] = m.count;
+      j += a.length + 1;
+    }
   }
 
   read(d) {
@@ -108,6 +119,15 @@ export class Replay {
       oy.sacks.visible = oy.sacks.count > 0;
       oy.sacks.instanceMatrix.needsUpdate = true;
       oy.owners.needsUpdate = true;
+    }
+    let j = this.bikeOff;
+    for (const m of this.bikes) {
+      const a = m.instanceMatrix.array;
+      a.set(d.subarray(j, j + a.length));
+      m.count = d[j + a.length];
+      m.visible = m.count > 0;
+      m.instanceMatrix.needsUpdate = true;
+      j += a.length + 1;
     }
   }
 

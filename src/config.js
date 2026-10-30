@@ -175,3 +175,59 @@ export const VIEWMODEL = {
   // Muzzle flash size on top of each gun's own.
   flash: 1.3,
 };
+
+// The Sizzler (vehicles/sizzler.js): a one-seat motorcycle with twin guns, on maps that have
+// spots for it. Speeds in m/s, accelerations in m/s², turns in rad/s.
+export const SIZZLER = {
+  topSpeed: 15,
+  boostSpeed: 21,
+  reverseSpeed: 5,
+  accel: 11,
+  boostAccel: 16,
+  brake: 26,
+  coast: 3,
+  // Above the top speed (off a boost or a hill) it slows this fast.
+  overDrag: 4,
+  // Sideways speed bleeds off this fast on the ground (the tires' grip; less, and it drifts).
+  grip: 7,
+  // How fast it turns toward where the rider looks: at speed, and the share of that when slow
+  // or in the air.
+  turn: 2.6,
+  slowTurn: 0.45,
+  airTurn: 0.25,
+  // A/D or the left stick steer directly at this rate (and turn the camera with it).
+  steer: 2.2,
+  hop: 5.5,
+  mudSpeed: 6,
+  // Boost: seconds of it in a full tank, and how fast it refills after a pause.
+  boostTank: 2.5,
+  boostRefill: 0.3,
+  boostPause: 1,
+  // The hull: hit points (no shields, no regen) and the blast when it's destroyed.
+  health: 280,
+  // Share of damage its rider takes (the bike shelters them a little).
+  riderTakes: 0.75,
+  blast: { radius: 5, inner: 1.5, damage: 120, knockback: 9 },
+  // Running into someone: under `bump` m/s nothing, from `bump` it hurts and shoves, from
+  // `splatter` it smokes them.
+  bump: 5,
+  splatter: 10,
+  bumpDamage: 45,
+  // Twin guns under the bars, firing in turn: damage per round, rounds per second, spread
+  // (degrees), range, how far off the bike's heading they can swing (radians), and heat: a full
+  // bar overheats them for `cool` seconds; it drains at `vent` per second after `ventDelay`.
+  gun: { damage: 12, rate: 9, spread: 1.0, range: 70, swing: 0.6, pitchUp: 0.45, pitchDown: 0.35, heatPerShot: 0.04, vent: 0.45, ventDelay: 0.35, cool: 2 },
+  // Back in its spot this long after it's destroyed, or after it's left empty away from it.
+  respawn: 30,
+  abandoned: 40,
+  // The chase camera: what it pivots about (meters over the bike's ground point), how far back
+  // along the aim and up from there, and the field of view added at top speed.
+  camPivot: 1.45,
+  camBack: 4.6,
+  camUp: 1.0,
+  // How far the camera looks below the aim (radians): the reticle sits that far above the middle.
+  camTilt: 0.16,
+  camFov: 8,
+  // From where a rider gets on (meters from the seat).
+  reach: 2.3,
+};

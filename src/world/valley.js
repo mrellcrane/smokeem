@@ -366,6 +366,8 @@ export function buildValley({ scene, RAPIER, world, materials: M, bakeSize = 512
     stands: [],
     screen: null,
     podium: { x: 0, y: 0.05, z: 0 },
+    // A Sizzler by each smokehouse's north front corner, facing the valley.
+    vehicles: [-1, 1].map((s) => ({ pos: [s * 35, heightAt(s * 35, -9.5) + 0.05, -9.5], yaw: (s * Math.PI) / 2 })),
     spawnPoints,
     pickupSpots: PICKUP_SPOTS,
     dummyPosts: DUMMY_POSTS,

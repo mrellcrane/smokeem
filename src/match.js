@@ -109,6 +109,7 @@ function howText(info, byOther) {
   if (byOther) {
     if (info.cause === 'melee') return info.backstab ? 'Tenderizer (back)' : 'Tenderizer';
     if (info.cause === 'stomp') return 'stomped';
+    if (info.cause === 'splatter') return 'splattered';
     if (info.cause === 'pop') return `${info.weapon?.name ?? 'Shrink Wrap'} (popped)`;
     return info.weapon?.name ?? 'smoked';
   }

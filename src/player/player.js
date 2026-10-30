@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BODY, MOVE, CAMERA, AIM, CORPSE, SIZE } from '../config.js';
+import { BODY, MOVE, CAMERA, AIM, CORPSE, SIZE, SIZZLER } from '../config.js';
 import { settings } from '../settings.js';
 import { DEG, clamp, damp, approach2, smoothstep } from '../util/math.js';
 import { Vitals } from '../combat/vitals.js';
@@ -20,6 +20,7 @@ import { Viewmodel } from './viewmodel.js';
 //   net     climbing a cargo net
 //   rope    climbing a rope
 //   bars    hanging from monkey bars
+//   ride    on a Sizzler (vehicles/sizzler.js moves us with it)
 //   dead    smoked, waiting to respawn
 
 export const RESPAWN_DELAY = 3;
@@ -162,6 +163,14 @@ export class Player {
     // flying its arc.
     this.launchT = 0;
     this.launched = false;
+    // The Sizzler we ride (null on foot), the one we're standing by, and this tick's presses for
+    // the bike (vehicles/sizzler.js reads them after our tick).
+    this.vehicle = null;
+    this.vehiclePrompt = null;
+    this.ridePressed = null;
+    this.camDist = 0;
+    // Bots on a bike: where to drive, when it isn't where they look (null: where they look).
+    this.driveYaw = null;
     this._fovH = this._fovA = this._fovZ = NaN;
     this.deathRoll = 0;
     this.lastLookX = 0;
@@ -285,7 +294,7 @@ export class Player {
 
   // First-person gun on screen: not while dead, flying a missile or looking through a scope.
   showsViewmodel() {
-    return this.alive && !this.guiding && !(this.weapon.def.scope && this.aimZoom > SCOPE_ZOOM);
+    return this.alive && !this.guiding && !this.vehicle && !(this.weapon.def.scope && this.aimZoom > SCOPE_ZOOM);
   }
 
   get alive() {
@@ -338,6 +347,38 @@ export class Player {
     this.vel.addScaledVector(dir, speed);
     if (dir.y > 0.2) this.grounded = false;
     this.knockT = 0.4;
+  }
+
+  // On a Sizzler (Vehicles.mount): standing up straight, hands off the gun.
+  startRide() {
+    if (this.sliding) this.endSlide();
+    if (this.crouched) {
+      this.collider.setHalfHeight(STAND_HH * this.size);
+      this.crouched = false;
+    }
+    this.net = this.rope = this.bars = null;
+    this.mode = 'ride';
+    this.rideT = this.game.time;
+    this.sprinting = false;
+    this.aimZoom = 1;
+    this.lungeT = this.knockT = 0;
+    this.pickupPrompt = null;
+    this.aimTarget = this.aimNear = null;
+    this.launched = false;
+    const w = this.weapon;
+    cancelReload(this.game, w);
+    if (w.spinSfx) {
+      this.game.sfx.stop(w.spinSfx);
+      w.spinSfx = null;
+      w.spin = 0;
+    }
+    this.game.gravity?.release(this, false);
+  }
+
+  // Off the bike (Vehicles.dismount); `dead`: smoked on it, so die() takes over.
+  endRide(dead) {
+    this.ridePressed = null;
+    if (!dead) this.mode = 'move';
   }
 
   startLunge(dir, speed, time) {
@@ -478,6 +519,7 @@ export class Player {
     this.switchT = this.meleeT = this.throwT = this.lungeT = this.knockT = 0;
     this.guiding = null;
     this.pickupPrompt = null;
+    this.vehicle = this.vehiclePrompt = this.ridePressed = null;
     this.deathInfo = null;
     this.collider.setEnabled(true);
     this.model.reset();
@@ -557,8 +599,22 @@ export class Player {
       case 'bars':
         this.tickBars(dt, movePressed);
         break;
+      case 'ride':
+        // The bike moves us (after this tick); interact gets off.
+        this.ridePressed = pressed;
+        if (pressed.interact) {
+          this.game.vehicles.dismount(this);
+          // (The same press doesn't get us straight back on.)
+          pressed.interact = false;
+        }
+        break;
     }
     this.input = realInput;
+    if (this.vehicle) {
+      if (this.inFire) dealDamage(this.game, this, FIRE_DPS * dt, { cause: 'fire' });
+      if (this.alive && this.vitals.update(dt) && !this.isBot) this.game.sfx.play('shieldCharge');
+      return;
+    }
     this.tickStride(dt);
 
     if (this.inFire) {
@@ -574,6 +630,7 @@ export class Player {
     updateShooting(this.game, this, dt, pressed);
     if (!this.alive) return;
     this.game.pickups.touch(this, pressed);
+    this.game.vehicles?.touch(this, pressed);
 
     this.body.setNextKinematicTranslation(this.center);
   }
@@ -619,6 +676,8 @@ export class Player {
   }
 
   die(info) {
+    // Smoked on a bike: off it (the bike rolls on).
+    if (this.vehicle) this.game.vehicles.dismount(this, true);
     // (The corpse carries on with how we were moving.)
     this.deathVel = (this.deathVel ?? new THREE.Vector3()).copy(this.vel);
     this.game.pickups?.dropFrom(this);
@@ -1455,6 +1514,17 @@ export class Player {
       this.setFov(settings.fov + 10, aspect);
       return;
     }
+    // On a Sizzler: the chase camera, and our own body on the seat.
+    if (this.vehicle) {
+      this.game.vehicles.camera(this, cam, alpha, dt);
+      cam.rotation.x += sx;
+      cam.rotation.y += sy;
+      cam.layers.enable(1 + this.id);
+      const fast = Math.min(1, this.speed() / SIZZLER.topSpeed);
+      this.fovBoost += (SIZZLER.camFov * fast - this.fovBoost) * damp(4, dt);
+      this.setFov(settings.fov + this.fovBoost, aspect);
+      return;
+    }
     cam.layers.disable(1 + this.id);
     // Head bob: the eye dips at each footfall and sways toward the planted foot (a sway cycle
     // takes two steps), with a touch of roll.
@@ -1495,13 +1565,24 @@ export class Player {
       s.yaw = this.yaw;
       s.pitch = this.pitch;
       s.speed = this.speed();
+      // Seated on a bike: the body faces where the bike goes and leans and tips with it.
+      const bike = this.vehicle;
+      s.riding = !!bike;
+      if (bike) {
+        s.yaw = bike.drawnYaw(alpha);
+        s.roll = bike.prevRoll + (bike.roll - bike.prevRoll) * alpha;
+        s.tilt = bike.prevPitch + (bike.pitch - bike.prevPitch) * alpha;
+        s.speed = 0;
+      } else {
+        s.roll = s.tilt = 0;
+      }
       // Velocity along our facing and to our right.
       const sy = Math.sin(this.yaw);
       const cy = Math.cos(this.yaw);
-      s.fwd = -this.vel.x * sy - this.vel.z * cy;
-      s.side = this.vel.x * cy - this.vel.z * sy;
-      s.velY = this.vel.y;
-      s.grounded = this.grounded;
+      s.fwd = bike ? 0 : -this.vel.x * sy - this.vel.z * cy;
+      s.side = bike ? 0 : this.vel.x * cy - this.vel.z * sy;
+      s.velY = bike ? 0 : this.vel.y;
+      s.grounded = this.grounded || !!bike;
       s.crouched = this.crouched;
       s.sliding = this.sliding;
       s.climbing = this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars';

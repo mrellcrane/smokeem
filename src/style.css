@@ -318,7 +318,8 @@ kbd {
 .crosshair {
   position: absolute;
   left: 50%;
-  top: 50%;
+  /* (On a Sizzler the reticle sits above the middle: --aim-lift, from Hud.update.) */
+  top: calc(50% - var(--aim-lift, 0px));
   width: 0;
   height: 0;
   --tick: rgba(214, 243, 255, 0.92);
@@ -390,7 +391,7 @@ kbd {
 .hitmarker {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: calc(50% - var(--aim-lift, 0px));
   width: 0;
   height: 0;
   opacity: 0;
@@ -1201,7 +1202,7 @@ kbd {
 .target-name {
   position: absolute;
   left: 50%;
-  top: calc(50% - 52px * var(--hud-scale, 1));
+  top: calc(50% - var(--aim-lift, 0px) - 52px * var(--hud-scale, 1));
   transform: translateX(-50%);
   font-size: max(11px, calc(13px * var(--hud-scale, 1)));
   font-weight: 700;

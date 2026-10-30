@@ -322,7 +322,11 @@ function fire(game, p, alt = false) {
       acc.head ||= hit.headshot;
       acc.point.copy(hit.point);
       acc.normal.copy(hit.normal);
-      if (rays === 1 || i % 3 === 0) game.fx.impactBody(hit.point, hit.normal, acc.shields);
+      // (A Sizzler's hull sparks like metal.)
+      if (rays === 1 || i % 3 === 0) {
+        if (hit.entity.kind === 'vehicle') game.fx.impactWorld(hit.point, hit.normal, 'metal');
+        else game.fx.impactBody(hit.point, hit.normal, acc.shields);
+      }
     } else if (rays === 1 || i % 3 === 0) {
       const surface = game.trimFace(hit.point, hit.normal, hit.surface);
       game.fx.impactWorld(hit.point, hit.normal, surface);

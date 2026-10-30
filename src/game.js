@@ -40,6 +40,7 @@ import { createFlare } from './render/flare.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
+import { Vehicles } from './vehicles/sizzler.js';
 import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts, loadoutLabel } from './combat/arsenal.js';
 import { WEAPONS } from './combat/weapons.js';
 
@@ -238,6 +239,8 @@ export class Game {
       this.gravity = new Gravity(this, WEAPONS.gravityGun);
       this.props = new Props(this, this.materials.props, this.pickups.pads);
     }
+    // Sizzlers, on maps with spots for them (after the nav graph too: bikes aren't level).
+    if (this.arena.vehicles?.length) this.vehicles = new Vehicles(this, this.arena.vehicles);
     // The Portal Gun's set: everyone's portals.
     if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'portal')) this.portals = new Portals(this, gfx.portalViews ? preset.portalViews : 0);
 
@@ -361,6 +364,7 @@ export class Game {
     this.bolts.warmup(true, fwd);
     this.swarms.warmup(true, fwd);
     this.pickups.warmup(true, fwd);
+    this.vehicles?.warmup(true, fwd);
     this.oysters?.warmup(true, fwd);
     this.portals?.warmup(true, fwd);
     this.flare?.warmup(true);
@@ -394,6 +398,7 @@ export class Game {
     this.bolts.warmup(false);
     this.swarms.warmup(false);
     this.pickups.warmup(false);
+    this.vehicles?.warmup(false);
     this.oysters?.warmup(false);
     this.flare?.warmup(false);
     this.portals?.warmup(false);
@@ -625,7 +630,7 @@ export class Game {
     const a = info.attacker;
     if (a && a !== victim && a.kind === 'player') {
       a.feedback.killT = this.time;
-      a.feedback.killText = `Smoked ${victim.name}${info.headshot ? ' · headshot' : ''}`;
+      a.feedback.killText = victim.kind === 'vehicle' ? `${victim.name} destroyed` : `Smoked ${victim.name}${info.headshot ? ' · headshot' : ''}`;
     }
   }
 
@@ -678,12 +683,14 @@ export class Game {
   pause() {
     if (this.state !== 'playing') return;
     this.state = 'paused';
+    this.vehicles?.silence();
     this.needsRender = true;
   }
 
   // Time's up (or ended from the pause menu): freeze everything and hand the results over.
   endMatch(results) {
     this.state = 'over';
+    this.vehicles?.silence();
     this.needsRender = true;
     this.results = results;
     // The podium, confetti and a camera of its own; the views' HUDs step aside.
@@ -739,6 +746,8 @@ export class Game {
       p.applyLook();
     }
     for (const p of this.players) p.tick(dt);
+    // (After the riders' ticks: bikes read their presses and carry them along.)
+    this.vehicles?.tick(dt);
     this.missiles.tick(dt);
     this.grenades.tick(dt);
     this.bolts.tick(dt);
@@ -760,6 +769,7 @@ export class Game {
     this.arena.update(dt, this.time, this.fx);
     this.exposure?.update(dt);
     this.sky.update?.(this.time);
+    this.vehicles?.updateVisuals(dt, alpha);
     for (const p of this.players) p.updateVisuals(dt, alpha);
     for (const d of this.dummies) d.updateVisual(dt, alpha);
     this.missiles.updateVisuals(alpha);
@@ -889,6 +899,7 @@ export class Game {
     this.swarms.dispose();
     this.missiles.dispose();
     this.pickups.dispose();
+    this.vehicles?.dispose();
     this.beacons?.dispose();
     this.fx.dispose();
     this.scene.traverse((o) => {
