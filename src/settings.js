@@ -17,6 +17,9 @@ export const QUALITY_PRESETS = {
     // can lie around at once (0: none).
     fxScale: 0.5,
     decals: 0,
+    // Portal pictures of the other side: one refreshed every this many frames (0: none, just
+    // the swirl).
+    portalViews: 0,
   },
   medium: {
     label: 'Medium',
@@ -29,6 +32,7 @@ export const QUALITY_PRESETS = {
     halos: true,
     fxScale: 1,
     decals: 96,
+    portalViews: 6,
   },
   high: {
     label: 'High',
@@ -41,6 +45,7 @@ export const QUALITY_PRESETS = {
     halos: true,
     fxScale: 1.25,
     decals: 160,
+    portalViews: 3,
   },
 };
 

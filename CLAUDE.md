@@ -104,7 +104,12 @@ Live build: https://mrellcrane.github.io/smokeem/
   `Player.setSize`: the collider, its test shapes, the head line, the camera, speed, jumps and
   the drawn body all scale with `player.size` (use `player.radius`, `halfHeight` and
   `eyeOffset()` rather than `BODY` for a player's own size); `Player.stomp` smokes a shrunk
-  player someone lands on.
+  player someone lands on. The Portal Gun (`kind: 'portal'`, `firePortal` in `shooting.js`) opens portals in
+  `portals.js` (`game.portals`, only in a set with it): `place` checks the oval fits on one
+  flat surface, `movePlayer` (from `Player.tickMove`) carries players through, `trace` casts a
+  hitscan shot leg by leg through portals (its tracers per leg), `carry` moves missiles, bolts and
+  bugs, `carryBody` grenades and props; `snapshot` renders the low-frame-rate pictures into an
+  atlas after the views (preset's `portalViews`, gfx switch `portalViews`).
 - `src/fx/`: pooled tracers and particles (sparks, smoke), one draw call per system. Beams get
   their own small tracer pool, built only when the match's set has a beam gun.
   - Particles pick a cell of their system's 4 x 4 atlas (`textures.fxAtlas` / `smokeAtlas`) and

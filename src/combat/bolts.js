@@ -79,6 +79,11 @@ export class Bolts {
       }
       _d.copy(b.vel).divideScalar(step / dt);
       const exclude = b.age < (b.kind.ownerGrace ?? 0) ? b.owner.collider : undefined;
+      // Into a portal: out of the other one.
+      if (game.portals?.carry(b.pos, _d, step, game.castShot(b.pos, _d, step + (b.kind.radius ?? 0), exclude).distance, b.vel)) {
+        b.prev.copy(b.pos);
+        continue;
+      }
       const hit = game.castShot(b.pos, _d, step + (b.kind.radius ?? 0), exclude);
       if (hit.hit) {
         b.pos.addScaledVector(_d, Math.max(0, hit.distance - (b.kind.radius ?? 0)));

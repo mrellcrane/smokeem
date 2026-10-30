@@ -63,13 +63,13 @@ export const WEAPON_SETS = {
     power: 'gravityGun',
     loadoutNames: ['Pitmaster', 'Sticky Ribs'],
   },
-  // The Shrink Wrap's set (owner request). Its field gun is a stand-in until the Portal Gun.
+  // The Shrink Wrap and the Portal Gun (owner requests).
   funhouse: {
     name: 'Funhouse',
     heat: 'Hot',
     primaries: ['hickory', 'coldSmoke'],
     sidearm: 'toothpick',
-    field: 'mesquite',
+    field: 'portalGun',
     power: 'shrinkWrap',
     loadoutNames: ['Pitmaster', 'Ice Pick'],
   },

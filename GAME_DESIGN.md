@@ -140,7 +140,8 @@ effects show as they are now.
 
 Character options (owner request, planned after the new bodies): Crash Bandicoot, Link and
 James Bond, each as close to the source as we can make them, with the shared skeleton so they
-animate like everyone else. You pick one on the join screen **(proposal)**.
+animate like everyone else. You pick one on the join screen (owner, 2026-10-30): Link (the hero,
+not Princess Zelda) and GoldenEye-era Bond.
 
 Palette rule: the arena owns orange, hazard yellow, cyan, brown and grey, and the local
 players own blue, red, green and gold, so bots wear violets, pinks, lime and white (armor
@@ -286,7 +287,7 @@ rosters and three judges.
 | Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | planned |
 | Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
 | Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | built |
-| Funhouse | Hot | Hickory, Cold Smoke | Toothpick | Mesquite (Portal Gun later) | Shrink Wrap | built |
+| Funhouse | Hot | Hickory, Cold Smoke | Toothpick | Portal Gun | Shrink Wrap | built |
 | Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | planned |
 
 Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n Fast**
@@ -313,7 +314,7 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | yes |
-| **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | planned, rules need sign-off |
+| **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | yes |
 | **Stickybomb Launcher** | wacky | TF2's: sticky bombs that cling to walls, floors and ceilings, set off together with the aim button (see below). | yes |
 | **Gravity Gun** | wacky | Half-Life 2's: grab and fling loose things, including other people's grenades and stickies (see below). | yes |
 
@@ -354,22 +355,27 @@ really is harder to hit (the collider, head line and camera all scale).
   and only shrink.
 
 **Portal Gun** (owner request, 2026-10-29: "a portal gun like from the game Portal", as close to
-the source as we can get). Proposed, to be signed off:
-- It looks and sounds like Portal's handheld portal device: white casing, black core, a claw at
-  the front that glows the color of the last portal shot.
-- Fire shoots the blue portal and the aim button the orange one: Portal's oval portals with
-  their glowing rims, on any flat wall, floor or ceiling with room for a body (not on mud,
-  nets, ropes or glow strips). Shooting one again moves it.
-- Every player's pair is blue and orange, with a thin outer ring in the owner's armor color so
-  you can tell whose they are. Your own portals only link to each other.
-- Anyone walks through anyone's portals, and speedy thing goes in, speedy thing comes out:
-  drop into a floor portal and fly out of a wall portal. Bullets, rockets, grenades and bugs go
-  through too.
+the source as we can get; rules signed off 2026-10-30; built). On the field pads in Funhouse,
+a pickup only (never in a loadout), no ammo. Bots leave it alone.
+- It looks like Portal's handheld portal device: white casing, black core, three black prongs at
+  the front around a pale glowing core, with a stripe in your armor color.
+- Fire opens the blue portal and the aim button the orange one: ovals about 1.2 m x 2 m with
+  glowing rims, on any flat wall, floor or ceiling with room for them (not mud, nets, ropes,
+  belts or the invisible walls over the perimeter). A shot near an edge slides the portal to fit
+  if it can; otherwise it fizzles. Shooting a color again moves it. Floor and ceiling portals
+  point away from you.
+- Every player's pair is blue and orange, with a thin outer ring in the owner's armor color, and
+  your two link to each other. Your crosshair shows a blue and an orange oval, filled while that
+  portal is open.
+- Anyone goes through anyone's linked portals, and speedy thing goes in, speedy thing comes out:
+  your speed turns with you (at least 3 m/s out of the exit) and so does your view. Walk into a
+  wall portal, fall into a floor one, or stand on a floor one and drop through.
+- Bullets go through (up to three portals, and yes, you can shoot yourself), and so do rockets
+  (the pilot's view turns with them), grenades, coals, sticky bombs, props, Swarm Jars and bugs.
 - Portals close when you're smoked.
-- The first version shows a swirling portal surface rather than a live view through it (a view
-  through costs a whole extra render per portal per split-screen view); a see-through version
-  on High only if the Xbox bench has room.
-- A field or power gun in a wacky set, like the Shrink Wrap.
+- Each portal shows a low-resolution picture of what's out of the other one, refreshed a few
+  times a second (Medium and High; Low shows only the swirl). It's a picture, not a window: it
+  doesn't shift as you move.
 
 **Shooting rules for every gun**
 - Hold the trigger to repeat at the gun's own rate (semi-autos too, so nobody has to mash).
@@ -693,8 +699,6 @@ Need answers before the step that uses them gets built.
 
 1. **How abilities are earned.** Needed for phase 2.
 2. **Names.** Weapon, map and vehicle names above are proposals.
-3. **Zelda.** The character option assumes Link (the hero); the owner may have meant Princess
-   Zelda.
 
 ## Decision log
 
@@ -880,3 +884,8 @@ Need answers before the step that uses them gets built.
   air drag (losing over half their speed a second), so a high lob stalled and fell short of a
   flat one. Now almost no drag until the first bounce, a faster throw (20 m/s), a fuse that waits
   for a long lob to land, and bots lob with the arc solver.
+- 2026-10-30: Portal Gun rules signed off (anyone can use anyone's portals, shots go through,
+  pickup only) and built, on Funhouse's field pads. The owner asked for a picture of the other
+  side instead of the plain swirl: each portal shows a low-frame-rate snapshot from its exit
+  (one portal refreshed every 6 frames on Medium, 3 on High, all in one atlas texture). Character
+  options: picked on the join screen, Link (not Princess Zelda) and GoldenEye-era Bond.

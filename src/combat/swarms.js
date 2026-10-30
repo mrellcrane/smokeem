@@ -205,7 +205,10 @@ export class Swarms {
     const step = s.vel.length() * dt;
     if (step > 1e-5) {
       _d.copy(s.vel).divideScalar(s.vel.length());
-      const hit = game.castShot(s.pos, _d, step + 0.25, s.owner.alive ? s.owner.collider : undefined);
+      const ex = s.owner.alive ? s.owner.collider : undefined;
+      // Through a portal in the way.
+      if (game.portals?.carry(s.pos, _d, step, game.castShot(s.pos, _d, step + 0.25, ex).distance, s.vel)) return;
+      const hit = game.castShot(s.pos, _d, step + 0.25, ex);
       if (!hit.hit || hit.entity) {
         s.pos.addScaledVector(s.vel, dt);
       } else if (s.target) {

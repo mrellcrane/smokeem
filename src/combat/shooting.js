@@ -8,6 +8,7 @@ import { GUNS } from './guns/index.js';
 import { gfx } from '../render/gfx.js';
 import { AIM, SIZE } from '../config.js';
 import { assists, assistTarget, magnetize } from './aimAssist.js';
+import { PORTAL_COLORS } from './portals.js';
 
 // Everything a player does with their hands, run from the player's fixed tick: trigger,
 // reload, weapon switching, grenades, melee, launching and detonating the Smoke Signal.
@@ -41,6 +42,9 @@ function muzzleFlash(game, p, dir) {
 
 // Pellet hits are summed per target so one shotgun blast is one damage event.
 const pelletHits = new Map();
+// A shot's legs through portals (Portals.trace): [start, end] pairs.
+const legs = Array.from({ length: 4 }, () => [new THREE.Vector3(), new THREE.Vector3()]);
+legs.count = 0;
 
 export function currentSpread(p) {
   const w = p.weapon;
@@ -114,11 +118,11 @@ export function updateShooting(game, p, dt, pressed) {
   if (pressed.grenade && !busy && p.throwT <= 0 && p.grenades > 0) throwGrenade(game, p);
   if (pressed.reload && w.canReload()) startReload(game, p);
   // Guns whose aim button acts: the Stickybomb Launcher sets off your stickies, the Gravity Gun
-  // grabs or drops, the Shrink Wrap fires its grow ray.
+  // grabs or drops, the Shrink Wrap fires its grow ray, the Portal Gun opens the orange portal.
   if (pressed.aim && !busy) {
     if (d.detonateOnAim) game.grenades.detonateStickies(p);
     else if (d.kind === 'gravity') game.gravity?.toggle(p);
-    else if (d.kind === 'size' && w.cooldown <= 0 && w.mag > 0 && p.meleeT < MELEE.cooldown - 0.25) {
+    else if ((d.kind === 'size' || d.kind === 'portal') && w.cooldown <= 0 && w.mag > 0 && p.meleeT < MELEE.cooldown - 0.25) {
       fire(game, p, true);
       w.cooldown += 1 / d.fireRate;
     }
@@ -210,8 +214,8 @@ export function cancelReload(game, w) {
   w.reloadSfx = null;
 }
 
-// grow: the Shrink Wrap's grow ray (its aim button) instead of its shrink ray.
-function fire(game, p, grow = false) {
+// alt: the aim button's shot (the Shrink Wrap's grow ray, the Portal Gun's orange portal).
+function fire(game, p, alt = false) {
   const w = p.weapon;
   const d = w.def;
   w.mag--;
@@ -224,7 +228,8 @@ function fire(game, p, grow = false) {
   p.viewmodel?.fired();
   if (d.kind === 'beam') return fireBeam(game, p);
   if (d.kind === 'gravity') return game.gravity?.fire(p);
-  if (d.kind === 'size') return fireSize(game, p, grow);
+  if (d.kind === 'size') return fireSize(game, p, alt);
+  if (d.kind === 'portal') return firePortal(game, p, alt ? 1 : 0);
   // Fast guns can play their sound every so often instead of on every round.
   if (!d.soundEvery || game.time - w.lastSoundT >= d.soundEvery) {
     game.sfx.play(d.sound, { rate: (d.soundRate ?? 1) * (0.97 + Math.random() * 0.06), at: p.center, source: p });
@@ -284,15 +289,22 @@ function fire(game, p, grow = false) {
     const rr = Math.tan(spread) * Math.sqrt(Math.random());
     const a = Math.random() * Math.PI * 2;
     _d.copy(_f).addScaledVector(_r, Math.cos(a) * rr).addScaledVector(_u, Math.sin(a) * rr).normalize();
-    const hit = game.castShot(_o, _d, d.range, p.collider);
+    // Through any portals in the way (each leg cast from where the last came out).
+    const hit = game.portals ? game.portals.trace(_o, _d, d.range, p.collider, legs) : game.castShot(_o, _d, d.range, p.collider);
+    if (!game.portals) legs.count = 0;
     _end.copy(_o).addScaledVector(_d, hit.hit ? hit.distance : d.range);
+    if (legs.count) _end.copy(legs[0][1]);
     // Bugs in the line of fire get hit too (the round carries on).
-    if (game.swarms.count) game.swarms.shot(_o, _d, hit.hit ? hit.distance : d.range, d.damage, p);
+    if (game.swarms.count) game.swarms.shot(_o, _d, legs.count ? legs[0][0].distanceTo(legs[0][1]) : hit.hit ? hit.distance : d.range, d.damage, p);
     // Fast guns draw a tracer on every few rounds (always the first) so several of them never
     // flood the pool.
     if (rays === 1 ? (w.shots - 1) % (d.tracerEvery ?? 1) === 0 : i % 2 === 0) {
       game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, { a3: _m3, owner: p.id, linger: d.tracerLife });
       game.replay?.shot(p, _muzzle, _end, d.tracerColor, d.tracerWidth, d.tracerLife);
+      for (let k = 1; k < legs.count; k++) {
+        game.fx.tracer(legs[k][0], legs[k][1], d.tracerColor, d.tracerWidth, { linger: d.tracerLife });
+        game.replay?.shot(p, legs[k][0], legs[k][1], d.tracerColor, d.tracerWidth, d.tracerLife);
+      }
     }
     if (!hit.hit) continue;
     if (hit.entity) {
@@ -329,6 +341,29 @@ function fire(game, p, grow = false) {
     if (res) p.onHitConfirmed(res, acc.head);
   }
   pelletHits.clear();
+}
+
+// Portal Gun: a bolt of the portal's color, and the portal opens where it hits if there's room
+// (otherwise it fizzles).
+function firePortal(game, p, which) {
+  const d = p.weapon.def;
+  aimBasis(p, _f, _r, _u);
+  p.eyePosition(_o);
+  muzzleFlash(game, p, _f);
+  game.sfx.play(which ? 'portalShotB' : 'portalShotA', { rate: 0.97 + Math.random() * 0.06, at: p.center, source: p });
+  const hit = game.castShot(_o, _f, d.range, p.collider);
+  _end.copy(_o).addScaledVector(_f, hit.hit ? hit.distance : d.range);
+  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2).addScaledVector(_u, -0.14);
+  p.worldMuzzle(_m3);
+  const color = PORTAL_COLORS[which];
+  game.fx.tracer(_muzzle, _end, color, d.tracerWidth, { a3: _m3, owner: p.id, linger: d.tracerLife });
+  game.replay?.shot(p, _muzzle, _end, color, d.tracerWidth, d.tracerLife);
+  p.portalColor = which;
+  if (game.portals?.place(p, which, hit, _f)) return;
+  if (hit.hit) {
+    game.fx.impactWorld(hit.point, hit.normal, 'metal');
+    game.sfx.play('portalFizzle', { at: hit.point });
+  }
 }
 
 // Shrink Wrap: one ray that shrinks (or grows) whoever it hits. Shrinking someone big or growing

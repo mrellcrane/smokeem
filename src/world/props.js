@@ -159,6 +159,8 @@ export class Props {
       const jolt = _v.distanceTo(p.vel);
       const speed = _v.length();
       p.vel.copy(_v);
+      // Portals: into one, out of the other (not while a gravity gun holds it).
+      if (!p.heldBy && game.portals?.carryBody(p.body, p.pos, p.vel, this.reach(p) - 0.1, dt)) p.prev.copy(p.pos);
       if (p.pos.y < -20) {
         this.remove(p);
         continue;

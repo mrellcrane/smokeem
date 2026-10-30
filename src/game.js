@@ -17,6 +17,7 @@ import { Beacons } from './world/beacons.js';
 import { renderGunIcons } from './ui/gunIcons.js';
 import { Oysters } from './modes/oysters.js';
 import { Props } from './world/props.js';
+import { Portals } from './combat/portals.js';
 import { Gravity } from './combat/gravity.js';
 import { Replay } from './render/replay.js';
 import { Show } from './world/show.js';
@@ -128,7 +129,7 @@ export class Game {
     this._frame = (now) => this.frame(now);
     this._surface = { point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null };
     // surface: what a world hit is made of (materials.js), null for bodies and unknown colliders.
-    this._shot = { hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false, lowBlow: false, surface: null };
+    this._shot = { handle: -1, hit: false, distance: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), entity: null, headshot: false, lowBlow: false, surface: null };
     this._sack = { distance: 0 };
     // Per-frame render numbers for the FPS readout and ?bench.
     this.stats = { renderMs: 0, shadowCalls: 0, views: 1, viewCalls: [0, 0, 0, 0] };
@@ -206,6 +207,8 @@ export class Game {
       this.gravity = new Gravity(this, WEAPONS.gravityGun);
       this.props = new Props(this, this.materials.props, this.pickups.pads);
     }
+    // The Portal Gun's set: everyone's portals.
+    if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'portal')) this.portals = new Portals(this, gfx.portalViews ? preset.portalViews : 0);
 
     if (practiceTargets) {
       for (const def of this.arena.dummyPosts) this.dummies.push(new Dummy(this, def));
@@ -312,6 +315,7 @@ export class Game {
     this.swarms.warmup(true, fwd);
     this.pickups.warmup(true, fwd);
     this.oysters?.warmup(true, fwd);
+    this.portals?.warmup(true, fwd);
     this.props?.updateVisuals(1);
     const finaleBits = Finale.warmupMeshes();
     for (const m of finaleBits) {
@@ -343,6 +347,7 @@ export class Game {
     this.swarms.warmup(false);
     this.pickups.warmup(false);
     this.oysters?.warmup(false);
+    this.portals?.warmup(false);
     for (const m of finaleBits) {
       m.removeFromParent();
       m.geometry.dispose();
@@ -387,6 +392,8 @@ export class Game {
     const hit = this.physics.world.castRayAndGetNormal(ray, range, true, this.shotFilter, undefined, exclude);
     const entity = hit ? this.entities.get(hit.collider.handle) ?? null : null;
     r.lowBlow = false;
+    // The collider hit (portals won't open on the invisible blockers), -1 for none.
+    r.handle = hit ? hit.collider.handle : -1;
     // Rocky Mountain Oysters: a sack in the way is hit before whatever is behind it.
     const sack = this.oysters?.rayHit(origin, dir, hit ? hit.timeOfImpact : range, exclude, this._sack);
     if (sack) {
@@ -704,6 +711,7 @@ export class Game {
     this.pickups.updateVisuals(this.time);
     this.props?.updateVisuals(alpha);
     this.oysters?.updateVisuals(dt);
+    this.portals?.updateVisuals(dt);
     this.show?.update(dt);
     this.beacons?.update(dt, this.time, this.pickups.pads, this.players);
     this.fx.update(dt);
@@ -768,6 +776,9 @@ export class Game {
       this.huds[i].layout(rect, H);
       this.huds[i].update(p, this, this.showDebug);
     }
+    // Portal pictures of the other side, a few times a second (after the views, so the shadow
+    // map is already this frame's).
+    this.portals?.snapshot(r);
     if (this.infoPanel) {
       this.infoPanel.layout(viewportRects(4, W, H)[3], H);
       if (dt === 0) this.infoPanel.update(1);
@@ -784,6 +795,7 @@ export class Game {
     for (const h of this.huds) h.dispose();
     this.infoPanel?.dispose();
     this.oysters?.dispose();
+    this.portals?.dispose();
     this.show?.dispose();
     this.finale?.dispose();
     this.hudRoot.classList.remove('finale');

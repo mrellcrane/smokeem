@@ -145,6 +145,15 @@ export class Missiles {
 
     const step = m.speed * dt;
     const exclude = m.age < ARM_TIME ? m.owner.collider : undefined;
+    // Into a portal: out of the other one, turned with it (the pilot's view turns too).
+    if (game.portals?.carry(m.pos, m.dir, step + 0.2, game.castShot(m.pos, m.dir, step + 0.2, exclude).distance)) {
+      m.pitch = Math.asin(THREE.MathUtils.clamp(m.dir.y, -1, 1));
+      m.yaw = Math.atan2(-m.dir.x, -m.dir.z);
+      m.prev.copy(m.pos);
+      m.prevYaw = m.yaw;
+      m.prevPitch = m.pitch;
+      return;
+    }
     const hit = game.castShot(m.pos, m.dir, step + 0.2, exclude);
     if (hit.hit) {
       m.pos.copy(m.pos).addScaledVector(m.dir, Math.max(0, hit.distance - 0.15));
@@ -315,6 +324,8 @@ export class Grenades {
         if (g.kind.landFuse && g.fuse <= 0) g.fuse = g.kind.landFuse;
       }
       g.vel.copy(_v);
+      // Portals: into one, out of the other.
+      if (!g.stuck && !g.heldBy && this.game.portals?.carryBody(g.body, g.pos, g.vel, 0.1, dt)) g.prev.copy(g.pos);
       if (g.kind.ember && (this.game.tickCount & 1) === 0) this.game.fx.ember(g.pos);
       // A long lob whose fuse runs out in the air waits to land (up to 5 s in all).
       const aloft = g.kind.landFuse && !g.landed && g.age < 5;
