@@ -993,3 +993,9 @@ Need answers before the step that uses them gets built.
 - 2026-10-30: Owner: in Rocky Mountain Oysters your size should stay when you die instead of
   popping back to small. It now only grows during a match (so the bounty point goes to whoever
   smokes someone with more kills).
+- 2026-10-30: Halo look, the color grade (second of the three passes): less color, a cooler
+  white, more contrast, shadows lifted toward blue, and bright light rolled off to white, so the
+  sky blows out pale at the horizon and distant walls sit in a bright haze. Each view's eye
+  adapts: stand under a roof or a catwalk and the exposure opens up over about a second; step
+  back out and the world is blown out for a moment, then settles. No extra passes on Low and
+  Medium (the grade runs inside the materials); on High the bloom composite does it.

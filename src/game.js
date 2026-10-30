@@ -35,6 +35,7 @@ import { disposeCharacterMaterial } from './player/character.js';
 import { disposeViewmodelMaterial, viewmodelUniforms } from './player/viewmodel.js';
 import { captureReflections, releaseReflections, envUniforms } from './render/reflections.js';
 import { Bloom } from './render/bloom.js';
+import { applyGrade, AutoExposure, hazeBoost } from './render/grade.js';
 import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
@@ -169,7 +170,11 @@ export class Game {
     await nextFrame();
     const scene = (this.scene = new THREE.Scene());
     const look = (this.look = this.map.look);
-    scene.fog = new THREE.Fog(look.sky.horizon, look.fog.near, look.fog.far);
+    // The color grade and each view's adapting exposure (render/grade.js).
+    this.grade = gfx.grade ? look.grade ?? null : null;
+    applyGrade(this.renderer, this.grade);
+    this.exposure = this.grade ? new AutoExposure(this, this.grade) : null;
+    scene.fog = new THREE.Fog(new THREE.Color(look.sky.horizon).multiplyScalar(hazeBoost(look)), look.fog.near, look.fog.far);
     this.setupLights(preset);
     this.sky = createSky(this.textures, this.materials, look);
     scene.add(this.sky);
@@ -296,7 +301,8 @@ export class Game {
   setupViewmodelScene() {
     const { look } = this;
     const vm = (this.vmScene = new THREE.Scene());
-    vm.add(new THREE.HemisphereLight(look.hemi.sky, look.hemi.ground, look.vm.hemi));
+    this.vmHemi = new THREE.HemisphereLight(look.hemi.sky, look.hemi.ground, look.vm.hemi);
+    vm.add(this.vmHemi);
     this.vmSun = new THREE.DirectionalLight(look.sun.color, look.vm.sun);
     vm.add(this.vmSun, this.vmSun.target);
     this.vmCamera = new THREE.PerspectiveCamera(VIEWMODEL.fov, 1, 0.01, 10);
@@ -729,6 +735,7 @@ export class Game {
 
   updateVisuals(dt, alpha) {
     this.arena.update(dt, this.time, this.fx);
+    this.exposure?.update(dt);
     this.sky.update?.(this.time);
     for (const p of this.players) p.updateVisuals(dt, alpha);
     for (const d of this.dummies) d.updateVisual(dt, alpha);
@@ -750,6 +757,7 @@ export class Game {
     const r = this.renderer;
     if (this.finale) {
       r.info.reset();
+      r.toneMappingExposure = this.grade ? this.grade.open : 1;
       this.finale.render(r);
       return;
     }
@@ -779,7 +787,10 @@ export class Game {
       // Effects hide this player's own third-person flashes and keep a minimum on-screen size.
       this.fx.setView(p.guiding ? -1 : p.id, rect.h * r.getPixelRatio());
       if (this.oysters) this.oysters.uniforms.uHide.value = replaying ? this.replay.killerOf(p).id : p.guiding ? -1 : p.id;
-      if (bloom) bloom.view(r, rect);
+      // This view's exposure (the eye adapting to where this player stands).
+      const exposure = this.exposure ? this.exposure.value(p) : 1;
+      r.toneMappingExposure = exposure;
+      if (bloom) bloom.view(r, rect, exposure);
       else {
         r.setViewport(rect.x, rect.y, rect.w, rect.h);
         r.setScissor(rect.x, rect.y, rect.w, rect.h);
@@ -796,6 +807,11 @@ export class Game {
           vc.fov = VIEWMODEL.fov;
           vc.updateProjectionMatrix();
         }
+        // The gun has its own lights, so they're turned down by as much as this view's exposure
+        // turns everything up: an eye adapted to the dark doesn't make the gun glow.
+        const k = (this.grade ? this.grade.open : 1) / exposure;
+        this.vmHemi.intensity = this.look.vm.hemi * k;
+        this.vmSun.intensity = this.look.vm.sun * k;
         // Light the viewmodel from the real sun direction, in camera space.
         _invQ.copy(p.camera.quaternion).invert();
         this.vmSun.position.copy(_sunDir).applyQuaternion(_invQ).multiplyScalar(5);

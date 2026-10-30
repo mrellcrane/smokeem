@@ -273,7 +273,7 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   sides a column every 2 m (`sideBox`: only the sides are split; tops and bottoms share their
   edge vertices so boxes stay watertight, since T-junctions crack into single-pixel holes). Any static geometry needs a `color`
   attribute, so add it through `StaticBuilder`, not as a separate mesh with these materials.
-- Lights, fog and sky colors come from the map's look (`src/world/looks.js`).
+- Lights, fog, sky colors and the color grade come from the map's look (`src/world/looks.js`).
 - The sky (`sky.js`): the dome's vertex colors carry the gradient and the sun's glow, a cloud band
   wraps the horizon (its texture drifts in `sky.update`), and outdoor looks with `sky.skyline` get
   the facility around the arena (`skyline.js`, gfx switch `skyline`): every structure in one
@@ -317,6 +317,20 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   muzzle flash size. Guns with a `display` (Hickory, Kindling, Rotisserie) show the mag count on
   a small screen on the gun (a canvas redrawn only when the count changes, orange when low; one
   plane on the held gun, placed by Euler `rot` or by `normal` and `up`).
+- Color grade and adapting exposure (`render/grade.js`, gfx switch `grade`, every preset): the
+  map's `look.grade` is baked into three's custom tone mapping hook (`applyGrade` rewrites the
+  `CustomToneMapping` chunk before the match compiles), so every built-in material grades itself
+  with no extra pass: exposure, saturation, contrast around middle grey, white balance, a blue
+  lift in the shadows, and a shoulder above `knee` that rolls bright light off to white. Under
+  the grade the sky dome and clouds are drawn `grade.sky` times brighter and the fog and skyline
+  haze `grade.haze` times (`skyBoost` / `hazeBoost`), so the horizon blows out. `AutoExposure`
+  gives each local player's view its own exposure (`renderer.toneMappingExposure`, set per
+  view): every 0.2 s nine rays from the eye (straight up and a ring at 60 degrees, 12 m, level
+  geometry only) measure open sky, from `grade.shade` under full cover to `grade.open` in the
+  open, adapting over about a second. The viewmodel's own lights are turned down by the same
+  factor. Drawing into a render target skips tone mapping, so on High the bloom composite grades
+  instead, with each view's exposure (`uRects`, `uExposure`). Effect shaders ending in
+  `DISPLAY_OUT` / `DISPLAY_ADD` aren't graded on Low and Medium (only by the composite on High).
 - First-person guns (and the loadout pictures) use `viewmodelMaterial()` (`viewmodel.js`): Phong
   whose shine follows each vertex's finish (`aFinish`: matte, wood, paint, metal, glow), a
   sky-and-ground reflection on metal and paint (`viewmodelUniforms`, the world's up set per view
