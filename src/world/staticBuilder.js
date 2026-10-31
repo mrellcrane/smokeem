@@ -158,12 +158,36 @@ const smooth = (a, b, x) => {
 };
 const mix = (a, b, t) => a + (b - a) * t;
 
+// Each vertex of a box (centered, unrotated) gets where it sits on its face, in meters from the
+// face's corner, and the face's size: (u, v, width, height). The bevel shader rounds the light
+// near the face's edges from these.
+function edgeCoords(geom, w, h, d) {
+  const pos = geom.attributes.position;
+  const nor = geom.attributes.normal;
+  const out = new Float32Array(pos.count * 4);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const nx = Math.abs(nor.getX(i));
+    const ny = Math.abs(nor.getY(i));
+    let e;
+    if (nx > 0.5) e = [z + d / 2, y + h / 2, d, h];
+    else if (ny > 0.5) e = [x + w / 2, z + d / 2, w, d];
+    else e = [x + w / 2, y + h / 2, w, h];
+    out.set(e, i * 4);
+  }
+  geom.setAttribute('aEdge', new THREE.BufferAttribute(out, 4));
+}
+
 export class StaticBuilder {
   // loose: in a match with the Gravity Gun, small crates and drums (parts.js) aren't built here
   // but listed in `loose` for world/props.js to make into things it can throw.
-  constructor(RAPIER, world, { loose = false } = {}) {
+  // bevel: give boxes their faces' edge coordinates (aEdge) for the bevel shader (materials.js).
+  constructor(RAPIER, world, { loose = false, bevel = false } = {}) {
     this.RAPIER = RAPIER;
     this.world = world;
+    this.bevel = bevel;
     this.loose = loose ? [] : null;
     this.groups = new Map();
     this.meshes = [];
@@ -197,6 +221,8 @@ export class StaticBuilder {
         this.light(_box.min.toArray(), _box.max.toArray(), tint);
       }
     }
+    // (Every geometry merged with a beveled box needs the attribute too: zeros, no bevel.)
+    if (this.bevel && !geom.attributes.aEdge) geom.setAttribute('aEdge', new THREE.BufferAttribute(new Float32Array(geom.attributes.position.count * 4), 4));
     const key = `${mat.uuid}|${castShadow ? 1 : 0}`;
     let g = this.groups.get(key);
     if (!g) {
@@ -243,6 +269,7 @@ export class StaticBuilder {
       const ds = Math.min(64, Math.max(1, Math.ceil(d / 2)));
       const geom = sideBox(w, h, d, ws, hs, ds);
       placeRows(geom, h, rows);
+      if (this.bevel && opts.bevel !== false) edgeCoords(geom, w, h, d);
       if (uv === 'world' && mat.userData.tile > 0) {
         const min = quat || rotY ? null : [center[0] - w / 2, center[1] - h / 2, center[2] - d / 2];
         worldUvBox(geom, w, h, d, mat.userData.tile, ws, hs, ds, !quat, min);

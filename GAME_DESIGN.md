@@ -1320,3 +1320,7 @@ Need answers before the step that uses them gets built.
 - 2026-10-31: Super Easy bots (owner: a friend came second against Easy ones). Slow to notice and
   turn, wild aim, short bursts with long pauses, no grenades, no grapple, hardly any jumping or
   strafing, and their shots do half damage.
+- 2026-10-31: Realism pilot on Cook-Off Yard (owner: "yes" to photo textures and rounded edges on
+  one map to compare): CC0 photo scans for the ground, concrete and planks, and rounded edges on
+  every box (a shader bevel, no extra geometry). A scanned metal plate was tried and dropped: it
+  read as muddy concrete, so the painted metal panels stay. Other maps unchanged for comparison.

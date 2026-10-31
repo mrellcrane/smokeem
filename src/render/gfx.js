@@ -35,6 +35,10 @@ export const gfx = {
   grade: true,
   // World-space grime over the level's surfaces (world/materials.js).
   grime: true,
+  // Photo textures on maps whose look asks for them (world/photos.js).
+  photoTextures: true,
+  // Rounded edges on level boxes, on maps whose look asks for them (world/materials.js).
+  bevels: true,
   // The sun's lens flare (medium and high presets, outdoor maps; render/flare.js).
   flare: true,
   // God rays from the sun through gaps (high preset, outdoor maps; render/bloom.js).

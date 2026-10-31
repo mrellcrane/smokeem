@@ -38,10 +38,68 @@ function applyGrime(material, map, amount) {
   material.customProgramCacheKey = () => 'grime';
 }
 
+// Rounded edges (gfx switch `bevels`, maps whose look sets `bevel`): every box face knows where
+// each pixel sits on it (aEdge, from StaticBuilder: meters from its corner and its size), so within
+// BEVEL of an edge the normal bends out over the edge, up to 45 degrees at it, as a rounded edge
+// would: the edges facing the sun catch it and the others fall into shade, and they're a little
+// lighter (worn). The face's directions on screen come from the position's derivatives (as three
+// does for normal maps), and the band fades out where it would be under a couple of pixels wide.
+// Faces with no edge data (cylinders, rods) have zero size and are left alone.
+const BEVEL = 0.045;
+const BEVEL_VERTEX = /* glsl */ `
+  vEdge = aEdge;
+`;
+const BEVEL_FRAGMENT = /* glsl */ `
+  if (vEdge.z > 0.0) {
+    vec3 q0 = dFdx(-vViewPosition);
+    vec3 q1 = dFdy(-vViewPosition);
+    vec2 st0 = dFdx(vEdge.xy);
+    vec2 st1 = dFdy(vEdge.xy);
+    vec3 n0 = normalize(nonPerturbedNormal);
+    vec3 q1perp = cross(q1, n0);
+    vec3 q0perp = cross(n0, q0);
+    vec3 T = q1perp * st0.x + q0perp * st1.x;
+    vec3 B = q1perp * st0.y + q0perp * st1.y;
+    float lt = length(T);
+    float lb = length(B);
+    if (lt > 0.0 && lb > 0.0) {
+      T /= lt;
+      B /= lb;
+      float w = min(${BEVEL}, 0.3 * min(vEdge.z, vEdge.w));
+      float bx = smoothstep(w, 0.0, vEdge.z - vEdge.x) - smoothstep(w, 0.0, vEdge.x);
+      float by = smoothstep(w, 0.0, vEdge.w - vEdge.y) - smoothstep(w, 0.0, vEdge.y);
+      // How many pixels the band spans here.
+      float px = max(fwidth(vEdge.x), fwidth(vEdge.y));
+      float k = smoothstep(0.8, 2.5, w / max(px, 1e-5));
+      bx *= k;
+      by *= k;
+      normal = normalize(normal + T * bx + B * by);
+      diffuseColor.rgb *= 1.0 + 0.16 * max(abs(bx), abs(by));
+    }
+  }
+`;
+
+// Adds the bevel to a material, after whatever it already does in onBeforeCompile (the grime).
+export function applyBevel(material) {
+  const prev = material.onBeforeCompile;
+  const prevKey = material.customProgramCacheKey?.() ?? '';
+  material.onBeforeCompile = (shader, renderer) => {
+    prev?.call(material, shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec4 aEdge;\nvarying vec4 vEdge;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>\n${BEVEL_VERTEX}`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec4 vEdge;')
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${BEVEL_FRAGMENT}`);
+  };
+  material.customProgramCacheKey = () => `${prevKey}|bevel`;
+}
+
 // Shared materials. Lambert/Phong only: cheap per-pixel lighting that holds up in split-screen.
 // `tile` is the texture repeat size in meters used by StaticBuilder for world-space UVs.
 // Static level materials use vertex colors: StaticBuilder writes each vertex's baked light there.
-export function createMaterials(tex) {
+// `photo`: tiles (meters) and color tints for the materials whose maps are photos (photos.js).
+export function createMaterials(tex, photo = {}) {
   const vc = { vertexColors: true };
   const m = {
     ground: new THREE.MeshLambertMaterial({ map: tex.ground, ...vc }),
@@ -107,6 +165,8 @@ export function createMaterials(tex) {
     net: 'cloth',
     rope: 'cloth',
   };
+  Object.assign(tiles, photo.tiles);
+  for (const [name, [r, g, b]] of Object.entries(photo.tints ?? {})) if (photo.tiles?.[name]) m[name].color.setRGB(r, g, b);
   for (const [name, mat] of Object.entries(m)) {
     mat.name = name;
     mat.userData.tile = tiles[name] ?? 0;
