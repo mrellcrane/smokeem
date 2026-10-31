@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { dealDamage } from './damage.js';
-import { jarGeometry, rocketGeometry } from './weaponModels.js';
+import { jarGeometry, rocketGeometry, skewerGeometry, globGeometry } from './weaponModels.js';
 import { explode } from './explosions.js';
 
 // Bolts: small ballistic projectiles with no physics body (the Swarm Jar's jar; later the
@@ -18,10 +18,16 @@ import { explode } from './explosions.js';
 //   trail     leaves smoke and a glow (the `glow` color) behind it
 //   homing    radians a second it turns toward its `target` (set by whoever fired it), if any
 //   explosion bursts with this blast on impact or at the end of its life (explosions.js)
+//   stick     seconds it stays stuck where it hit, nose in (the Skewer's skewers)
+//   pinReach  a player it hits with a wall this close behind them (along the flight) is pinned
+//             to that wall for pinTime seconds (Player.pin)
+//   puddle    leaves a slick puddle of sauce where it lands ({ radius, time }, sauce.js)
 // What happens on impact is up to the gun: `game.bolts.onImpact[look](bolt, hit)`; `hit` is
 // null when a bolt runs out of life in the air.
 
 const MAX_BOLTS = 16;
+// Stuck skewers kept at once (the oldest goes first).
+const MAX_STUCK = 12;
 const FWD = new THREE.Vector3(0, 0, -1);
 const _t = new THREE.Vector3();
 const _d = new THREE.Vector3();
@@ -30,17 +36,20 @@ const _q = new THREE.Quaternion();
 const _s = new THREE.Vector3(1, 1, 1);
 const _m = new THREE.Matrix4();
 const _e = new THREE.Euler();
+const _pin = { point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null };
 
 export class Bolts {
   constructor(game, material) {
     this.game = game;
     this.list = [];
+    // Bolts stuck where they hit: { look, pos, quat, life, on (a target it stuck in), off }.
+    this.stuck = [];
     // Impact handlers by look, set by whoever owns that kind of bolt.
     this.onImpact = {};
     this.meshes = {};
     this.meshList = [];
-    for (const [look, geom] of [['jar', jarGeometry()], ['rocket', rocketGeometry()]]) {
-      const m = new THREE.InstancedMesh(geom, material, MAX_BOLTS);
+    for (const [look, geom] of [['jar', jarGeometry()], ['rocket', rocketGeometry()], ['skewer', skewerGeometry()], ['glob', globGeometry()]]) {
+      const m = new THREE.InstancedMesh(geom, material, MAX_BOLTS + (look === 'skewer' ? MAX_STUCK : 0));
       m.name = `bolts:${look}`;
       m.castShadow = true;
       m.frustumCulled = false;
@@ -73,6 +82,12 @@ export class Bolts {
 
   tick(dt) {
     const game = this.game;
+    for (let i = this.stuck.length - 1; i >= 0; i--) {
+      const st = this.stuck[i];
+      st.life -= dt;
+      // Stuck in someone: it rides along until they're smoked or it's pulled out.
+      if (st.life <= 0 || (st.on && (!st.on.alive || st.on.pinT <= 0))) this.stuck.splice(i, 1);
+    }
     for (let i = this.list.length - 1; i >= 0; i--) {
       const b = this.list[i];
       b.prev.copy(b.pos);
@@ -139,21 +154,53 @@ export class Bolts {
   }
 
   impact(b, hit) {
-    if (hit.entity && b.kind.direct) {
-      const res = dealDamage(this.game, hit.entity, b.kind.direct, {
+    const k = b.kind;
+    const game = this.game;
+    _t.copy(b.vel).normalize();
+    // Pinned: a wall right behind the one it hit (checked before the damage, which may smoke
+    // them; a pin only matters to the living).
+    let wall = null;
+    if (k.pinReach && hit.entity?.kind === 'player') {
+      const behind = game.surfaceNear(hit.point, _t, k.pinReach + hit.entity.radius, _pin);
+      if (behind && Math.abs(behind.normal.y) < 0.7) wall = behind;
+    }
+    if (hit.entity && k.direct) {
+      const res = dealDamage(game, hit.entity, k.direct, {
         attacker: b.owner,
         weapon: b.weapon,
         point: hit.point,
-        dir: _d,
+        dir: _t,
       });
       if (res && b.owner.alive) b.owner.onHitConfirmed?.(res, false);
+      if (res && k.puddle) hit.entity.baste?.();
+      if (wall && hit.entity.alive) {
+        hit.entity.pin(wall, k.pinTime, b.owner);
+        game.sfx.play('bash', { at: wall.point, rate: 0.7, volume: 1.1 });
+      }
     }
+    if (k.stick) {
+      if (this.stuck.length >= MAX_STUCK) this.stuck.shift();
+      const q = new THREE.Quaternion().setFromUnitVectors(FWD, _t);
+      if (!hit.entity) {
+        // Nose buried a little in the wall it hit.
+        this.stuck.push({ look: k.look, pos: hit.point.clone().addScaledVector(_t, 0.12), quat: q, life: k.stick, on: null });
+        game.sfx.play('bash', { at: hit.point, rate: 1.4, volume: 0.6 });
+      } else if (wall) {
+        // Through them into the wall behind.
+        this.stuck.push({ look: k.look, pos: wall.point.clone().addScaledVector(_t, 0.12), quat: q, life: k.pinTime, on: hit.entity });
+      }
+    }
+    if (k.puddle) game.sauce?.splat(hit.point, hit.normal, hit.entity ? null : hit.normal, k.puddle, b.owner);
     this.burst(b, hit);
-    this.onImpact[b.kind.look]?.(b, hit);
+    this.onImpact[k.look]?.(b, hit);
   }
 
   updateVisuals(alpha) {
     for (const m of this.meshList) m.count = 0;
+    for (const st of this.stuck) {
+      const m = this.meshes[st.look];
+      m.setMatrixAt(m.count++, _m.compose(st.pos, st.quat, _s));
+    }
     for (const b of this.list) {
       const m = this.meshes[b.kind.look];
       _c.lerpVectors(b.prev, b.pos, alpha);
@@ -181,6 +228,7 @@ export class Bolts {
 
   clear() {
     this.list.length = 0;
+    this.stuck.length = 0;
     for (const m of this.meshList) {
       m.count = 0;
       m.visible = false;

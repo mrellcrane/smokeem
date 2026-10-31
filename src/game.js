@@ -30,6 +30,8 @@ import { dealDamage } from './combat/damage.js';
 import { Missiles, Grenades } from './combat/projectiles.js';
 import { Bolts } from './combat/bolts.js';
 import { Swarms } from './combat/swarms.js';
+import { Sauce } from './combat/sauce.js';
+import { Blades } from './combat/wishbone.js';
 import { Pickups } from './combat/pickups.js';
 import { NavGraph } from './ai/navgraph.js';
 import { BotBrain, BOT_NAMES, BOT_COLORS } from './ai/bot.js';
@@ -250,6 +252,9 @@ export class Game {
     this.bolts = new Bolts(this, this.materials.props);
     this.swarms = new Swarms(this, this.materials.props);
     this.bolts.onImpact.jar = (b, hit) => this.swarms.release(b, hit);
+    // The Sauce Boss's puddles and the Wishbone's blades, only in a set with them.
+    if (this.arsenal.guns.includes('sauceBoss')) this.sauce = new Sauce(this);
+    if (this.arsenal.guns.includes('wishbone')) this.blades = new Blades(this, this.materials.props);
     if (this.arsenal.guns.some((g) => WEAPONS[g].kind === 'beam')) this.fx.enableBeams(scene);
     this.pickups = new Pickups(this, this.materials.props);
     if (this.mode === 'oysters') this.oysters = new Oysters(this, scene);
@@ -397,6 +402,8 @@ export class Game {
     this.missiles.warmup(true, fwd);
     this.grenades.warmup(true, fwd);
     this.bolts.warmup(true, fwd);
+    this.sauce?.warmup(true, fwd);
+    this.blades?.warmup(true, fwd);
     this.swarms.warmup(true, fwd);
     this.pickups.warmup(true, fwd);
     this.vehicles?.warmup(true, fwd);
@@ -432,6 +439,8 @@ export class Game {
     this.missiles.warmup(false);
     this.grenades.warmup(false);
     this.bolts.warmup(false);
+    this.sauce?.warmup(false);
+    this.blades?.warmup(false);
     this.swarms.warmup(false);
     this.pickups.warmup(false);
     this.vehicles?.warmup(false);
@@ -667,7 +676,7 @@ export class Game {
     const a = info.attacker;
     if (a && a !== victim && a.kind === 'player') {
       a.feedback.killT = this.time;
-      a.feedback.killText = victim.kind === 'vehicle' ? `${victim.name} destroyed` : `Smoked ${victim.name}${info.headshot ? ' · headshot' : ''}`;
+      a.feedback.killText = victim.kind === 'vehicle' ? `${victim.name} destroyed` : `Smoked ${victim.name}${info.headshot ? ' · headshot' : ''}${info.trick ? ` · ${info.trick}` : ''}`;
     }
   }
 
@@ -790,6 +799,8 @@ export class Game {
     this.missiles.tick(dt);
     this.grenades.tick(dt);
     this.bolts.tick(dt);
+    this.sauce?.tick(dt);
+    this.blades?.tick(dt);
     this.swarms.tick(dt);
     this.pickups.tick(dt);
     this.gravity?.tick(dt);
@@ -815,6 +826,8 @@ export class Game {
     this.missiles.updateVisuals(alpha);
     this.grenades.updateVisuals(alpha);
     this.bolts.updateVisuals(alpha);
+    this.sauce?.updateVisuals();
+    this.blades?.updateVisuals(alpha, this.time);
     this.swarms.updateVisuals(alpha);
     this.pickups.updateVisuals(this.time);
     this.props?.updateVisuals(alpha);
@@ -943,6 +956,8 @@ export class Game {
     this.grenades.clear();
     this.grenades.dispose();
     this.bolts.dispose();
+    this.sauce?.dispose();
+    this.blades?.dispose();
     this.swarms.dispose();
     this.missiles.dispose();
     this.pickups.dispose();

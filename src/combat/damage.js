@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SIZE } from '../config.js';
+import { BASTED_MUL } from './sauce.js';
 
 // The one path all damage goes through, so players, targets and bots react the same way.
 //
@@ -14,6 +15,8 @@ export function dealDamage(game, target, amount, info) {
   // Shrink Wrap: a grown target takes more, a shrunk attacker deals less.
   if (target.size > 1) amount *= SIZE.bigDamageIn;
   if (info?.attacker?.size < 1) amount *= SIZE.smallDamageOut;
+  // Basted (in the Sauce Boss's sauce): more damage taken.
+  if (target.bastedT > 0) amount *= BASTED_MUL;
   // Super Easy bots hit softer.
   const mul = info?.attacker?.brain?.skill.damageMul;
   if (mul) amount *= mul;

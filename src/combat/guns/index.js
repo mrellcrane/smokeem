@@ -14,13 +14,18 @@ import shrinkWrap from './shrinkWrap.js';
 import portalGun from './portalGun.js';
 import carver from './carver.js';
 import hotLinks from './hotLinks.js';
+import castIron from './castIron.js';
+import skewer from './skewer.js';
+import sauceBoss from './sauceBoss.js';
+import gust from './gust.js';
+import wishbone from './wishbone.js';
 import { METAL, METAL_LIGHT } from '../weaponModels.js';
 
 // Every gun in the game. Each module exports { def, parts, hands, muzzle, view, carry }:
 // stats (see weapons.js), box model, first-person hands, muzzle point, first-person pose and the
 // third-person grip point. Adding a gun means adding a module here and putting it in a set
 // (arsenal.js).
-export const GUNS = { hickory, mesquite, smokeSignal, toothpick, kindling, coldSmoke, chimney, rotisserie, brander, swarmJar, stickybomb, gravityGun, shrinkWrap, portalGun, carver, hotLinks };
+export const GUNS = { hickory, mesquite, smokeSignal, toothpick, kindling, coldSmoke, chimney, rotisserie, brander, swarmJar, stickybomb, gravityGun, shrinkWrap, portalGun, carver, hotLinks, castIron, skewer, sauceBoss, gust, wishbone };
 
 // Halo proportions (owner pick, keeping the BBQ parts): every gun's cross-section is fattened
 // about its bore line by CHUNK, lengths kept, and its hands, muzzle, spinning parts and ammo

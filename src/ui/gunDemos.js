@@ -206,6 +206,51 @@ const DEMOS = {
       );
     },
   },
+  // A slug banks off the floor and up into the target behind cover.
+  castIron: {
+    still: 0.5,
+    draw: () =>
+      target(140, [0.62]) +
+      `<rect x="96" y="14" width="8" height="22" fill="#4a4e54"/>` +
+      shot(80, 36, '#ffd090', 0.2, 2.6) +
+      `<line class="dm-shot" x1="80" y1="36" x2="138" y2="20" pathLength="100" stroke="#ffd090" stroke-width="2.6" style="${at(0.2 + ARRIVE)}"/>` +
+      blast(80, 36, 4, '#ffd090', 0.2 + ARRIVE),
+  },
+  // A skewer flies flat and pins the target to the wall behind them.
+  skewer: {
+    still: 0.9,
+    draw: () =>
+      target(132, [0.55]) +
+      `<rect x="146" y="0" width="6" height="40" fill="#4a4e54"/>` +
+      flyer('M14 20 L 146 20', '#e8d8b0', 0.3, { cls: 'dm-coal', head: 3, trail: 'rgba(200,190,180,0.3)' }),
+  },
+  // A glob of sauce lobbed onto the floor: a puddle, and the target slipping in it.
+  sauceBoss: {
+    still: 1.1,
+    draw: () =>
+      target(124, [0.8, 1.3, 1.8], 'dm-heat') +
+      `<ellipse cx="122" cy="37" rx="18" ry="3" fill="#7a1a0a"/>` +
+      flyer('M10 20 Q 60 -6 116 35', '#c23a1a', 0.2, { cls: 'dm-coal', head: 6, trail: 'rgba(194,58,26,0.3)' }) +
+      blast(116, 35, 9, '#c23a1a', 0.75),
+  },
+  // Gusts of wind that shove the target back.
+  gust: {
+    still: 0.9,
+    draw: () => {
+      let s = '';
+      for (let i = 0; i < 6; i++) {
+        s += flyer(`M14 ${16 + (i % 3) * 4} L ${110 + (i % 2) * 8} ${12 + (i % 3) * 8}`, 'rgba(220,214,200,0.9)', 0.1 + i * 0.18, { cls: 'dm-coal', head: 2, trail: 'rgba(220,214,200,0.25)' });
+      }
+      return `<g class="dm-sizes">${target(124, [0.6, 1.2])}</g>` + s;
+    },
+  },
+  // The blade arcs out through the target and comes back to the hand, cutting both ways.
+  wishbone: {
+    still: 0.7,
+    draw: () =>
+      target(120, [0.6, 1.5]) +
+      flyer('M14 20 Q 80 0 140 18 Q 80 38 14 22', '#ffa040', 0.2, { cls: 'dm-coal', head: 5, trail: 'rgba(255,160,64,0.3)' }),
+  },
 };
 
 // The demo for a gun, as an inline SVG (a generic stream of shots for guns without their own).

@@ -10,6 +10,10 @@ import { GUNS } from './guns/index.js';
 //   bolt      lobs a ballistic bolt described by `projectile` (the Swarm Jar's jar, bolts.js)
 //   beam      an exact ray per pulse whose damage ramps up on one target (Brander)
 //   gravity   grabs, holds, throws and punts loose things (Gravity Gun, gravity.js)
+//   ricochet  one slug that banks off walls (Cast Iron, shooting.js fireRicochet)
+//   gust      a cone of wind per pulse that shoves things (Gust, shooting.js fireGust)
+//   wishbone  throws a boomerang blade that comes back (Wishbone, wishbone.js); `returns`: its
+//             one round comes back on the catch, so it never runs dry
 // spinUp / spinDown: a gun whose barrels must spin up before it fires (Rotisserie).
 // bot: { min, max, pref } is the range band (meters) bots like to use a gun in; `power` marks
 // a power weapon bots save for good moments.
@@ -81,7 +85,8 @@ export class WeaponState {
   }
 
   get empty() {
-    return this.mag === 0 && this.reserve === 0;
+    // (A gun whose round comes back, the Wishbone, never runs dry.)
+    return this.mag === 0 && this.reserve === 0 && !this.def.returns;
   }
 
   canReload() {

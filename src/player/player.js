@@ -12,6 +12,7 @@ import { CharacterModel, strideLength } from './character.js';
 import { GUNS } from '../combat/guns/index.js';
 import { Viewmodel } from './viewmodel.js';
 import { Hook, tickHook, releaseHook, pull, checkStuck } from './grapple.js';
+import { BASTED_TIME } from '../combat/sauce.js';
 
 // One player's body, movement and first-person camera. Reads an InputState, so the same
 // controller drives keyboard/mouse players, gamepad players and (later) bots.
@@ -207,6 +208,12 @@ export class Player {
     this.pickHold = false;
     // Movement and jump multipliers from a game mode (Rocky Mountain Oysters).
     this.burdenSpeed = 1;
+    // Skewered to a wall: held at pinAt for pinT more seconds (combat/bolts.js). In sauce:
+    // slickT (sliding about) and bastedT (taking more damage, combat/sauce.js).
+    this.pinT = 0;
+    this.pinAt = new THREE.Vector3();
+    this.slickT = 0;
+    this.bastedT = 0;
     this.burdenJump = 1;
     this.grenades = GRENADE.start;
     this.switchT = 0;
@@ -370,7 +377,33 @@ export class Player {
     return slot;
   }
 
+  // Skewered to a wall by `by`: held right here for `time` seconds (we can still shoot).
+  pin(wall, time, by) {
+    if (this.vehicle) return;
+    if (this.sliding) this.endSlide();
+    releaseHook(this.game, this);
+    this.pinT = time;
+    this.pinAt.copy(this.center);
+    this.vel.set(0, 0, 0);
+    this.launched = false;
+    if (!this.isBot) {
+      this.feedback.killT = this.game.time;
+      this.feedback.killText = by ? `Pinned by ${by.name}!` : 'Pinned!';
+    }
+  }
+
+  // Sauce on us: Basted for a few seconds (more damage taken, combat/damage.js).
+  baste() {
+    const was = this.bastedT > 0;
+    this.bastedT = BASTED_TIME;
+    if (!was && !this.isBot) {
+      this.feedback.killT = this.game.time;
+      this.feedback.killText = 'Basted! You take more damage';
+    }
+  }
+
   knockback(dir, speed) {
+    if (this.pinT > 0) return;
     if (this.mode === 'net' || this.mode === 'rope' || this.mode === 'bars') this.leaveClimb(0, 0, 0, 0.4);
     if (this.mode !== 'move') return;
     this.vel.addScaledVector(dir, speed);
@@ -512,6 +545,7 @@ export class Player {
 
   spawn(point) {
     this.hitBy.clear();
+    this.pinT = this.slickT = this.bastedT = 0;
     if (this.size !== 1) this.setSize(1);
     this.sizeShown = 1;
     this.model.group.scale.setScalar(1);
@@ -651,6 +685,9 @@ export class Player {
     // Shrink Wrap wears off.
     if (this.sizeT > 0 && (this.sizeT -= dt) <= 0) this.setSize(1);
 
+    // Sauce wears off.
+    if (this.slickT > 0) this.slickT -= dt;
+    if (this.bastedT > 0) this.bastedT -= dt;
     // Flying a Smoke Signal: the body stands there, defenseless.
     tickHook(this.game, this, dt, pressed);
     const realInput = this.input;
@@ -762,6 +799,7 @@ export class Player {
     // (The corpse carries on with how we were moving.)
     this.deathVel = (this.deathVel ?? new THREE.Vector3()).copy(this.vel);
     this.game.pickups?.dropFrom(this);
+    this.pinT = 0;
     this.game.portals?.close(this);
     this.guiding = null;
     this.lungeT = this.knockT = 0;
@@ -906,6 +944,13 @@ export class Player {
   tickMove(dt, pressed) {
     const inp = this.input;
     const v = this.vel;
+    // Pinned to a wall: held still where the skewer caught us (no gravity, no moving).
+    if (this.pinT > 0) {
+      this.pinT -= dt;
+      v.set(0, 0, 0);
+      this.center.copy(this.pinAt);
+      return;
+    }
     const [wx, wz, wishLen] = this.wish();
     // Movement speed setting scales running, acceleration and air control together.
     const k = settings.moveSpeed;
@@ -927,6 +972,9 @@ export class Player {
     // Turning Rotisserie barrels slow you down.
     if (this.weapon.spin > 0) speed *= this.weapon.def.spinMoveMul ?? 1;
     if (this.inMud) speed *= MOVE.mudSpeedMul;
+    // In sauce: slower, and the feet barely grip (you slide about).
+    const slick = this.slickT > 0;
+    if (slick) speed *= 0.75;
 
     this.knockT = Math.max(0, this.knockT - dt);
     // Reeled in on the grapple: it sets the velocity (player/grapple.js).
@@ -945,7 +993,7 @@ export class Player {
     } else if (this.grounded && this.knockT <= 0) {
       // Pushing against the way you're moving turns you around faster.
       const reverse = wishLen > 0.01 && v.x * wx + v.z * wz < 0 ? MOVE.reverseAccelMul : 1;
-      approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel * reverse : MOVE.groundDecel) * k * dt);
+      approach2(v, wx * speed, wz * speed, (wishLen > 0.01 ? MOVE.groundAccel * reverse : MOVE.groundDecel) * k * (slick ? 0.1 : 1) * dt);
     } else if (this.launched) {
       // A launch pad's throw carries you the whole way: no steering or drag until you land.
     } else if (this.hookCarryT > 0) {
