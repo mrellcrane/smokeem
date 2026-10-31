@@ -30,6 +30,14 @@ fps.setVisible(settings.showFps);
 const lock = new PointerLock(stage);
 const kbm = new KeyboardMouseInput(lock);
 const pads = new Gamepads();
+// Edge on Xbox drives a cursor with the controller (the D-pad as arrow keys) until a site opts
+// out. This is the opt-out Microsoft documents for the console's Edge; builds that don't know
+// it ignore it, and then the player turns on game controls themselves.
+try {
+  navigator.gamepadInputEmulation = 'gamepad';
+} catch {
+  // Not settable here.
+}
 const sfx = new Sfx();
 let game = null;
 let loading = false;
