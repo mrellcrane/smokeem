@@ -19,6 +19,8 @@ import * as config from './config.js';
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 // ?bench runs a scripted split-screen match and reports frame times (src/render/bench.js).
 const BENCH = new URLSearchParams(window.location.search).has('bench');
+// Edge on Xbox (or `?xbox` to try the hint elsewhere).
+const XBOX = /Xbox/i.test(navigator.userAgent) || new URLSearchParams(window.location.search).has('xbox');
 
 const stage = document.getElementById('stage');
 const hudRoot = document.getElementById('hud');
@@ -289,6 +291,16 @@ function rematch() {
 
 // ---------------------------------------------------------------- controllers
 
+// On Xbox, while no controller reaches the Gamepad API, Edge is still driving its cursor with it
+// (A clicks, the D-pad sends arrow keys, the sticks never arrive): say how to switch that off.
+// It goes away once a controller shows up, which needs one press after game controls are on.
+const xboxHint = document.createElement('div');
+xboxHint.className = 'xbox-hint';
+xboxHint.innerHTML =
+  '<b>Controller acting as a mouse?</b> Turn on game controls in Edge, then press A. Until then Edge turns A into a click and the D-pad into arrow keys, and the sticks and triggers never reach the game.';
+xboxHint.hidden = true;
+document.getElementById('app').appendChild(xboxHint);
+
 // Edge on Xbox maps B to the browser's Back button. Once a controller shows up, keep a spare
 // history entry so B never navigates away from the game.
 let backGuard = false;
@@ -356,6 +368,10 @@ function padFrame(now) {
   const dt = Math.min(0.1, Math.max(0, (now - lastNow) / 1000));
   lastNow = now;
   pads.poll();
+  if (XBOX) {
+    const hide = pads.connected().length > 0;
+    if (xboxHint.hidden !== hide) xboxHint.hidden = hide;
+  }
   if (!pads.seen) return;
   guardBack();
   const menuUp = !!menu.screen && menu.screen !== 'loading';

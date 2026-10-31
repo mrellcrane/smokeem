@@ -367,6 +367,8 @@ Live build: https://mrellcrane.github.io/smokeem/
     while the mouse isn't captured hands that player to it (`padTakeover` in `main.js`,
     `Game.swapSource`, `Hud.setSource`). Boot also sets `navigator.gamepadInputEmulation =
     'gamepad'`, the documented opt-out from that cursor (unverified on the current Chromium Edge).
+    On Xbox (user agent, or `?xbox` anywhere) a banner (`.xbox-hint`) says to turn on game
+    controls while no controller reaches the Gamepad API.
 - On Edge on Xbox the controller is the only input, so every menu and gameplay action must be reachable with it.
 
 ### Rendering performance
