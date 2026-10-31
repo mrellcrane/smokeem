@@ -184,10 +184,14 @@ export class StaticBuilder {
   // loose: in a match with the Gravity Gun, small crates and drums (parts.js) aren't built here
   // but listed in `loose` for world/props.js to make into things it can throw.
   // bevel: give boxes their faces' edge coordinates (aEdge) for the bevel shader (materials.js).
-  constructor(RAPIER, world, { loose = false, bevel = false } = {}) {
+  // ao: bake each vertex's ambient occlusion and bounce light (aAo, aBounce) by rays at build().
+  constructor(RAPIER, world, { loose = false, bevel = false, ao = false } = {}) {
     this.RAPIER = RAPIER;
     this.world = world;
     this.bevel = bevel;
+    this.ao = ao;
+    // Each collider's surface color (linear), for the bounce: what a ray from a vertex hits.
+    this.albedo = new Map();
     this.loose = loose ? [] : null;
     this.groups = new Map();
     this.meshes = [];
@@ -290,6 +294,7 @@ export class StaticBuilder {
     }
     if (collide) {
       const c = this._collider(this.RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2), _p, q);
+      if (mat?.userData.albedo) this.albedo.set(c.handle, mat.userData.albedo);
       if (mat?.userData.surface) this.surfaces.set(c.handle, mat.userData.surface);
     }
   }
@@ -329,6 +334,7 @@ export class StaticBuilder {
       this.solids.push({ cyl: true, x: base[0], y: base[1] + height / 2, z: base[2], r: radius, hy: height / 2 });
       _p.set(base[0], base[1] + height / 2, base[2]);
       const c = this._collider(this.RAPIER.ColliderDesc.cylinder(height / 2, radius), _p, null);
+      if (mat.userData.albedo) this.albedo.set(c.handle, mat.userData.albedo);
       if (mat.userData.surface) this.surfaces.set(c.handle, mat.userData.surface);
     }
   }
@@ -396,9 +402,15 @@ export class StaticBuilder {
   // Merge everything into the scene. Returns the created meshes. bake (bake.js, optional):
   // shade vertices from it.
   build(scene, bake = null) {
+    const t0 = performance.now();
+    // (Rays only see colliders once a step has put them in the query structures; there's nothing
+    // but fixed level geometry in the world yet, so the step moves nothing.)
+    if (this.ao) this.world.step();
     for (const g of this.groups.values()) {
       for (const { geom, shade } of g.geoms) {
         if (!geom.attributes.color) shadeVertices(geom, shade ? bake : null, g.mat.userData.grime);
+        // (Glow strips and the like stay as they are: zeros mean "no ambient change".)
+        if (this.ao) occlusion(geom, this, shade && g.mat.userData.ao);
       }
       const merged = mergeGeometries(
         g.geoms.map((e) => e.geom),
@@ -416,8 +428,91 @@ export class StaticBuilder {
       this.meshes.push(mesh);
     }
     this.groups.clear();
+    this.buildMs = performance.now() - t0;
     return this.meshes;
   }
+}
+
+// Ambient occlusion and bounce light per vertex (the `ao` option): rays from just off each
+// vertex over the hemisphere its normal faces (cosine-weighted), out to AO_REACH, against the
+// level (not the invisible walls). The share of the sky they find, nearer hits counting more, is
+// how much of the sky's fill light reaches it (aAo); what they hit, by its surface color and
+// how close, is the colored light bounced onto it (aBounce). The shader (materials.js applyAo)
+// scales only the indirect light by these, so sunlit faces keep the sun and the corners and the
+// undersides in shade go dark. Off for `shade: false` geometry (aAo 1, no bounce).
+const AO_REACH = 3.2;
+const AO_RAYS = (() => {
+  // Cosine-weighted directions about +z, a spiral so they spread evenly.
+  const out = [];
+  const n = 14;
+  for (let i = 0; i < n; i++) {
+    const u = (i + 0.5) / n;
+    const r = Math.sqrt(u);
+    const a = i * 2.39996;
+    out.push([r * Math.cos(a), r * Math.sin(a), Math.sqrt(1 - u)]);
+  }
+  return out;
+})();
+const AO_BOUNCE = 0.9;
+let _aoRay = null;
+const _t1 = new THREE.Vector3();
+const _t2 = new THREE.Vector3();
+function occlusion(geom, B, on) {
+  const pos = geom.attributes.position;
+  const nor = geom.attributes.normal;
+  const n = pos.count;
+  const ao = new Float32Array(n).fill(1);
+  const bounce = new Float32Array(n * 3);
+  if (on) {
+    const world = B.world;
+    const RAPIER = B.RAPIER;
+    _aoRay ??= new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
+    const ray = _aoRay;
+    const flags = RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC;
+    const notBlocker = (c) => !B.blockers.has(c.handle);
+    for (let i = 0; i < n; i++) {
+      _n.fromBufferAttribute(nor, i);
+      // A basis about the normal.
+      _t1.set(Math.abs(_n.y) < 0.9 ? 0 : 1, Math.abs(_n.y) < 0.9 ? 1 : 0, 0).cross(_n).normalize();
+      _t2.crossVectors(_n, _t1);
+      const ox = pos.getX(i) + _n.x * 0.04;
+      const oy = pos.getY(i) + _n.y * 0.04;
+      const oz = pos.getZ(i) + _n.z * 0.04;
+      let occ = 0;
+      let br = 0;
+      let bg = 0;
+      let bb = 0;
+      for (const [a, b, c] of AO_RAYS) {
+        const dx = _t1.x * a + _t2.x * b + _n.x * c;
+        const dy = _t1.y * a + _t2.y * b + _n.y * c;
+        const dz = _t1.z * a + _t2.z * b + _n.z * c;
+        ray.origin.x = ox;
+        ray.origin.y = oy;
+        ray.origin.z = oz;
+        ray.dir.x = dx;
+        ray.dir.y = dy;
+        ray.dir.z = dz;
+        const hit = world.castRay(ray, AO_REACH, true, flags, undefined, undefined, undefined, notBlocker);
+        if (!hit) continue;
+        const toi = hit.timeOfImpact ?? hit.toi;
+        const near = 1 - toi / AO_REACH;
+        occ += Math.sqrt(near);
+        const al = B.albedo.get(hit.collider.handle);
+        if (al) {
+          br += al[0] * near;
+          bg += al[1] * near;
+          bb += al[2] * near;
+        }
+      }
+      const k = 1 / AO_RAYS.length;
+      ao[i] = Math.max(0.12, 1 - occ * k * 1.15);
+      bounce[i * 3] = br * k * AO_BOUNCE;
+      bounce[i * 3 + 1] = bg * k * AO_BOUNCE;
+      bounce[i * 3 + 2] = bb * k * AO_BOUNCE;
+    }
+  }
+  geom.setAttribute('aAo', new THREE.BufferAttribute(ao, 1));
+  geom.setAttribute('aBounce', new THREE.BufferAttribute(bounce, 3));
 }
 
 // Per-vertex light as a vertex color (1 = untouched). Side faces darken toward whatever they

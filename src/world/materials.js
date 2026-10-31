@@ -95,6 +95,25 @@ export function applyBevel(material) {
   material.customProgramCacheKey = () => `${prevKey}|bevel`;
 }
 
+// Baked ambient occlusion and bounce (StaticBuilder's `ao` option: aAo, aBounce per vertex): the
+// indirect light (the sky's fill) is scaled by how much sky each spot sees, and the light bounced
+// off what's near it is added, tinted by that surface's color. The sun is untouched, so sunlit
+// faces stay bright and corners, undersides and anything under cover in the shade go dark.
+export function applyAo(material) {
+  const prev = material.onBeforeCompile;
+  const prevKey = material.customProgramCacheKey?.() ?? '';
+  material.onBeforeCompile = (shader, renderer) => {
+    prev?.call(material, shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aAo;\nattribute vec3 aBounce;\nvarying float vAo;\nvarying vec3 vBounce;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvAo = aAo;\n\tvBounce = aBounce;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vAo;\nvarying vec3 vBounce;')
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n\treflectedLight.indirectDiffuse *= vAo;\n\treflectedLight.indirectDiffuse += vBounce * diffuseColor.rgb;');
+  };
+  material.customProgramCacheKey = () => `${prevKey}|ao`;
+}
+
 // Shared materials. Lambert/Phong only: cheap per-pixel lighting that holds up in split-screen.
 // `tile` is the texture repeat size in meters used by StaticBuilder for world-space UVs.
 // Static level materials use vertex colors: StaticBuilder writes each vertex's baked light there.
@@ -167,8 +186,26 @@ export function createMaterials(tex, photo = {}) {
   };
   Object.assign(tiles, photo.tiles);
   for (const [name, [r, g, b]] of Object.entries(photo.tints ?? {})) if (photo.tiles?.[name]) m[name].color.setRGB(r, g, b);
+  // Each surface's rough color (linear), for the light it bounces (StaticBuilder's `ao`).
+  const albedo = {
+    ground: [0.26, 0.17, 0.1],
+    concrete: [0.3, 0.3, 0.28],
+    slab: [0.28, 0.28, 0.27],
+    plank: [0.22, 0.14, 0.08],
+    crate: [0.34, 0.14, 0.06],
+    metal: [0.15, 0.17, 0.19],
+    metalDark: [0.06, 0.06, 0.07],
+    steel: [0.35, 0.37, 0.4],
+    paint: [0.6, 0.2, 0.05],
+    hazard: [0.4, 0.33, 0.05],
+    rock: [0.25, 0.22, 0.2],
+    grass: [0.1, 0.18, 0.05],
+  };
   for (const [name, mat] of Object.entries(m)) {
     mat.name = name;
+    mat.userData.albedo = albedo[name] ?? null;
+    // (Lit by the bake's occlusion when the map asks: the level's surfaces, not glow or props.)
+    mat.userData.ao = name in albedo;
     mat.userData.tile = tiles[name] ?? 0;
     mat.userData.surface = surfaces[name] ?? null;
   }

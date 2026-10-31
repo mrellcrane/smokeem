@@ -39,6 +39,9 @@ export const gfx = {
   photoTextures: true,
   // Rounded edges on level boxes, on maps whose look asks for them (world/materials.js).
   bevels: true,
+  // Baked ambient occlusion and bounce light on level geometry, on maps whose look asks
+  // (world/staticBuilder.js occlusion, materials.js applyAo).
+  bakedAo: true,
   // The sun's lens flare (medium and high presets, outdoor maps; render/flare.js).
   flare: true,
   // God rays from the sun through gaps (high preset, outdoor maps; render/bloom.js).

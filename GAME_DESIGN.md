@@ -1332,3 +1332,8 @@ Need answers before the step that uses them gets built.
 - 2026-10-31: Assists, and smoked players drop all their guns and grenades (feedback from Ethan,
   a friend testing: "are there assists?", "when I walk over a dead body do I get their ammo?").
   Replaces the 2026-10-29 rule that loadout guns never drop.
+- 2026-10-31: The photo textures and rounded edges were too subtle to notice (owner: "can't tell a
+  difference"). Cook-Off Yard now gets baked ambient occlusion and colored bounce on every level
+  surface (shade only: corners, undersides and covered spots go dark, the sun stays full) and a
+  harder light: a low warm sun with long shadows, a dim cool sky fill, more contrast and color,
+  and a shadow map twice the preset's size. Other maps unchanged for comparison.
