@@ -84,8 +84,10 @@ const DEFAULTS = {
   botSkill: 'normal',
   // Match length in minutes; 0 means no limit.
   timeLimit: 5,
-  // Weapon set: 'default' (the map's), a set id, or 'mystery' (random).
+  // Weapon set: 'default' (the map's), a set id, 'custom' (customSet below) or 'mystery' (random).
   weaponSet: 'default',
+  // The Custom set's five guns, by slot (combat/arsenal.js CUSTOM_SLOTS).
+  customSet: { primary1: 'hickory', primary2: 'wishbone', sidearm: 'castIron', field: 'gust', power: 'sauceBoss' },
   // Match mode: free-for-all, or Rocky Mountain Oysters on top of it.
   mode: 'ffa',
   // Map: a map id (world/maps.js), or 'random'.
@@ -130,6 +132,7 @@ function load() {
   if (!BOT_SKILLS[out.botSkill]) out.botSkill = DEFAULTS.botSkill;
   if (!(String(out.timeLimit) in TIME_LIMITS)) out.timeLimit = DEFAULTS.timeLimit;
   if (typeof out.weaponSet !== 'string') out.weaponSet = DEFAULTS.weaponSet;
+  if (!out.customSet || typeof out.customSet !== 'object') out.customSet = { ...DEFAULTS.customSet };
   if (!MODES[out.mode]) out.mode = DEFAULTS.mode;
   if (!MAP_CHOICES[out.map]) out.map = DEFAULTS.map;
   if (!Number.isFinite(out.moveSpeed)) out.moveSpeed = DEFAULTS.moveSpeed;

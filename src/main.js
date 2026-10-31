@@ -204,6 +204,7 @@ async function startMatch() {
       mode: settings.mode,
       map: (lastMap = chooseMap(settings.map, lastMap)),
       weaponSet: (lastSet = chooseSet(settings.weaponSet === 'default' ? MAPS[lastMap].defaultSet : settings.weaponSet, lastSet)),
+      customPick: settings.customSet,
       onProgress: (text, progress) => menu.showLoading(text, progress),
     });
     game.showDebug = DEBUG || settings.showFps;

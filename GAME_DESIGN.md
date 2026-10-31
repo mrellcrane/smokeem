@@ -329,6 +329,9 @@ rosters and three judges.
   slot takes the gun, E swaps for it). Loadout guns you swap away for a pickup just vanish.
 - Heat labels say how much a set asks you to learn: Mild (the default), Medium (no wacky
   guns in loadouts), Hot, Extra Hot (anything goes; opt-in only).
+- **Custom** (owner ask, 2026-10-31): on the Guns choice, pick your own five: any gun in any
+  slot (Primary 1, Primary 2, Sidearm, Field pads, Power pad), each a stepper through the whole
+  roster. Saved between sessions. Your two loadouts are each primary with the sidearm.
 - The title screen gets a Guns choice (Map default, each set, or Mystery Meat: a random set
   that's never Extra Hot and never the one just played) once more than one set is built. A
   set only appears once all five of its guns exist.
@@ -1342,3 +1345,5 @@ Need answers before the step that uses them gets built.
   Cast Iron ricochets never hurt their shooter; the Gust glide is in (aim down in the air); the
   Basted status is in (25% more damage for 4 s). New this time: the Skewer pins to walls, and
   bank-shot kills say so.
+- 2026-10-31: Custom weapon set (owner: pick any five guns, not just the preset sets): five slot
+  steppers under the Guns choice, any gun in any slot, saved in settings.

@@ -115,6 +115,33 @@ export function setLoadouts(set) {
   }));
 }
 
+// Custom (title screen): any gun in any of the five slots, the player's own pick. Saved as
+// settings.customSet ({ primary1, primary2, sidearm, field, power }); a gun that doesn't exist
+// falls back to the default pick.
+export const CUSTOM_SLOTS = [
+  ['primary1', 'Primary 1'],
+  ['primary2', 'Primary 2'],
+  ['sidearm', 'Sidearm'],
+  ['field', 'Field pads'],
+  ['power', 'Power pad'],
+];
+export const DEFAULT_CUSTOM = { primary1: 'hickory', primary2: 'wishbone', sidearm: 'castIron', field: 'gust', power: 'sauceBoss' };
+
+// Every gun in the game, in the roster's order (the Custom slots cycle through these).
+export const ALL_GUNS = Object.keys(WEAPONS);
+
+export function customPick(pick) {
+  const out = {};
+  for (const [k] of CUSTOM_SLOTS) out[k] = WEAPONS[pick?.[k]] ? pick[k] : DEFAULT_CUSTOM[k];
+  return out;
+}
+
+// The custom pick as a set, like the ones above.
+export function customSet(pick) {
+  const c = customPick(pick);
+  return { name: 'Custom', heat: 'Custom', primaries: [c.primary1, c.primary2], sidearm: c.sidearm, field: c.field, power: c.power };
+}
+
 // Sets whose guns all exist yet.
 export function availableSets() {
   return Object.keys(WEAPON_SETS).filter((id) => setGuns(WEAPON_SETS[id]).every((g) => WEAPONS[g]));
@@ -123,6 +150,7 @@ export function availableSets() {
 // Resolve a weapon-set setting ('default', a set id, or 'mystery') to a set id. Mystery Meat
 // picks a random set that isn't Extra Hot and isn't the one just played.
 export function chooseSet(choice, last = null) {
+  if (choice === 'custom') return 'custom';
   const sets = availableSets();
   if (choice === 'mystery') {
     const pool = sets.filter((id) => !WEAPON_SETS[id].wild);

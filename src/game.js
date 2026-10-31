@@ -45,7 +45,7 @@ import { Hud } from './ui/hud.js';
 import { InfoPanel } from './ui/infoPanel.js';
 import { Match } from './match.js';
 import { Vehicles } from './vehicles/sizzler.js';
-import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts, loadoutLabel } from './combat/arsenal.js';
+import { WEAPON_SETS, DEFAULT_SET, setGuns, setLoadouts, loadoutLabel, customSet } from './combat/arsenal.js';
 import { WEAPONS } from './combat/weapons.js';
 
 let rapierReady = null;
@@ -91,6 +91,7 @@ export class Game {
     mode = 'ffa',
     map = DEFAULT_MAP,
     weaponSet = null,
+    customPick = null,
     onProgress = () => {},
   }) {
     onProgress('Lighting the smoker', 0.05);
@@ -99,8 +100,9 @@ export class Game {
     game.mapId = MAPS[map] ? map : DEFAULT_MAP;
     game.map = MAPS[game.mapId];
     // No set given (or an unknown one): the map's own.
-    const id = WEAPON_SETS[weaponSet] ? weaponSet : game.map.defaultSet ?? DEFAULT_SET;
-    const set = WEAPON_SETS[id];
+    // (Custom: the player's own five guns.)
+    const id = weaponSet === 'custom' || WEAPON_SETS[weaponSet] ? weaponSet : game.map.defaultSet ?? DEFAULT_SET;
+    const set = id === 'custom' ? customSet(customPick) : WEAPON_SETS[id];
     const loadouts = setLoadouts(set);
     const guns = setGuns(set);
     game.arsenal = {

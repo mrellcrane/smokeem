@@ -1778,6 +1778,13 @@ body.in-match .fps {
   text-align: right;
 }
 
+/* The Custom set's five slots, one stepper each. */
+.cust-val {
+  min-width: 9em;
+  text-align: center;
+  font-weight: 700;
+}
+
 .gun-list {
   margin: -8px auto 18px;
   width: min(680px, 100%);
