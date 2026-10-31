@@ -21,9 +21,10 @@ import { gunIcon } from './gunIcons.js';
 import { loadoutCard } from './loadoutCard.js';
 import { gunDemo } from './gunDemos.js';
 
-// The Guns choices on the title screen: the map's default, each set that exists, Mystery Meat.
+// The Guns choices on the title screen: the map's default, each set that exists, Mystery Meat,
+// and last, Custom (pick your own five).
 function setChoices() {
-  return ['default', ...availableSets(), 'custom', 'mystery'];
+  return ['default', ...availableSets(), 'mystery', 'custom'];
 }
 
 // The map's own set ('default'), for a map choice; null for Random (each map has its own).

@@ -329,7 +329,8 @@ rosters and three judges.
   slot takes the gun, E swaps for it). Loadout guns you swap away for a pickup just vanish.
 - Heat labels say how much a set asks you to learn: Mild (the default), Medium (no wacky
   guns in loadouts), Hot, Extra Hot (anything goes; opt-in only).
-- **Custom** (owner ask, 2026-10-31): on the Guns choice, pick your own five: any gun in any
+- **Custom** (owner ask, 2026-10-31): the last option on the Guns choice, after the preset sets
+  and Mystery Meat: pick your own five, any gun in any
   slot (Primary 1, Primary 2, Sidearm, Field pads, Power pad), each a stepper through the whole
   roster. Saved between sessions. Your two loadouts are each primary with the sidearm.
 - The title screen gets a Guns choice (Map default, each set, or Mystery Meat: a random set
