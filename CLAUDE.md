@@ -155,7 +155,15 @@ Live build: https://mrellcrane.github.io/smokeem/
   one ray per tick, like the Swarm Jar's jar and Hot Links' rockets: `straight` flies nose
   first, `trail` leaves smoke and a glow, `explosion` bursts on impact or at the end of its life,
   and `homing` turns toward the `target` it was fired with; `homingTarget` in `shooting.js`
-  picks a Sizzler near the aim when zoomed), bug swarms (`swarms.js`: pure-math seekers,
+  picks a Sizzler near the aim when zoomed; `stick` leaves the bolt stuck where it hit,
+  `pinReach` pins a player with a wall behind them (`Player.pin`), `puddle` splats sauce), the
+  Sauce Boss's puddles (`sauce.js`, `game.sauce`, only in a set with it: slick (`Player.slickT`,
+  slower with little grip) and Basted (`Player.bastedT`, `BASTED_MUL` damage in `dealDamage`)),
+  the Wishbone's boomerang blades (`wishbone.js`, `game.blades`: out, turn, home to the thrower,
+  cutting once each way; `def.returns` means the one round comes back on the catch), the Cast
+  Iron's ricochets (`fireRicochet`, kind `ricochet`: banks off the level, `info.trick` 'bank
+  shot') and the Gust's wind (`fireGust`, kind `gust`: shoves people, grenades and bolts in a
+  cone, and lifts you when aimed down in the air), bug swarms (`swarms.js`: pure-math seekers,
   one instanced mesh), area damage (`explosions.js`), pickups, and `dealDamage`, the single
   path all damage goes through (it also applies the Shrink Wrap's size multipliers). The Shrink
   Wrap (`kind: 'size'`, `fireSize` in `shooting.js`, numbers in `SIZE`, `config.js`) calls

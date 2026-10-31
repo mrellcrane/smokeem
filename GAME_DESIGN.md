@@ -338,12 +338,12 @@ rosters and three judges.
 | --- | --- | --- | --- | --- | --- | --- |
 | **Backyard** (default) | Mild | Hickory, Kindling | Toothpick | Mesquite | Smoke Signal | built |
 | Competition Cut | Medium | Kindling, Cold Smoke | Toothpick | Chimney | Rotisserie | built |
-| Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | planned |
-| Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | planned |
+| Sauce on the Side | Medium | Hickory, Kindling | Toothpick | Gust | Sauce Boss | built |
+| Bank Shot | Hot | Hickory, Wishbone | Cast Iron | Skewer | Smoke Signal | built |
 | Hot and Cold | Hot | Cold Smoke, Brander | Toothpick | Mesquite | Swarm Jar | built |
 | Funhouse | Hot | Hickory, Cold Smoke | Toothpick | Portal Gun | Shrink Wrap | built |
 | Cookoff | Medium | Hickory, Kindling | Carver | Mesquite | Hot Links | built |
-| Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | planned |
+| Hog Wild | Extra Hot | Wishbone, Brander | Cast Iron | Gust | Swarm Jar | built |
 
 Backyard loadouts: **Pitmaster** (Hickory + Toothpick, preselected) and **Hot n Fast**
 (Kindling + Toothpick). Hot and Cold loadouts: **Ice Pick** (Cold Smoke + Toothpick,
@@ -361,12 +361,12 @@ preselected) and **Branding Day** (Brander + Toothpick).
 | **Cold Smoke** | normal | Marksman rifle with a 2.5x scope; three headshots smoke anyone. | yes |
 | **Rotisserie** | normal | Spin-up rotary gun (power pad): huge sustained damage, slow to move. | yes |
 | **Chimney** | normal | Bouncing coal launcher: small, fast blasts that flush campers. | yes |
-| **Cast Iron** | wacky | Ricochet hand cannon: slugs bank off walls. | planned |
-| **Skewer** | wacky | Harpoon gun: two hits kill, and a hit near a wall pins you to it. | planned |
-| **Sauce Boss** | wacky | Goo lobber: slippery, slowing puddles. | planned |
-| **Gust** | wacky | Leaf blower: shoves people, grenades and rockets with wind. | planned |
+| **Cast Iron** | wacky | Ricochet hand cannon: slugs bank off walls, floors and ceilings twice (85% damage kept per bounce). A kill off a bounce is a bank shot. Ricochets never hurt their shooter. | yes |
+| **Skewer** | wacky | Harpoon gun: a fast, nearly flat skewer of meat and peppers (76 damage: two hits kill). Hit someone with a wall within 2.6 m behind them and they're pinned to it for 1.6 s (they can still shoot). Skewers stay stuck in walls. | yes |
+| **Sauce Boss** | wacky | Lobs hot sauce that splats into a slick puddle for 9 s: inside you're slower and slide about with little grip, and you come out Basted (25% more damage taken for 4 s). A direct hit bastes too. | yes |
+| **Gust** | wacky | Leaf blower: hold for a cone of wind that shoves people, briquettes, sticky bombs and bolts (rockets, jars, globs, skewers) and chips damage. Aim down in the air to glide: it holds you up until the tank runs dry. | yes |
 | **Swarm Jar** | wacky | Jar of homing bugs that chase the nearest enemy. | yes |
-| **Wishbone** | wacky | Boomerang blade that cuts on the way out and back. | planned |
+| **Wishbone** | wacky | Boomerang blade: flies out about 18 m, cuts whoever it passes (55), turns (early off a wall) and comes back to your hand, cutting again. You throw again once it's caught; it always comes home. | yes |
 | **Brander** | wacky | Short-range heat beam that gets hotter the longer it's on you. | yes |
 | **Shrink Wrap** | wacky | Size ray: fire shrinks, the aim button grows (see below). | yes |
 | **Portal Gun** | wacky | Portal's portal gun: a blue and an orange portal you walk, fall and shoot through (see below). | yes |
@@ -1337,3 +1337,8 @@ Need answers before the step that uses them gets built.
   surface (shade only: corners, undersides and covered spots go dark, the sun stays full) and a
   harder light: a low warm sun with long shadows, a dim cool sky fill, more contrast and color,
   and a shadow map twice the preset's size. Other maps unchanged for comparison.
+- 2026-10-31: Five more guns (owner: "build and deploy 5 more guns, be creative"): the five planned
+  ones, which completes Sauce on the Side, Bank Shot and Hog Wild. Calls on the old proposals:
+  Cast Iron ricochets never hurt their shooter; the Gust glide is in (aim down in the air); the
+  Basted status is in (25% more damage for 4 s). New this time: the Skewer pins to walls, and
+  bank-shot kills say so.

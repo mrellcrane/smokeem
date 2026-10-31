@@ -432,3 +432,49 @@ export function bugGeometry() {
     0x2a1e14,
   );
 }
+
+// A Skewer harpoon, point toward -z: a steel spit with a barbed tip and chunks of meat, a pepper
+// and onion threaded on it.
+export function skewerGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0.05], [0.014, 0.014, 0.9], METAL_LIGHT, { shape: 'cyl', seg: 8 }],
+      [[0, 0, -0.42], [0.03, 0.03, 0.06], METAL_LIGHT, { shape: 'cyl', seg: 8, taper: 0.1 }],
+      [[0.014, 0, -0.38], [0.008, 0.026, 0.03], METAL_LIGHT, { rot: [0.6, 0, 0] }],
+      [[-0.014, 0, -0.38], [0.008, 0.026, 0.03], METAL_LIGHT, { rot: [0.6, 0, 0] }],
+      [[0, 0, -0.26], [0.055, 0.05, 0.055], 0x7a3a22],
+      [[0, 0, -0.18], [0.058, 0.05, 0.04], 0x3f8a3a],
+      [[0, 0, -0.1], [0.055, 0.052, 0.055], 0x7a3a22],
+      [[0, 0, -0.02], [0.056, 0.05, 0.04], 0xd8462a],
+      [[0, 0, 0.06], [0.054, 0.05, 0.05], 0xe8d8b0],
+      [[0, 0, 0.47], [0.04, 0.04, 0.03], GLOW, { shape: 'cyl', seg: 8 }],
+    ],
+    METAL_LIGHT,
+  );
+}
+
+// A Sauce Boss glob: a lumpy blob of dark red sauce.
+export function globGeometry() {
+  return partsGeometry(
+    [
+      [[0, 0, 0], [0.2, 0.18, 0.2], 0xa02a16, { shape: 'cyl', axis: 'y', seg: 12, taper: 0.7 }],
+      [[0.05, 0.04, 0.02], [0.1, 0.1, 0.1], 0xc23a1a, { shape: 'cyl', axis: 'x', seg: 10 }],
+      [[-0.04, -0.03, -0.04], [0.11, 0.09, 0.1], 0x8a2210, { shape: 'cyl', axis: 'z', seg: 10 }],
+    ],
+    0xa02a16,
+  );
+}
+
+// The Wishbone blade, lying flat: two steel arms meeting at a knot, glowing edges.
+export function bladeGeometry() {
+  return partsGeometry(
+    [
+      [[-0.07, 0, -0.06], [0.03, 0.016, 0.3], METAL_LIGHT, { rot: [0, 0.42, 0] }],
+      [[0.07, 0, -0.06], [0.03, 0.016, 0.3], METAL_LIGHT, { rot: [0, -0.42, 0] }],
+      [[0, 0, 0.08], [0.07, 0.022, 0.06], METAL_LIGHT],
+      [[-0.088, 0.009, -0.06], [0.006, 0.006, 0.28], GLOW, { rot: [0, 0.42, 0], bevel: 0 }],
+      [[0.088, 0.009, -0.06], [0.006, 0.006, 0.28], GLOW, { rot: [0, -0.42, 0], bevel: 0 }],
+    ],
+    METAL_LIGHT,
+  );
+}

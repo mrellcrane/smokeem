@@ -218,6 +218,14 @@ const SOUNDS = {
       return clank + ratchet;
     }),
   // A big hog's grunt (the Big Hog charging): a nasal buzz that drops, in two pulses.
+  // The Gust's wind: a rushing hiss with a low drone, swelling and fading.
+  gust: (ctx) => synth(ctx, 0.3, (t, st) => {
+    st.lp = (st.lp ?? 0) + (noise() - (st.lp ?? 0)) * 0.25;
+    const env = Math.sin((Math.PI * t) / 0.3);
+    return 0.32 * env * (st.lp * 0.9 + noise() * 0.15) + 0.06 * env * Math.sin(t * 2 * Math.PI * 110);
+  }),
+  // A ricochet: a bright, falling ping.
+  ping: (ctx) => synth(ctx, 0.28, (t) => 0.28 * Math.sin(t * 2 * Math.PI * (3400 - 5200 * t)) * Math.exp(-t * 14) + 0.15 * noise() * Math.exp(-t * 90)),
   oink: (ctx) =>
     synth(ctx, 0.42, (t, s, rate) => {
       const f = 210 * Math.exp(-t * 1.6) + 70;

@@ -303,10 +303,13 @@ function fire(game, p, alt = false) {
   }
   if (d.pump) game.sfx.play('pump', { delay: 0.18, at: p.center, source: p });
   game.noise(p, 30);
+  if (d.kind === 'gust') return fireGust(game, p);
+  if (d.kind === 'wishbone') return fireWishbone(game, p, side);
 
   aimBasis(p, _f, _r, _u);
   p.eyePosition(_o);
   muzzleFlash(game, p, _f);
+  if (d.kind === 'ricochet') return fireRicochet(game, p, side);
 
   if (d.kind === 'launcher') {
     // Out of the muzzle along the aim, with a little lift and half your own velocity.
@@ -608,4 +611,137 @@ function fireBeam(game, p) {
   const tick = res.killed || now - w.hitSoundT >= 0.25;
   if (tick) w.hitSoundT = now;
   p.onHitConfirmed(res, false, tick);
+}
+
+// Cast Iron: one slug that banks off the level up to `bounces` times (never off bodies: a body
+// it reaches takes the hit), each bounce keeping `bounceKeep` of the damage. Falloff goes by the
+// whole path. A kill off a bounce is a bank shot.
+function fireRicochet(game, p, side) {
+  const w = p.weapon;
+  const d = w.def;
+  if (assists(p)) magnetize(game, p, _o, _f, _r, _u);
+  const spread = currentSpread(p) * DEG;
+  w.bloom = Math.min(d.spreadMax, w.bloom + d.spreadPerShot);
+  const rr = Math.tan(spread) * Math.sqrt(Math.random());
+  const a = Math.random() * Math.PI * 2;
+  _d.copy(_f).addScaledVector(_r, Math.cos(a) * rr).addScaledVector(_u, Math.sin(a) * rr).normalize();
+  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.2 * side).addScaledVector(_u, -0.14);
+  p.worldMuzzle(_m3);
+  _pt.copy(_o);
+  let left = d.range;
+  let travelled = 0;
+  let mul = 1;
+  for (let leg = 0; leg <= d.bounces; leg++) {
+    const hit = game.castShot(_pt, _d, left, p.collider);
+    const dist = hit.hit ? hit.distance : left;
+    _end.copy(_pt).addScaledVector(_d, dist);
+    if (leg === 0) {
+      game.fx.tracer(_muzzle, _end, d.tracerColor, d.tracerWidth, { a3: _m3, owner: p.id, linger: d.tracerLife });
+      game.replay?.shot(p, _muzzle, _end, d.tracerColor, d.tracerWidth, d.tracerLife);
+    } else {
+      game.fx.tracer(_pt, _end, d.tracerColor, d.tracerWidth, { linger: d.tracerLife * 1.5 });
+      game.replay?.shot(p, _pt, _end, d.tracerColor, d.tracerWidth, d.tracerLife * 1.5);
+    }
+    if (game.swarms.count) game.swarms.shot(_pt, _d, dist, d.damage * mul, p);
+    if (!hit.hit) break;
+    travelled += dist;
+    if (hit.entity) {
+      let dmg = d.damage * mul;
+      const t = (travelled - d.falloffStart) / (d.falloffEnd - d.falloffStart);
+      if (t > 0) dmg *= 1 - Math.min(1, t) * (1 - d.falloffMin);
+      if (hit.headshot) dmg *= d.headshotMul;
+      if (hit.lowBlow) dmg *= LOW_BLOW;
+      if (hit.entity.kind === 'vehicle') game.fx.impactWorld(hit.point, hit.normal, 'metal');
+      else game.fx.impactBody(hit.point, hit.normal, hit.entity.vitals.shield > 0);
+      const res = dealDamage(game, hit.entity, dmg, { attacker: p, weapon: d, headshot: hit.headshot, point: hit.point, dir: _d, trick: leg > 0 ? 'bank shot' : null });
+      if (res) p.onHitConfirmed(res, hit.headshot);
+      break;
+    }
+    const surface = game.trimFace(hit.point, hit.normal, hit.surface);
+    game.fx.impactWorld(hit.point, hit.normal, surface);
+    game.fx.mark(hit.point, hit.normal, surface);
+    if (leg === d.bounces) break;
+    // Off it goes: a spark and a ping where it banks.
+    game.fx.burst(hit.point, hit.normal, 0xffd090, 5, 5, 0.05);
+    game.sfx.play('ping', { at: hit.point, rate: 0.9 + Math.random() * 0.3 });
+    _d.reflect(hit.normal);
+    _pt.copy(hit.point).addScaledVector(hit.normal, 0.02);
+    left -= dist;
+    mul *= d.bounceKeep;
+  }
+}
+
+// Gust: one pulse of wind. Everyone in the cone (in sight) is shoved along the aim, harder up
+// close, and chipped; briquettes, sticky bombs and bolts (jars, globs, rockets, skewers) in it
+// are blown along too. Aimed at the ground in the air, it holds you up instead (the glide).
+function fireGust(game, p) {
+  const w = p.weapon;
+  const d = w.def;
+  aimBasis(p, _f, _r, _u);
+  p.eyePosition(_o);
+  const cos = Math.cos(d.cone * DEG);
+  // The glide: aimed down off the ground, the wind lifts you.
+  if (!p.grounded && p.mode === 'move' && p.pitch < d.glidePitch) {
+    p.vel.y = Math.min(d.liftMax, p.vel.y + d.lift / d.fireRate);
+    p.launched = false;
+  }
+  _vf.copy(_f);
+  _vf.y += 0.18;
+  _vf.normalize();
+  const inCone = (pos) => {
+    _d.subVectors(pos, _o);
+    const dist = _d.length();
+    if (dist > d.range || dist < 1e-3) return -1;
+    return _d.dot(_f) / dist >= cos ? dist : -1;
+  };
+  const targets = game.dummies.length ? [...game.players, ...game.dummies] : game.players;
+  for (const t of targets) {
+    if (t === p || !t.alive) continue;
+    t.centerPosition(_c);
+    const dist = inCone(_c);
+    if (dist < 0 || game.lineBlocked(_o, _c)) continue;
+    const k = 1 - (dist / d.range) * 0.6;
+    // (Not past the cap: holding someone in it doesn't fling them across the map.)
+    if (t.vel && t.vel.dot(_vf) < d.pushMax) t.knockback?.(_vf, d.push * k);
+    const res = dealDamage(game, t, d.damage * k, { attacker: p, weapon: d, point: _c, dir: _f });
+    if (res) {
+      const tick = res.killed || game.time - w.hitSoundT >= 0.3;
+      if (tick) w.hitSoundT = game.time;
+      p.onHitConfirmed(res, false, tick);
+    }
+  }
+  for (const g of game.grenades.list) {
+    if (g.stuck || !g.body || inCone(g.body.translation()) < 0) continue;
+    const lv = g.body.linvel();
+    g.body.setLinvel({ x: lv.x + _vf.x * d.push * 0.8, y: lv.y + _vf.y * d.push * 0.8, z: lv.z + _vf.z * d.push * 0.8 }, true);
+  }
+  for (const b of game.bolts.list) {
+    if (b.owner === p || inCone(b.pos) < 0) continue;
+    b.vel.addScaledVector(_vf, d.push * 1.2);
+  }
+  // The wind: wisps streaming out of the nozzle, every other pulse.
+  if (w.shots % 2 === 0) {
+    _muzzle.copy(_o).addScaledVector(_f, 0.9).addScaledVector(_r, 0.2).addScaledVector(_u, -0.15);
+    for (let i = 0; i < 2; i++) {
+      const s = 7 + Math.random() * 4;
+      const jx = (Math.random() - 0.5) * 2.4;
+      const jy = (Math.random() - 0.5) * 2.4;
+      game.fx.smoke.spawn(_muzzle.x, _muzzle.y, _muzzle.z, _f.x * s + _r.x * jx + _u.x * jy, _f.y * s + _r.y * jx + _u.y * jy, _f.z * s + _r.z * jx + _u.z * jy, 0xd8d2c8, 0.15, 0.55, { grow: 4, drag: 2.2, alpha: 0.35, rotVel: 2 });
+    }
+  }
+}
+
+// Wishbone: the blade leaves the launcher along the aim (from just in front of a wall if we're
+// facing one); combat/wishbone.js flies it and brings it home.
+function fireWishbone(game, p, side) {
+  const w = p.weapon;
+  aimBasis(p, _f, _r, _u);
+  p.eyePosition(_o);
+  _muzzle.copy(_o).addScaledVector(_f, 0.6).addScaledVector(_r, 0.12 * side).addScaledVector(_u, -0.02);
+  _c.subVectors(_muzzle, _o);
+  const reach = _c.length();
+  _c.divideScalar(reach);
+  const block = game.castShot(_o, _c, reach, p.collider);
+  if (block.hit && !block.entity) _muzzle.copy(_o).addScaledVector(_c, Math.max(0, block.distance - 0.05));
+  game.blades?.throw(p, w, _muzzle, _f);
 }

@@ -494,6 +494,8 @@ export class Viewmodel {
         hand.set(-0.02 * off, -0.18 * off, 0.08 * off);
       }
     }
+    // A thrown Wishbone blade is gone from the launcher until it's caught.
+    if (w.def.returns && w.mag === 0) mag.set(0, -2, 0);
     if (pump > 0) {
       slide.set(0, 0, 0.075 * pump);
       hand.z += 0.075 * pump;

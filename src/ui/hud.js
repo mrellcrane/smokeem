@@ -297,7 +297,7 @@ export class Hud {
         const shown = Math.ceil((w.mag / w.def.mag) * cap);
         this.set('tickFill', shown, (x) => (e.ammoTicksFill.style.width = `calc(var(--tick-w) * ${x})`));
       }
-      const note = lw ? (lw.reloading || w.reloading ? 'Reloading' : `${this.keys.fire2} fires left`) : w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
+      const note = lw ? (lw.reloading || w.reloading ? 'Reloading' : `${this.keys.fire2} fires left`) : w.def.returns ? (w.mag === 0 ? 'Blade out' : 'Blade ready') : w.reloading ? 'Reloading' : w.mag === 0 && w.reserve === 0 ? 'Out of ammo' : w.def.kind === 'gust' ? 'Aim down in the air to glide' : w.def.kind === 'size' ? 'Fire shrinks · aim grows' : w.def.kind === 'portal' ? 'Fire blue · aim orange' : w.def.kind === 'gravity' ? (game.gravity?.held.has(player) ? 'Fire throws · aim drops' : 'Fire or aim grabs') : '';
       this.set('ammoNote', note, (x) => (e.ammoNote.textContent = x));
       const o = player.slots[1 - player.slot];
       const other = ride
