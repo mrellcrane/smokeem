@@ -69,9 +69,9 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
     place, points, kills, deaths and smoked meat rank, with Play again and Quit. The pause
     menu can also end a match early (the only way to see results with no time limit).
 - **Bots** (v1) for solo testing and filling out matches. Choose 0 to 7 bots and a skill level
-  (Easy / Normal / Hard) on the title screen. With 0 bots, training dummies fill in.
+  (Super Easy / Easy / Normal / Hard) on the title screen. With 0 bots, training dummies fill in.
   - Bots are regular players driven by an AI instead of a controller: same movement, same
-    weapons, same damage. They run the obstacle course (nets, ropes, walls, monkey bars, mud,
+    weapons, same damage (except Super Easy, below). They run the obstacle course (nets, ropes, walls, monkey bars, mud,
     jumping the fire), grab pickups, and fight: they see within a forward cone with line of
     sight, hear gunfire within 30 m and turn toward whoever hurts them, aim with reaction time
     and wobble that settle as they track you, fire in bursts, strafe, sometimes push along
@@ -1317,3 +1317,6 @@ Need answers before the step that uses them gets built.
   central structure.
 - 2026-10-30: The Big Stack, the second original map from the owner's Halo ask: vertical play round
   one giant smokestack, decks at 5, 10 and 15 m, launch pads between them, corner perches.
+- 2026-10-31: Super Easy bots (owner: a friend came second against Easy ones). Slow to notice and
+  turn, wild aim, short bursts with long pauses, no grenades, no grapple, hardly any jumping or
+  strafing, and their shots do half damage.

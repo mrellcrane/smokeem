@@ -14,6 +14,9 @@ export function dealDamage(game, target, amount, info) {
   // Shrink Wrap: a grown target takes more, a shrunk attacker deals less.
   if (target.size > 1) amount *= SIZE.bigDamageIn;
   if (info?.attacker?.size < 1) amount *= SIZE.smallDamageOut;
+  // Super Easy bots hit softer.
+  const mul = info?.attacker?.brain?.skill.damageMul;
+  if (mul) amount *= mul;
   // A Sizzler's rider is a little sheltered by the bike.
   if (target.vehicle) amount *= target.vehicle.S.riderTakes;
   const res = target.vitals.damage(amount);
