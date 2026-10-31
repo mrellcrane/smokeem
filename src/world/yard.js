@@ -54,8 +54,8 @@ function boxS(B, mat, s, min, max, opts) {
   B.boxMinMax(mat, [Math.min(x0, x1), min[1], Math.min(z0, z1)], [Math.max(x0, x1), max[1], Math.max(z0, z1)], opts);
 }
 
-export function buildYard({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, loose = false, bevel = false }) {
-  const B = new StaticBuilder(RAPIER, world, { loose, bevel });
+export function buildYard({ scene, RAPIER, world, materials: M, textures, bakeSize = 512, loose = false, bevel = false, ao = false }) {
+  const B = new StaticBuilder(RAPIER, world, { loose, bevel, ao });
   const zones = new Zones();
 
   // Ground, and the land outside seen over the walls from the towers.

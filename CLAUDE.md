@@ -436,6 +436,17 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   frame, lightening it a little, and fades the band out under about 2 px. No extra geometry or
   draws. Boxes that sit flush in a row show the bevel at their joints; pass `bevel: false` to a
   box to skip it.
+- Baked occlusion and bounce (gfx switch `bakedAo`, looks with `ao`; Cook-Off Yard): at
+  `StaticBuilder.build()` (`ao` option, from the map build's `ao` param) every vertex of the level
+  casts `AO_RAYS` (14, cosine-weighted over its normal's hemisphere, `AO_REACH` 3.2 m) against the
+  level (not the invisible walls; one `world.step()` first, since rays only see colliders once a
+  step has indexed them). How much sky they find is `aAo`, and the surface colors they hit (each
+  material's `userData.albedo`, recorded per collider) are `aBounce`. `applyAo` (`materials.js`,
+  on `BEVELED` in `game.js`) scales only the indirect light by `aAo` and adds the bounce, so the
+  sun stays full and corners, undersides and covered spots in shade go dark. Costs about 250 ms
+  at load on the yard, nothing per frame. The look's `shadowScale` multiplies the preset's shadow
+  map size (up to 4096); the yard's look pairs all this with a low, warm, hard sun, a dim cool sky
+  fill and a punchier grade.
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
 - The FPS counter (backquote key or settings) shows fps, frame time and draw calls, plus the shadow pass's draws and each view's.

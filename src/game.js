@@ -9,7 +9,7 @@ import { viewportRects } from './render/splitscreen.js';
 import { warmUp } from './render/warmup.js';
 import { gfx } from './render/gfx.js';
 import { createTextures, applyAnisotropy } from './world/textures.js';
-import { createMaterials, applyBevel } from './world/materials.js';
+import { createMaterials, applyBevel, applyAo } from './world/materials.js';
 import { loadPhotos, PHOTO_TINTS } from './world/photos.js';
 import { MAPS, DEFAULT_MAP } from './world/maps.js';
 import { createSky } from './world/sky.js';
@@ -55,6 +55,9 @@ function initRapier() {
 // Let the loading screen repaint between heavy steps.
 // The level materials whose boxes get rounded edges (with `bevel`).
 const BEVELED = ['ground', 'metal', 'metalDark', 'concrete', 'plank', 'crate', 'hazard', 'paint', 'steel', 'slab', 'rock'];
+// The sun's shadow map size: the preset's, times the look's `shadowScale` (a map that wants
+// crisper shadows), up to 4096.
+const shadowSize = (preset, look) => Math.min(4096, preset.shadowMapSize * (look.shadowScale ?? 1));
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
 const _sunDir = new THREE.Vector3();
@@ -183,9 +186,11 @@ export class Game {
     this.applyAnisotropy(preset);
     this.setupBloom(preset);
     this.materials = createMaterials(this.textures, photo ? { tiles: photo.tiles, tints: PHOTO_TINTS } : {});
-    // Rounded edges on the level's boxes, on maps whose look asks.
+    // Rounded edges on the level's boxes, and baked occlusion and bounce, on maps whose look asks.
     this.bevel = !!(gfx.bevels && this.map.look.bevel);
     if (this.bevel) for (const name of BEVELED) applyBevel(this.materials[name]);
+    this.ao = !!(gfx.bakedAo && this.map.look.ao);
+    if (this.ao) for (const name of BEVELED) applyAo(this.materials[name]);
 
     onProgress('Building the course', 0.4);
     await nextFrame();
@@ -218,6 +223,7 @@ export class Game {
       this.flare = createFlare();
       scene.add(this.flare.mesh);
     }
+    const tBuild = performance.now();
     this.arena = this.map.build({
       scene,
       RAPIER,
@@ -228,9 +234,12 @@ export class Game {
       preset,
       // The Gravity Gun's set: small crates and drums come loose for it to throw.
       loose: this.arsenal.guns.includes('gravityGun'),
-      // Rounded edges on its boxes (world/materials.js applyBevel).
+      // Rounded edges on its boxes (world/materials.js applyBevel), baked occlusion (applyAo).
       bevel: this.bevel,
+      ao: this.ao,
     });
+    // (How long building the map took, for the bench and debugging.)
+    this.arenaBuildMs = performance.now() - tBuild;
     // One shadow map for the whole map, fitted to it.
     fitShadowCamera(this.sun, this.arena.shadowHalf ?? this.arena.half + 1, this.arena.shadowTop);
     this.bake = this.arena.bake;
@@ -340,7 +349,7 @@ export class Game {
     c.far = 170;
     // Player bodies live on their own layers (hidden from their own camera) but still cast shadows.
     c.layers.enableAll();
-    sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
+    sun.shadow.mapSize.setScalar(shadowSize(preset, look));
     sun.shadow.bias = -0.0005;
     sun.shadow.normalBias = 0.04;
     scene.add(sun, sun.target);
@@ -450,7 +459,7 @@ export class Game {
       const preset = qualityPreset();
       this.dynres.setBase(pixelRatioFor(preset));
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
+      this.sun.shadow.mapSize.setScalar(shadowSize(preset, this.look));
       if (this.sun.shadow.map) {
         this.sun.shadow.map.dispose();
         this.sun.shadow.map = null;

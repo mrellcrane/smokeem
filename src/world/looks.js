@@ -50,18 +50,22 @@ export const VALLEY_LOOK = {
 // Cook-Off Yard: a hazy late afternoon, the sun low in the northwest so the towers and the shed
 // throw long shadows down the yard; the facility's skyline round it.
 export const YARD_LOOK = {
-  // Photo textures on the ground, concrete, metal and planks (photos.js), and rounded edges on
-  // the boxes (materials.js applyBevel).
+  // Photo textures on the ground, concrete and planks (photos.js), rounded edges on the boxes
+  // (materials.js applyBevel), baked occlusion and bounce (applyAo), and a shadow map twice the
+  // preset's size. With the occlusion darkening the shade, the sun is harder and the sky's fill
+  // lower than the other maps': a punchier, higher-contrast light.
   photo: true,
   bevel: true,
-  sun: { dir: [-34, 46, -30], color: 0xffd6a0, intensity: 3.0 },
-  hemi: { sky: 0xa4c0f0, ground: 0x8a6448, intensity: 1.55 },
+  ao: true,
+  shadowScale: 2,
+  sun: { dir: [-38, 30, -32], color: 0xffc888, intensity: 4.3 },
+  hemi: { sky: 0x86aef0, ground: 0x7a5440, intensity: 0.95 },
   fog: { near: 90, far: 400 },
   sky: { zenith: 0x2c5698, mid: 0x8eb0d4, horizon: 0xd8cfc0, below: 0xa58d78, skyline: true },
   flare: true,
   godRays: true,
   vm: { hemi: 2.4, sun: 2.4 },
-  grade: { sat: 0.72, contrast: 1.12, tint: [0.97, 1.0, 1.04], lift: [0.0, 0.008, 0.02], knee: 0.62, open: 1.0, shade: 1.15, sky: 1.7, haze: 1.35 },
+  grade: { sat: 0.86, contrast: 1.26, tint: [1.0, 0.99, 1.0], lift: [0.0, 0.006, 0.022], knee: 0.66, open: 1.0, shade: 1.3, sky: 1.6, haze: 1.3 },
 };
 
 // The Big Stack: a canyon at golden hour, the sun low in the west raking across the decks, warm
