@@ -14,8 +14,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export const PICKUP_REACH = 1.4;
 export const PICKUP_REACH_Y = 1.6;
 const DROP_LIFETIME = 25;
-// At most this many dropped guns of one type lie around at once (the oldest goes first).
+// At most this many dropped guns of one type lie around at once (the oldest goes first), and
+// this many dropped grenade pairs.
 const DROP_POOL = 4;
+const GRENADE_DROPS = 6;
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -77,7 +79,7 @@ export class Pickups {
     // Two briquettes side by side.
     const a = briquetteGeometry().rotateY(-0.4).translate(-0.11, 0, 0);
     const b = briquetteGeometry().rotateY(0.4).translate(0.11, 0, 0);
-    add('grenades', mergeGeometries([a, b], false), Math.max(1, this.items.filter((i) => i.look === 'grenades').length));
+    add('grenades', mergeGeometries([a, b], false), this.items.filter((i) => i.look === 'grenades').length + GRENADE_DROPS);
     a.dispose();
     b.dispose();
   }
@@ -112,21 +114,32 @@ export class Pickups {
     this.items.push({ type: 'weapon', def, mag, reserve, pos, spawner: false, active: true, life: DROP_LIFETIME, look: def.id });
   }
 
-  // A smoked player drops whatever they picked up (their loadout guns go with them).
+  // Grenades left lying around (a smoked player's), up to GRENADE_DROPS at once.
+  dropGrenades(count, x, y, z) {
+    if (count <= 0) return;
+    const drops = this.items.filter((i) => !i.spawner && i.type === 'grenades');
+    if (drops.length >= GRENADE_DROPS) this.removeDrop(drops[0]);
+    this.items.push({ type: 'grenades', count, pos: new THREE.Vector3(x, y, z), spawner: false, active: true, life: DROP_LIFETIME, look: 'grenades' });
+  }
+
+  // A smoked player drops everything with ammo left, loadout guns too (owner ask: walk over a
+  // body to take its ammo), and their grenades.
   dropFrom(p) {
     const y = p.feetY();
     p.slots.forEach((w, i) => {
-      if (w && !w.spawnGun) this.drop(w.def, w.mag, w.reserve, p.center.x + (i ? 0.5 : -0.5), y, p.center.z);
+      if (w) this.drop(w.def, w.mag, w.reserve, p.center.x + (i ? 0.5 : -0.5), y, p.center.z);
     });
-    this.dropLeft(p);
+    this.dropLeft(p, true);
+    this.dropGrenades(p.grenades, p.center.x, y, p.center.z - 0.5);
   }
 
-  // The gun in the left hand goes (to the floor, unless it came with the loadout).
-  dropLeft(p) {
+  // The gun in the left hand goes (to the floor, unless it came with the loadout and we're only
+  // switching away from it; smoked, it drops whatever it is).
+  dropLeft(p, all = false) {
     const w = p.left;
     if (!w) return;
     p.left = null;
-    if (!w.spawnGun) this.drop(w.def, w.mag, w.reserve, p.center.x, p.feetY(), p.center.z + 0.5);
+    if (all || !w.spawnGun) this.drop(w.def, w.mag, w.reserve, p.center.x, p.feetY(), p.center.z + 0.5);
   }
 
   tick(dt) {

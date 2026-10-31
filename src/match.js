@@ -2,18 +2,22 @@
 // end-of-match smoked meat ranks (GAME_DESIGN.md "Modes" and "Ranks").
 //
 // Scoring: a kill is +1; dying by your own hand (your own blast, the fire, falling out) is -1.
+// Anyone else who hurt the victim in the last ASSIST_WINDOW seconds of that life gets an assist
+// (counted and shown, not scored: in a free-for-all only the kill scores).
 
 export const RANKS = ['Hot Dog', 'Smoked Chicken', 'Pulled Pork', 'Smoked Salmon', 'Brisket', 'Wagyu Burnt Ends'];
 
 const FEED_KEEP = 8;
+const ASSIST_WINDOW = 12;
 // The clock beeps every second for the last few.
 const COUNTDOWN = 10;
 
 // Performance score 0..1 from finishing place (1 = winner, of `count`) and K/D, then one of
 // six equal bands.
-export function rankFor(place, count, kills, deaths) {
+// (An assist counts as half a kill there.)
+export function rankFor(place, count, kills, deaths, assists = 0) {
   const placeScore = count > 1 ? (count - place) / (count - 1) : 1;
-  const kd = Math.min(1, kills / Math.max(1, deaths) / 2);
+  const kd = Math.min(1, (kills + assists * 0.5) / Math.max(1, deaths) / 2);
   const score = 0.6 * placeScore + 0.4 * kd;
   // The epsilon keeps exact band edges (0.5 can come out as 0.49999...) in the upper band.
   return { score, rank: RANKS[Math.min(RANKS.length - 1, Math.floor(score * RANKS.length + 1e-9))] };
@@ -62,6 +66,14 @@ export class Match {
     } else {
       victim.stats.score--;
     }
+    const now = this.game.time;
+    for (const [p, t] of victim.hitBy ?? []) {
+      if (p === a || p === victim || now - t > ASSIST_WINDOW) continue;
+      p.stats.assists++;
+      p.feedback.killT = now;
+      p.feedback.killText = `Assist on ${victim.name}`;
+    }
+    victim.hitBy?.clear();
     this.feed.push({
       t: this.game.time,
       killer: byOther ? a : null,
@@ -85,7 +97,7 @@ export class Match {
     const count = list.length;
     return list.map((p) => {
       const place = 1 + list.filter((o) => o.stats.score > p.stats.score).length;
-      return { player: p, place, ...rankFor(place, count, p.stats.kills, p.stats.deaths) };
+      return { player: p, place, ...rankFor(place, count, p.stats.kills, p.stats.deaths, p.stats.assists) };
     });
   }
 

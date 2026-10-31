@@ -555,7 +555,7 @@ export class Menu {
     const rows = standings
       .map(({ player: p, place, rank }) => {
         const local = localPlayers.includes(p) ? ' class="local"' : '';
-        return `<tr${local}><td>${ordinal(place)}</td><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td><td class="rank">${rank}</td></tr>`;
+        return `<tr${local}><td>${ordinal(place)}</td><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.assists}</td><td>${p.stats.deaths}</td><td class="rank">${rank}</td></tr>`;
       })
       .join('');
     this.set(
@@ -564,7 +564,7 @@ export class Menu {
         <h2>Match over</h2>
         <p class="winner">${headline}</p>
         <table class="results-table">
-          <thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th><th>Rank</th></tr></thead>
+          <thead><tr><th></th><th></th><th>Score</th><th>K</th><th>A</th><th>D</th><th>Rank</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
         <div class="buttons">

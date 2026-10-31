@@ -76,7 +76,7 @@ export class Hud {
       <div class="hud-gear"><div class="nades"></div><div class="hook"><b></b><em></em></div></div>
       <div class="hud-match"><div class="hud-clock"></div><div class="hud-standings"></div></div>
       <div class="hud-feed"></div>
-      <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table></div>
+      <div class="hud-scores"><h4>Scores</h4><table><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>A</th><th>D</th></tr></thead><tbody></tbody></table></div>
       <div class="crosshair"><u></u><i></i><i></i><i></i><i></i><b></b></div>
       <div class="portal-ind"><u class="pb"></u><u class="po"></u></div>
       <div class="target-name"></div>
@@ -466,7 +466,7 @@ export class Hud {
       for (const s of m.standings()) {
         const p = s.player;
         const cls = p === player ? ' class="me"' : game.humans.includes(p) ? ' class="local"' : '';
-        rows += `<tr${cls}><td>${ordinal(s.place)}</td><td>${nameHtml(p)}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td></tr>`;
+        rows += `<tr${cls}><td>${ordinal(s.place)}</td><td>${nameHtml(p)}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.assists}</td><td>${p.stats.deaths}</td></tr>`;
       }
       this.set('scoresRows', rows, (x) => (e.scoresBody.innerHTML = x));
     }

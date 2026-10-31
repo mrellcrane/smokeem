@@ -66,7 +66,10 @@ Live build: https://mrellcrane.github.io/smokeem/
 
 - `src/main.js`: boot, screen flow (menu, loading, play, pause).
 - `src/game.js`: one match. Owns the renderer, scene, physics world, players, fixed-step loop.
-- `src/match.js`: free-for-all rules: clock, scoring, kill feed, standings, smoked meat ranks.
+- `src/match.js`: free-for-all rules: clock, scoring, kill feed, standings, smoked meat ranks,
+  assists (`dealDamage` records who hurt a player in `player.hitBy`, cleared on spawn; anyone but
+  the killer within `ASSIST_WINDOW` gets `stats.assists`). Smoked players drop every gun with ammo
+  left and their grenades (`Pickups.dropFrom`).
   `game.match`; when time runs out `game.endMatch()` sets state `'over'` and `main.js` shows
   the results.
 - `src/config.js`: movement and body tuning numbers.

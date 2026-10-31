@@ -234,7 +234,9 @@ export class Player {
     this.lungeDir = new THREE.Vector3();
     this.knockT = 0;
     this.shake = 0;
-    this.stats = { kills: 0, deaths: 0, score: 0 };
+    this.stats = { kills: 0, assists: 0, deaths: 0, score: 0 };
+    // Who's hurt us this life, and when (assists, match.js).
+    this.hitBy = new Map();
     this.aimZoom = 1;
     this.aimTarget = null;
     this.aimNear = null;
@@ -509,6 +511,7 @@ export class Player {
   }
 
   spawn(point) {
+    this.hitBy.clear();
     if (this.size !== 1) this.setSize(1);
     this.sizeShown = 1;
     this.model.group.scale.setScalar(1);
