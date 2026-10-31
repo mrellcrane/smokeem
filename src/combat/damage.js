@@ -20,6 +20,9 @@ export function dealDamage(game, target, amount, info) {
   // A Sizzler's rider is a little sheltered by the bike.
   if (target.vehicle) amount *= target.vehicle.S.riderTakes;
   const res = target.vitals.damage(amount);
+  // Who hurt a player and when, for assists (match.js).
+  const a = info?.attacker;
+  if (target.hitBy && a && a !== target && a.kind === 'player' && amount > 0) target.hitBy.set(a, game.time);
   if (res.shieldDamage > 0) target.model?.flashShield(res.broke ? 1 : 0.55);
   if (res.broke) game.fx.shieldPop(target.centerPosition(_c));
   target.onDamaged?.(res, info);

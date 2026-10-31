@@ -49,11 +49,14 @@ corners. Each map has its own look (sun, sky fill, fog, sky colors) in `src/worl
 - **Free-for-all** (v1). Timed matches, 5 minutes by default (3, 5, 10 or no limit on the
   title screen). Most points when time runs out wins.
   - Scoring: a kill is +1; smoking yourself (your own blast, the fire, falling out) is -1.
+  - Assists: anyone else who hurt the victim in the last 12 s of that life gets an assist ("Assist
+    on Gristle" on their screen). Counted on the scoreboard and results (K, A, D) and worth half a
+    kill toward your rank, but not scored.
     Ties on points share a place. Training dummies (no-bot matches) give no points.
   - Each view shows the clock (red in the last 30 seconds, a beep each second for the last
     10) and everyone's place and points best first (your row highlighted) in the bottom-right
     corner, and a kill feed on the left above the motion tracker. Hold Tab (View on a
-    controller) for the full scoreboard with kills and deaths.
+    controller) for the full scoreboard with kills, assists and deaths.
   - The HUD is laid out and styled like Halo 3's visor (pale cyan lines and text, each corner
     tilted in a little): grenades top left, the shield bar top center (angled and segmented;
     health is a thin line under it that only shows once you've lost some), the weapon top right
@@ -321,8 +324,9 @@ rosters and three judges.
 - Loadouts show as cards: each gun's picture and a little looping demo of how it works (the
   Mesquite's pellet cone, the Smoke Signal swerving to its target, the Swarm Jar's bugs
   hunting). The ready screen's gun list shows the same pictures and demos.
-- Loadout guns stay with you when you're smoked and vanish if you swap one for a pickup;
-  picked-up guns drop when you're smoked (gone after 25 s).
+- Smoked, you drop every gun you hold that has ammo left, loadout guns too, and your grenades
+  (gone after 25 s): walk over a body to take its ammo (a gun you already carry tops up, a free
+  slot takes the gun, E swaps for it). Loadout guns you swap away for a pickup just vanish.
 - Heat labels say how much a set asks you to learn: Mild (the default), Medium (no wacky
   guns in loadouts), Hot, Extra Hot (anything goes; opt-in only).
 - The title screen gets a Guns choice (Map default, each set, or Mystery Meat: a random set
@@ -655,7 +659,8 @@ a last-place player with a good K/D isn't automatically a Hot Dog:
 
 - `place = (N - p) / (N - 1)` where `p` is finishing place (1 = winner) among all `N`
   participants, bots included. 1 for the winner, 0 for last. A solo match counts as 1.
-- `kd = min(1, (kills / max(1, deaths)) / 2)`, so a K/D of 2 or better maxes out.
+- `kd = min(1, ((kills + assists / 2) / max(1, deaths)) / 2)`, so a K/D of 2 or better maxes out
+  (an assist counts as half a kill).
 - `score = 0.6 * place + 0.4 * kd`
 - The score splits into six equal bands: below 1/6 is Hot Dog, 5/6 and up is Wagyu Burnt Ends.
 
@@ -1324,3 +1329,6 @@ Need answers before the step that uses them gets built.
   one map to compare): CC0 photo scans for the ground, concrete and planks, and rounded edges on
   every box (a shader bevel, no extra geometry). A scanned metal plate was tried and dropped: it
   read as muddy concrete, so the painted metal panels stay. Other maps unchanged for comparison.
+- 2026-10-31: Assists, and smoked players drop all their guns and grenades (feedback from Ethan,
+  a friend testing: "are there assists?", "when I walk over a dead body do I get their ammo?").
+  Replaces the 2026-10-29 rule that loadout guns never drop.

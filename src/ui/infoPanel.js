@@ -20,7 +20,7 @@ export class InfoPanel {
       <div class="ip-body">
         <canvas class="ip-map"></canvas>
         <div class="ip-side">
-          <table class="ip-score"><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>D</th></tr></thead><tbody></tbody></table>
+          <table class="ip-score"><thead><tr><th></th><th></th><th>Score</th><th>K</th><th>A</th><th>D</th></tr></thead><tbody></tbody></table>
           <div class="ip-feed"></div>
         </div>
       </div>`;
@@ -104,7 +104,7 @@ export class InfoPanel {
     for (const s of m.standings()) {
       const p = s.player;
       const local = game.humans.includes(p) ? ' class="local"' : '';
-      html += `<tr${local}><td>${ordinal(s.place)}</td><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.deaths}</td></tr>`;
+      html += `<tr${local}><td>${ordinal(s.place)}</td><td><i style="background:${hex(p.color)}"></i>${p.name}</td><td>${p.stats.score}</td><td>${p.stats.kills}</td><td>${p.stats.assists}</td><td>${p.stats.deaths}</td></tr>`;
     }
     if (html !== this._rows) {
       this._rows = html;
