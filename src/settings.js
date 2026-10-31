@@ -100,7 +100,7 @@ export const FOV_RANGE = { min: 70, max: 115, step: 1 };
 export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 };
 export const MAX_BOTS = 7;
 export const MOVE_SPEED_RANGE = { min: 0.4, max: 1.3, step: 0.05 };
-export const BOT_SKILLS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+export const BOT_SKILLS = { superEasy: 'Super Easy', easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 export const TIME_LIMITS = { 3: '3 min', 5: '5 min', 10: '10 min', 0: 'No limit' };
 export const MODES = { ffa: 'Free-for-all', oysters: 'Rocky Mountain Oysters' };
 // The title screen's map choices (world/maps.js has the maps).

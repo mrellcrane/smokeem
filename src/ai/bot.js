@@ -24,6 +24,9 @@ import { GRAPPLE } from '../config.js';
 // moving target's travel a bot leads lobbed shots by.
 
 export const BOT_SKILL = {
+  // For first-timers: slow to notice, slow to turn, wild aim, short bursts with long pauses, no
+  // grenades, hardly any jumping or strafing, and their shots do `damageMul` of the damage.
+  superEasy: { reaction: 1.3, aimError: 9, turnRate: 2.2, fireCone: 8, burst: [0.3, 1.5], grenadeChance: 0, jumpRate: 0.05, strafe: 0.3, advance: 0.15, semiRate: 0.35, lead: 0, damageMul: 0.5 },
   easy: { reaction: 0.75, aimError: 5, turnRate: 3.2, fireCone: 6, burst: [0.45, 0.9], grenadeChance: 0.15, jumpRate: 0.2, strafe: 0.6, advance: 0.3, semiRate: 0.55, lead: 0.3 },
   normal: { reaction: 0.42, aimError: 2.6, turnRate: 5.5, fireCone: 4, burst: [0.7, 0.5], grenadeChance: 0.3, jumpRate: 0.45, strafe: 0.85, advance: 0.45, semiRate: 0.8, lead: 0.6 },
   hard: { reaction: 0.22, aimError: 1.4, turnRate: 8.5, fireCone: 2.8, burst: [1.0, 0.3], grenadeChance: 0.45, jumpRate: 0.7, strafe: 1, advance: 0.55, semiRate: 1, lead: 0.9 },
@@ -55,14 +58,14 @@ const HEAR_RANGE = 7;
 // Sizzlers: how likely a roaming bot heads for a free one in reach (per skill), how far it'll
 // walk for one, how long it rides with nobody around before getting off, and the edges a bike
 // can take (no climbs or jumps).
-const BIKE_CHANCE = { easy: 0.3, normal: 0.5, hard: 0.65 };
+const BIKE_CHANCE = { superEasy: 0.15, easy: 0.3, normal: 0.5, hard: 0.65 };
 const BIKE_REACH = 40;
 const RIDE_FOR = [30, 70];
 const DRIVE = (e) => e.type === 'walk' || e.type === 'drop';
 // The grapple: how likely a bot on a path takes it up to a ledge ahead or zips down a long
 // straight stretch (per skill, each check), how often it looks, how many steps ahead, how much
 // higher a ledge must be, and how far a zip must reach.
-const GRAPPLE_CHANCE = { easy: 0, normal: 0.45, hard: 0.8 };
+const GRAPPLE_CHANCE = { superEasy: 0, easy: 0, normal: 0.45, hard: 0.8 };
 const GRAPPLE_CHECK = 0.6;
 const GRAPPLE_AHEAD = 10;
 const GRAPPLE_RISE = 2.2;
@@ -111,6 +114,8 @@ export class BotBrain {
     this.game = game;
     this.skill = BOT_SKILL[skillName] ?? BOT_SKILL.normal;
     this.skillName = BOT_SKILL[skillName] ? skillName : 'normal';
+    // (Super Easy bots do everything Easy ones do the easy way.)
+    this.easy = this.skillName === 'easy' || this.skillName === 'superEasy';
     this.tapT = 0;
     this.state = new InputState();
     this.player = null;
@@ -286,10 +291,10 @@ export class BotBrain {
     let chaser = null;
     if (swarms.count && swarms.on(p)) {
       this.swarmT ||= t;
-      if (this.skillName !== 'easy' && t - this.swarmT > this.skill.reaction && p.meleeT <= 0) s.press('melee');
+      if (!this.easy && t - this.swarmT > this.skill.reaction && p.meleeT <= 0) s.press('melee');
     } else {
       this.swarmT = 0;
-      if (swarms.count && this.skillName === 'easy') chaser = swarms.after(p);
+      if (swarms.count && this.easy) chaser = swarms.after(p);
     }
 
     if (chaser) this.flee(chaser, dt);
@@ -918,7 +923,7 @@ export class BotBrain {
       if (G) {
         s.held.sprint = dist > 22 && b.boost > 0.3;
         // Let the guns cool before they lock up (Easy bots run them hot).
-        if (b.heat > (this.skillName === 'easy' ? 0.97 : 0.82)) this.cooling = true;
+        if (b.heat > (this.easy ? 0.97 : 0.82)) this.cooling = true;
         if (b.heat < 0.35) this.cooling = false;
         if (this.reactT <= 0 && !this.cooling && !b.overheated && dist < G.range && this.aimError(_t) < cone) s.held.fire = true;
       } else if (b.S.slam) {
