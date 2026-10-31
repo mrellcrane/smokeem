@@ -5,7 +5,7 @@ import { PadNav } from './ui/padNav.js';
 import { FpsCounter } from './ui/fps.js';
 import { PointerLock } from './input/pointerLock.js';
 import { KeyboardMouseInput } from './input/keyboardMouse.js';
-import { Gamepads, GamepadInput } from './input/gamepad.js';
+import { Gamepads, GamepadInput, buttonDown } from './input/gamepad.js';
 import { Sfx } from './audio/sfx.js';
 import { settings, updateSettings, onSettingsChange, qualityPreset } from './settings.js';
 import { prepaintTextures } from './world/textures.js';
@@ -106,6 +106,22 @@ function leave(src) {
 
 const padSeat = (index) => seats.find((s) => s.kind === 'gamepad' && s.index === index);
 const kbmPlaying = () => seats.includes(kbm);
+
+// A new controller pressed something mid-match while a player sits on the keyboard and mouse
+// without the mouse captured (Edge on Xbox: Play was clicked with the controller's cursor before
+// game controls were on, so the match started on the mouse and the pad drove nobody). That
+// player is handed to the controller. Returns the new seat, or null.
+function padTakeover(gp) {
+  if (!game || !kbmPlaying() || lock.isLocked) return null;
+  const src = new GamepadInput(pads, gp.index);
+  src.loadout = kbm.loadout;
+  src.character = kbm.character;
+  const i = seats.indexOf(kbm);
+  seats[i] = src;
+  kbm.setEnabled(false);
+  game.swapSource(i, src);
+  return src;
+}
 
 // ---------------------------------------------------------------- pause and resume
 
@@ -290,6 +306,8 @@ function padMenu(gp, e, seat) {
       if (screen === 'pause') menu.showPause();
       return;
     }
+    // Or the mouse player's, when nobody's using the mouse; the press then goes on as theirs.
+    seat = padTakeover(gp);
   }
   // On the ready and pause screens, left/right changes that controller's own loadout, one step
   // per push (holding it doesn't flip through them). On the pause screen the stick counts only
@@ -343,10 +361,13 @@ function padFrame(now) {
     const e = nav.read(gp, dt);
     // Chromium counts controller presses as a gesture, so this can start audio there.
     if (e.a || e.menu) sfx.unlock();
-    const seat = padSeat(gp.index);
+    let seat = padSeat(gp.index);
     if (menuUp) {
       if (!grace) padMenu(gp, e, seat);
-    } else if (game?.state === 'playing' && seat && (e.menu || e.down)) pauseMatch();
+    } else if (game?.state === 'playing') {
+      if (!seat && (e.dir || gp.buttons.some((_, b) => buttonDown(gp, b)))) seat = padTakeover(gp);
+      if (seat && (e.menu || e.down)) pauseMatch();
+    }
   }
   if (menu.screen === 'title') menu.renderLobby();
 }

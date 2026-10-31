@@ -1348,3 +1348,7 @@ Need answers before the step that uses them gets built.
   bank-shot kills say so.
 - 2026-10-31: Custom weapon set (owner: pick any five guns, not just the preset sets): five slot
   steppers under the Guns choice, any gun in any slot, saved in settings.
+- 2026-10-31: Xbox fix (owner: after turning on game controls in Edge, the controller couldn't move
+  or shoot): Play had been clicked with Edge's cursor, so the match started on keyboard and mouse.
+  Now a controller that isn't seated takes over the keyboard player with any press, as long as
+  the mouse isn't captured.
