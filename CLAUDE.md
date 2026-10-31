@@ -419,6 +419,20 @@ Performance is the top priority. Target 60fps with 3 split-screen views in Edge 
   downward streaks in G) sampled by world position at two scales, so dirt patches don't repeat
   with the tiles. A material's own `onBeforeCompile` must chain to the one already there (as
   `bake.apply` does), or the grime is lost.
+- Photo textures (`world/photos.js`, gfx switch `photoTextures`): maps whose look sets `photo`
+  (Cook-Off Yard) swap the painted ground, concrete and plank canvases for CC0 Poly Haven scans
+  (`world/photos/`, credits in `CREDITS.md`, fetched and resized by `tools/fetch_photos.py`), each
+  tiled at its real size and brought up to the painted maps' brightness by `PHOTO_TINTS` (linear
+  color multipliers; scans are shot darker). Loaded only for such a map; their normal maps only on
+  High. The metals stay painted (a scanned plate read as muddy concrete beside them).
+- Rounded edges (gfx switch `bevels`, looks with `bevel`): StaticBuilder (`bevel` option, from
+  the map build's `bevel` param) gives each box vertex its face coordinates in meters and the face
+  size (`aEdge`, `edgeCoords`; other geometry in the merge gets zeros), and `applyBevel`
+  (`materials.js`, chained after the grime, applied to `BEVELED` in `game.js`) bends the normal
+  out over the last `BEVEL` (4.5 cm) of each face, up to 45 degrees, from a derivative tangent
+  frame, lightening it a little, and fades the band out under about 2 px. No extra geometry or
+  draws. Boxes that sit flush in a row show the bevel at their joints; pass `bevel: false` to a
+  box to skip it.
 - Prefer `MeshLambertMaterial` / `MeshPhongMaterial` over `MeshStandardMaterial`. No dynamic lights beyond the sun and hemisphere light unless it's measured to be cheap.
 - Don't create materials or allocate per frame in hot paths. Reuse vectors, pool spawned objects.
 - The FPS counter (backquote key or settings) shows fps, frame time and draw calls, plus the shadow pass's draws and each view's.

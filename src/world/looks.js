@@ -50,6 +50,10 @@ export const VALLEY_LOOK = {
 // Cook-Off Yard: a hazy late afternoon, the sun low in the northwest so the towers and the shed
 // throw long shadows down the yard; the facility's skyline round it.
 export const YARD_LOOK = {
+  // Photo textures on the ground, concrete, metal and planks (photos.js), and rounded edges on
+  // the boxes (materials.js applyBevel).
+  photo: true,
+  bevel: true,
   sun: { dir: [-34, 46, -30], color: 0xffd6a0, intensity: 3.0 },
   hemi: { sky: 0xa4c0f0, ground: 0x8a6448, intensity: 1.55 },
   fog: { near: 90, far: 400 },

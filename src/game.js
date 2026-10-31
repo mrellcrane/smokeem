@@ -9,7 +9,8 @@ import { viewportRects } from './render/splitscreen.js';
 import { warmUp } from './render/warmup.js';
 import { gfx } from './render/gfx.js';
 import { createTextures, applyAnisotropy } from './world/textures.js';
-import { createMaterials } from './world/materials.js';
+import { createMaterials, applyBevel } from './world/materials.js';
+import { loadPhotos, PHOTO_TINTS } from './world/photos.js';
 import { MAPS, DEFAULT_MAP } from './world/maps.js';
 import { createSky } from './world/sky.js';
 import { Dummy } from './world/dummies.js';
@@ -52,6 +53,8 @@ function initRapier() {
 }
 
 // Let the loading screen repaint between heavy steps.
+// The level materials whose boxes get rounded edges (with `bevel`).
+const BEVELED = ['ground', 'metal', 'metalDark', 'concrete', 'plank', 'crate', 'hazard', 'paint', 'steel', 'slab', 'rock'];
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
 const _sunDir = new THREE.Vector3();
@@ -168,9 +171,21 @@ export class Game {
     onProgress('Painting textures', 0.2);
     await nextFrame();
     this.textures = createTextures(preset.textureSize, { normalMaps: !!preset.normalMaps && gfx.normalMaps });
+    // Photo textures in place of some painted ones, on maps whose look asks (world/photos.js).
+    let photo = null;
+    if (gfx.photoTextures && this.map.look.photo) {
+      photo = await loadPhotos({ normals: !!preset.normalMaps && gfx.normalMaps });
+      for (const [k, t] of Object.entries(photo.textures)) {
+        this.textures[k]?.dispose();
+        this.textures[k] = t;
+      }
+    }
     this.applyAnisotropy(preset);
     this.setupBloom(preset);
-    this.materials = createMaterials(this.textures);
+    this.materials = createMaterials(this.textures, photo ? { tiles: photo.tiles, tints: PHOTO_TINTS } : {});
+    // Rounded edges on the level's boxes, on maps whose look asks.
+    this.bevel = !!(gfx.bevels && this.map.look.bevel);
+    if (this.bevel) for (const name of BEVELED) applyBevel(this.materials[name]);
 
     onProgress('Building the course', 0.4);
     await nextFrame();
@@ -213,6 +228,8 @@ export class Game {
       preset,
       // The Gravity Gun's set: small crates and drums come loose for it to throw.
       loose: this.arsenal.guns.includes('gravityGun'),
+      // Rounded edges on its boxes (world/materials.js applyBevel).
+      bevel: this.bevel,
     });
     // One shadow map for the whole map, fitted to it.
     fitShadowCamera(this.sun, this.arena.shadowHalf ?? this.arena.half + 1, this.arena.shadowTop);
