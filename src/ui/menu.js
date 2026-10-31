@@ -14,16 +14,17 @@ import {
 import { controlsHtml } from './controls.js';
 import { PLAYER_COLORS } from '../player/player.js';
 import { ordinal } from '../match.js';
-import { WEAPON_SETS, availableSets, setGuns } from '../combat/arsenal.js';
+import { WEAPON_SETS, availableSets, setGuns, CUSTOM_SLOTS, ALL_GUNS, customPick } from '../combat/arsenal.js';
 import { MAPS } from '../world/maps.js';
 import { WEAPONS } from '../combat/weapons.js';
 import { gunIcon } from './gunIcons.js';
 import { loadoutCard } from './loadoutCard.js';
 import { gunDemo } from './gunDemos.js';
 
-// The Guns choices on the title screen: the map's default, each set that exists, Mystery Meat.
+// The Guns choices on the title screen: the map's default, each set that exists, Mystery Meat,
+// and last, Custom (pick your own five).
 function setChoices() {
-  return ['default', ...availableSets(), 'mystery'];
+  return ['default', ...availableSets(), 'mystery', 'custom'];
 }
 
 // The map's own set ('default'), for a map choice; null for Random (each map has its own).
@@ -33,6 +34,7 @@ function mapSet(mapChoice) {
 
 function setChoiceLabel(choice, mapChoice) {
   if (choice === 'mystery') return 'Mystery Meat';
+  if (choice === 'custom') return 'Custom: pick your own five';
   if (choice === 'default') {
     const set = mapSet(mapChoice);
     return set ? `Map default: ${set.name} (${set.heat})` : "Each map's own";
@@ -43,6 +45,7 @@ function setChoiceLabel(choice, mapChoice) {
 
 function setChoiceHint(choice, mapChoice) {
   if (choice === 'mystery') return 'A random set each match (never Extra Hot).';
+  if (choice === 'custom') return 'Any gun in any slot. Your two loadouts are each primary with the sidearm.';
   const set = choice === 'default' ? mapSet(mapChoice) : WEAPON_SETS[choice];
   if (!set) {
     return Object.values(MAPS)
@@ -137,6 +140,16 @@ export class Menu {
         const i = Math.max(0, choices.indexOf(settings.weaponSet));
         const next = choices[(i + (action === 'set+' ? 1 : -1) + choices.length) % choices.length];
         updateSettings({ weaponSet: next });
+        this.renderMatchValues();
+        break;
+      }
+      case 'cust-':
+      case 'cust+': {
+        const pick = customPick(settings.customSet);
+        const k = btn.dataset.slot;
+        const i = Math.max(0, ALL_GUNS.indexOf(pick[k]));
+        pick[k] = ALL_GUNS[(i + (action === 'cust+' ? 1 : -1) + ALL_GUNS.length) % ALL_GUNS.length];
+        updateSettings({ customSet: pick });
         this.renderMatchValues();
         break;
       }
@@ -262,7 +275,17 @@ export class Menu {
               <button data-action="set+" class="step">▶</button>
             </div>
           </div>
-          <p class="hint set-hint"></p>`
+          <p class="hint set-hint"></p>
+          <div class="custom-guns">${CUSTOM_SLOTS.map(
+            ([k, label]) => `<div class="row-inline">
+            <label>${label}</label>
+            <div class="stepper wide">
+              <button data-action="cust-" data-slot="${k}" class="step">◀</button>
+              <span class="cust-val" data-slot="${k}"></span>
+              <button data-action="cust+" data-slot="${k}" class="step">▶</button>
+            </div>
+          </div>`,
+          ).join('')}</div>`
               : ''
           }
         </div>
@@ -353,6 +376,13 @@ export class Menu {
     if (sv) sv.textContent = setChoiceLabel(choice, settings.map);
     const sh = r.querySelector('.set-hint');
     if (sh) sh.textContent = setChoiceHint(choice, settings.map);
+    // The Custom set's slots, only while it's the choice.
+    const cg = r.querySelector('.custom-guns');
+    if (cg) {
+      cg.style.display = choice === 'custom' ? '' : 'none';
+      const pick = customPick(settings.customSet);
+      for (const el of cg.querySelectorAll('.cust-val')) el.textContent = WEAPONS[pick[el.dataset.slot]].name;
+    }
   }
 
   showSettings(returnTo) {
