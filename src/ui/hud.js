@@ -60,6 +60,7 @@ export class Hud {
     const inputKind = source.kind;
     this.source = source;
     this.index = index;
+    this.missile = missile;
     this.keys = KEY_LABELS[inputKind] ?? KEY_LABELS.keyboardMouse;
     this.el = document.createElement('div');
     this.el.className = 'hud-view';
@@ -154,6 +155,16 @@ export class Hud {
     this.radar = new Radar(this.el);
     this.cache = {};
     this.rect = { x: 0, y: 0, w: 1, h: 1 };
+    this._rect = '';
+  }
+
+  // The player's input moved to another source (a controller taking over from the mouse): its
+  // button names and controls strip, redrawn from scratch.
+  setSource(source) {
+    this.source = source;
+    this.keys = KEY_LABELS[source.kind] ?? KEY_LABELS.keyboardMouse;
+    this.els.controls.innerHTML = controlsHtml(source.kind, { missile: this.missile });
+    this.cache = {};
     this._rect = '';
   }
 

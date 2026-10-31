@@ -717,6 +717,23 @@ export class Game {
     requestAnimationFrame(this._frame);
   }
 
+  // Local player i's input moves to `source` (a controller taking over from the keyboard and
+  // mouse): the player, the per-frame input list and the HUD follow it.
+  swapSource(i, source) {
+    const p = this.humans[i];
+    const old = this.inputs[i];
+    if (!p || !old || old === source) return;
+    old.setEnabled?.(false);
+    old.player = null;
+    source.player = p;
+    p.input = source.state;
+    this.inputs[i] = source;
+    source.state.clear();
+    source.prime?.();
+    this.huds[i].setSource(source);
+    this.needsRender = true;
+  }
+
   resume() {
     if (this.state === 'playing' || this.state === 'over') return;
     for (const s of this.inputs) {

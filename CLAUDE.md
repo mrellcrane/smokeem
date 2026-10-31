@@ -361,6 +361,11 @@ Live build: https://mrellcrane.github.io/smokeem/
   - The Gamepad API only works in a secure context: `localhost` is fine, but testing from the Xbox needs an HTTPS URL.
   - A controller press is not a user gesture for pointer lock, so resuming from a pad never requests the lock; the keyboard player clicks to capture the mouse.
   - Edge on Xbox uses B as browser Back (guarded with a spare history entry) and may keep Menu for itself, so D-pad down also pauses. Verify both on the console in step 7.
+  - Edge on Xbox drives a mouse cursor with the controller until "game controls" are on, so Play
+    can get clicked with no controller seated and the match starts on keyboard and mouse. Then
+    any press from an unseated controller (mid-match, or A on the ready, pause or results screen)
+    while the mouse isn't captured hands that player to it (`padTakeover` in `main.js`,
+    `Game.swapSource`, `Hud.setSource`).
 - On Edge on Xbox the controller is the only input, so every menu and gameplay action must be reachable with it.
 
 ### Rendering performance
